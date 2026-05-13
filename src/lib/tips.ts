@@ -1,0 +1,22 @@
+export const FINANCE_TIPS = [
+  "Págate a ti primero: reserva un porcentaje de tus ingresos para ahorros antes de pagar facturas.",
+  "Sigue la regla 50/30/20: 50% necesidades, 30% deseos y 20% ahorro e inversión.",
+  "Crea un fondo de emergencia que cubra de 3 a 6 meses de tus gastos básicos.",
+  "Evita las compras impulsivas: espera 48 horas antes de comprar algo que no habías planeado.",
+  "Automatiza tus ahorros para que el dinero se aparte sin que tengas que pensarlo.",
+  "Diversifica tus inversiones para reducir el riesgo a largo plazo.",
+  "Elimina primero las deudas con las tasas de interés más altas (método avalancha).",
+  "Cuidado con el 'estilo de vida inflado': no aumentes tus gastos cada vez que recibas un aumento.",
+  "Revisa tus suscripciones mensuales; cancela lo que no hayas usado en los últimos 30 días.",
+  "Compra calidad sobre cantidad: a veces lo barato sale caro a largo plazo.",
+  "Utiliza el interés compuesto a tu favor empezando a invertir lo antes posible.",
+  "Mantén un registro diario de tus gastos, por pequeños que sean (¡usa $martMone¥!).",
+  "No inviertas en algo que no entiendas completamente.",
+  "Establece metas financieras claras: ahorrar es más fácil cuando sabes para qué lo haces.",
+  "Antes de usar una tarjeta de crédito, asegúrate de tener el dinero para pagar el saldo completo.",
+  "Compara precios antes de compras grandes; podrías ahorrar un 10% o más con 5 minutos de búsqueda.",
+  "Prepara tus comidas en casa con más frecuencia; el ahorro mensual en restaurantes es enorme.",
+  "Lee al menos un libro de finanzas personales al año para mejorar tu educación financiera.",
+  "Revisa tus estados de cuenta para detectar errores o cargos injustificados de inmediato.",
+  "Aprende la diferencia entre un activo (te da dinero) y un pasivo (te quita dinero)."
+];

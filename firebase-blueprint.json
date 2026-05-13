@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and subscription status",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "isPro": { "type": "boolean" },
+        "proExpiresAt": { "type": "string", "format": "date-time" },
+        "freeRecordsCount": { "type": "integer" }
+      },
+      "required": ["uid", "email", "isPro", "freeRecordsCount"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Income or expense record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["expense", "income"] },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "category", "timestamp"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Financial goal (Pro feature)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "month": { "type": "integer" },
+        "year": { "type": "integer" }
+      },
+      "required": ["userId", "name", "targetAmount", "currentAmount", "month", "year"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrator with Pro control",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user data"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Collection of authorized administrators"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Global transactions collection (queried by userId)"
+    },
+    "/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Financial goals (queried by userId)"
+    }
+  }
+}

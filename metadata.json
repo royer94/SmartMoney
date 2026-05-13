@@ -1,0 +1,8 @@
+{
+  "name": "SmartMoney AI",
+  "description": "Gestor de finanzas inteligente con comandos, registro por voz y texto, y planes Pro personalizados.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
