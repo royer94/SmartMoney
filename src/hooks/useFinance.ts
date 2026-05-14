@@ -80,8 +80,10 @@ export function useFinance() {
     return () => unsubAuth();
   }, []);
 
-  useEffect(() => {
-    if (!authUser) return;
+ useEffect(() => {
+  if (!authUser) return;
+
+  const init = async () => {
 
     const userId = authUser.uid;
     const pathUser = `users/${userId}`;
@@ -158,9 +160,12 @@ const unsubUser = onSnapshot(userRef, async (snapshot: any) => {
       unsubUser();
       unsubTransactions();
       unsubGoals();
-      unsubAllUsers();
+     unsubAllUsers();
     };
-  }, [authUser?.uid]);
+  };
+
+  init();
+}, [authUser?.uid]);
 
   const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
     if (!user) return;
