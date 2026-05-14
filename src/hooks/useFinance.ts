@@ -278,9 +278,22 @@ export function useFinance() {
       throw new Error("El plan gratuito solo permite establecer 1 presupuesto (meta). Actualiza a Pro para presupuestos ilimitados.");
     }
 
+    // Calculate initial currentAmount based on existing transactions for the period
+    const initialAmount = transactions
+      .filter(t => {
+        if (t.type !== 'expense') return false;
+        const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+        return (tDate.getMonth() + 1) === g.month && tDate.getFullYear() === g.year;
+      })
+      .reduce((acc, t) => acc + t.amount, 0);
+
     const path = 'goals';
     try {
-      await addDoc(collection(db, path), { ...g, userId: user.uid });
+      await addDoc(collection(db, path), { 
+        ...g, 
+        currentAmount: initialAmount,
+        userId: user.uid 
+      });
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, path);
     }

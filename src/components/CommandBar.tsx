@@ -392,7 +392,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                                 await addGoal({
                                     name: msg.transaction.name,
                                     targetAmount: msg.transaction.targetAmount,
-                                    currentAmount: 0,
                                     month: new Date().getMonth() + 1,
                                     year: new Date().getFullYear()
                                 });

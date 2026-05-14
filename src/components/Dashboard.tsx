@@ -67,7 +67,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       await addGoal({
         name: `Presupuesto ${MONTHS[newGoal.month - 1]} ${newGoal.year}`,
         targetAmount: parseFloat(newGoal.target),
-        currentAmount: 0,
         month: newGoal.month,
         year: newGoal.year
       });
