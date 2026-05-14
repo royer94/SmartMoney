@@ -61,6 +61,7 @@ export default function App() {
       verify();
     }
   }, [user, searchParams]);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
@@ -71,23 +72,8 @@ export default function App() {
     setRecordingRequested(false);
   };
 
-  const handleCentralButtonPointerDown = () => {
-    // Reset before starting a new request to ensure state change triggers useEffect
-    setRecordingRequested(false);
-    longPressTimer.current = setTimeout(() => {
-      setRecordingRequested(true);
-      setActiveTab('chat');
-    }, 500); // 0.5 seconds for long press
-  };
-
-  const handleCentralButtonPointerUp = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-      if (!recordingRequested) {
-        handleTabChange('chat');
-      }
-    }
+  const handleCentralButtonClick = () => {
+    handleTabChange('chat');
   };
 
   useEffect(() => {
@@ -96,6 +82,18 @@ export default function App() {
       localStorage.setItem('guide_shown', 'true');
     }
   }, [user]);
+
+  const handleLogin = async () => {
+    console.log("handleLogin triggered");
+    setIsLoggingIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error("Login failed handler:", error);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -127,11 +125,21 @@ export default function App() {
             Control integral de tus finanzas con el poder de la Inteligencia Artificial.
           </p>
           <button 
-            onClick={signInWithGoogle}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-500/20"
+            type="button"
+            onClick={(e) => {
+              console.log("Button clicked!");
+              handleLogin();
+            }}
+            disabled={isLoggingIn}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95"
+            style={{ cursor: 'pointer', zIndex: 9999, position: 'relative' }}
           >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5 bg-white rounded-full p-0.5" alt="G" />
-            Ingresar con Google
+            {isLoggingIn ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 bg-white rounded-full p-0.5" alt="G" />
+            )}
+            {isLoggingIn ? "Cargando..." : "Ingresar con Google"}
           </button>
         </motion.div>
       </div>
@@ -258,8 +266,21 @@ export default function App() {
         <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
         <div className="relative -top-8">
           <button 
-            onPointerDown={handleCentralButtonPointerDown}
-            onPointerUp={handleCentralButtonPointerUp}
+            onClick={handleCentralButtonClick}
+            onPointerDown={() => {
+              // Optional: still keep the long press for voice if desired, 
+              // but don't let it interfere with the click
+              longPressTimer.current = setTimeout(() => {
+                setRecordingRequested(true);
+                setActiveTab('chat');
+              }, 600);
+            }}
+            onPointerUp={() => {
+              if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+              }
+            }}
             onContextMenu={(e) => e.preventDefault()}
             className={cn(
               "p-5 rounded-full shadow-2xl transition-all active:scale-95 select-none touch-none",

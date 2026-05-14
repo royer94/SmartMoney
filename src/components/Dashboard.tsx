@@ -29,7 +29,7 @@ import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { Table } from 'lucide-react';
 
-export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, key?: string }) {
+export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any }) {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
   const [privacyMode, setPrivacyMode] = useState(false);

@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
-  getDoc,
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  getDoc, 
   setDoc,
   Timestamp,
   orderBy,
+  limit,
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
@@ -52,7 +53,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error("Firestore Error: ", JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -62,6 +63,7 @@ export function useFinance() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+
   const [authUser, setAuthUser] = useState<any>(null);
 
   useEffect(() => {
@@ -74,99 +76,112 @@ export function useFinance() {
         setLoading(false);
       }
     });
+
     return () => unsubAuth();
   }, []);
 
   useEffect(() => {
     if (!authUser) return;
 
-    const init = async () => {
-      const userId = authUser.uid;
-      const pathUser = `users/${userId}`;
+    const userId = authUser.uid;
+    const pathUser = `users/${userId}`;
+    
+    setLoading(true);
 
-      setLoading(true);
-
-      // Check if user is admin
-      const checkAdmin = async () => {
-        const adminDoc = await getDoc(doc(db, 'admins', userId));
-        return adminDoc.exists();
-      };
-
-      // Crear usuario en Firestore si no existe, ANTES de escuchar
-      const userRef = doc(db, 'users', userId);
-      const snapInit = await getDoc(userRef);
-      if (!snapInit.exists()) {
-        const newData = {
-          uid: userId,
-          email: authUser.email || '',
-          isPro: false,
-          freeRecordsCount: 0
-        };
-        await setDoc(userRef, newData).catch(e => handleFirestoreError(e, OperationType.WRITE, pathUser));
-      }
-
-      // User profile subscription
-      const unsubUser = onSnapshot(userRef, async (snapshot: any) => {
-        const isSystemAdmin = await checkAdmin();
-        if (snapshot.exists()) {
-          setUser({ ...snapshot.data(), isAdmin: isSystemAdmin } as UserProfile);
-        }
-        setLoading(false);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, pathUser);
-        setLoading(false);
-      });
-
-      // Transactions subscription
-      const pathTx = 'transactions';
-      const qTransactions = query(
-        collection(db, 'transactions'),
-        where('userId', '==', userId),
-        orderBy('timestamp', 'desc')
-      );
-      const unsubTransactions = onSnapshot(qTransactions, (snapshot) => {
-        setTransactions(snapshot.docs.map(doc => ({ ...doc.data() as Transaction, id: doc.id })));
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, pathTx);
-      });
-
-      // Goals subscription
-      const pathGoals = 'goals';
-      const qGoals = query(
-        collection(db, 'goals'),
-        where('userId', '==', userId)
-      );
-      const unsubGoals = onSnapshot(qGoals, (snapshot) => {
-        setGoals(snapshot.docs.map(doc => ({ ...doc.data() as Goal, id: doc.id })));
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, pathGoals);
-      });
-
-      // Admin: Subscription to all users if user is admin
-      let unsubAllUsers: () => void = () => {};
-      checkAdmin().then(isSystemAdmin => {
-        if (isSystemAdmin) {
-          const qAllUsers = query(collection(db, 'users'));
-          unsubAllUsers = onSnapshot(qAllUsers, (snap) => {
-            setAllUsers(snap.docs.map(d => d.data() as UserProfile));
-          });
-        }
-      });
-
-      return () => {
-        unsubUser();
-        unsubTransactions();
-        unsubGoals();
-        unsubAllUsers();
-      };
+    // Check if user is admin
+    const checkAdmin = async () => {
+      const adminDoc = await getDoc(doc(db, 'admins', userId));
+      return adminDoc.exists();
     };
 
-    init();
+    // User profile subscription
+    const unsubUser = onSnapshot(doc(db, 'users', userId), async (snapshot: any) => {
+      try {
+        const isSystemAdmin = await checkAdmin();
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          console.log(`[useFinance] User profile loaded for ${userId}`);
+          setUser({ ...data, isAdmin: isSystemAdmin } as UserProfile);
+        } else {
+          // Create user if not exists
+          console.log(`[useFinance] Creating new user profile for ${userId}`);
+          const newData = {
+            uid: userId,
+            email: authUser.email || '',
+            isPro: false,
+            freeRecordsCount: 0
+          };
+          // Explicitly use setDoc and await it
+          try {
+            await setDoc(doc(db, 'users', userId), newData);
+            console.log(`[useFinance] User profile created successfully for ${userId}`);
+            setUser({ ...newData, isAdmin: isSystemAdmin } as UserProfile);
+          } catch (createError: any) {
+            console.error("[useFinance] Failed to create user profile in Firestore:", createError);
+            alert("Error al crear tu perfil: " + createError.message);
+            throw createError;
+          }
+        }
+      } catch (error) {
+        console.error("[useFinance] Error in user profile handler:", error);
+        handleFirestoreError(error, OperationType.GET, pathUser);
+      } finally {
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error("[useFinance] onSnapshot subscription error:", error);
+      handleFirestoreError(error, OperationType.GET, pathUser);
+      setLoading(false);
+    });
+
+    // Transactions subscription
+    const pathTx = 'transactions';
+    const qTransactions = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId),
+      orderBy('timestamp', 'desc')
+    );
+    const unsubTransactions = onSnapshot(qTransactions, (snapshot) => {
+      setTransactions(snapshot.docs.map(doc => ({ ...doc.data() as Transaction, id: doc.id })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, pathTx);
+    });
+
+    // Goals subscription
+    const pathGoals = 'goals';
+    const qGoals = query(
+      collection(db, 'goals'),
+      where('userId', '==', userId)
+    );
+    const unsubGoals = onSnapshot(qGoals, (snapshot) => {
+      setGoals(snapshot.docs.map(doc => ({ ...doc.data() as Goal, id: doc.id })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, pathGoals);
+    });
+
+    // Admin: Subscription to all users if user is admin
+    let unsubAllUsers: () => void = () => {};
+    checkAdmin().then(isSystemAdmin => {
+      if (isSystemAdmin) {
+        const qAllUsers = query(collection(db, 'users'));
+        unsubAllUsers = onSnapshot(qAllUsers, (snap) => {
+          setAllUsers(snap.docs.map(d => d.data() as UserProfile));
+        });
+      }
+    });
+
+    return () => {
+      unsubUser();
+      unsubTransactions();
+      unsubGoals();
+      unsubAllUsers();
+    };
   }, [authUser?.uid]);
 
   const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
-    if (!user) return;
-
+    const currentAuthId = auth.currentUser?.uid;
+    if (!currentAuthId || !user) return;
+    
     // Monthly record count (for Free Plan)
     if (!user.isPro) {
       const now = new Date();
@@ -183,18 +198,23 @@ export function useFinance() {
 
     const pathTx = 'transactions';
     try {
+      // Clean transaction object to ensure no extra fields (like 'id') are sent to addDoc
+      const { ...cleanT } = t as any;
+      if (cleanT.id) delete cleanT.id;
+
       const newTransaction = {
-        ...t,
-        userId: user.uid,
+        ...cleanT,
+        userId: currentAuthId,
         timestamp: Timestamp.now()
       };
-      const docRef = await addDoc(collection(db, pathTx), newTransaction);
 
+      const docRef = await addDoc(collection(db, pathTx), newTransaction);
+      
       let alerts: string[] = [];
 
       // If it's an expense, update matching budgets (Goals) for the same month/year
       if (t.type === 'expense') {
-        const txDate = new Date();
+        const txDate = new Date(); // Current date for new transactions
         const txMonth = txDate.getMonth() + 1;
         const txYear = txDate.getFullYear();
 
@@ -204,16 +224,19 @@ export function useFinance() {
             const prevProgress = (goal.currentAmount || 0) / goal.targetAmount;
             const currProgress = newCurrent / goal.targetAmount;
 
+            const pathGoal = `goals/${goal.id}`;
             const goalRef = doc(db, 'goals', goal.id!);
             await updateDoc(goalRef, { currentAmount: newCurrent });
 
+            // Threshold Check
             if (prevProgress < 0.5 && currProgress >= 0.5) alerts.push(`⚠️ Has alcanzado el 50% de tu presupuesto: ${goal.name}`);
             if (prevProgress < 0.8 && currProgress >= 0.8) alerts.push(`🚨 Has alcanzado el 80% de tu presupuesto: ${goal.name}`);
             if (prevProgress < 1.0 && currProgress >= 1.0) alerts.push(`🛑 ¡Límite alcanzado!: ${goal.name}`);
           }
         }
       }
-
+      
+      const pathUser = `users/${user.uid}`;
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { freeRecordsCount: user.freeRecordsCount + 1 });
 
@@ -250,9 +273,11 @@ export function useFinance() {
 
   const addGoal = async (g: Omit<Goal, 'id' | 'userId'>) => {
     if (!user) return;
+
     if (!user.isPro && goals.length >= 1) {
       throw new Error("El plan gratuito solo permite establecer 1 presupuesto (meta). Actualiza a Pro para presupuestos ilimitados.");
     }
+
     const path = 'goals';
     try {
       await addDoc(collection(db, path), { ...g, userId: user.uid });
@@ -288,9 +313,9 @@ export function useFinance() {
       const userRef = doc(db, 'users', uid);
       const expiry = new Date();
       expiry.setMonth(expiry.getMonth() + months);
-      await updateDoc(userRef, {
-        isPro: true,
-        proExpiresAt: expiry.toISOString()
+      await updateDoc(userRef, { 
+        isPro: true, 
+        proExpiresAt: expiry.toISOString() 
       });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, path);
@@ -302,9 +327,9 @@ export function useFinance() {
     const path = `users/${targetUserId}`;
     try {
       const userRef = doc(db, 'users', targetUserId);
-      await updateDoc(userRef, {
-        isPro: false,
-        proExpiresAt: null
+      await updateDoc(userRef, { 
+        isPro: false, 
+        proExpiresAt: null 
       });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, path);
@@ -320,15 +345,15 @@ export function useFinance() {
     }
   };
 
-  return {
-    user,
-    transactions,
-    goals,
-    loading,
+  return { 
+    user, 
+    transactions, 
+    goals, 
+    loading, 
     allUsers,
-    addTransaction,
-    removeTransaction,
-    addGoal,
+    addTransaction, 
+    removeTransaction, 
+    addGoal, 
     removeGoal,
     updateGoal,
     activatePro,
@@ -336,3 +361,4 @@ export function useFinance() {
     toggleRecurring
   };
 }
+
