@@ -309,6 +309,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               user={user} 
               balance={balance} 
               actualMonthlySavings={thisMonthIncome - thisMonthExpenses} 
+              onUpgrade={onUpgrade}
             />
           </motion.div>
         ) : (
@@ -378,7 +379,12 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
          <div className="md:col-span-2">
-           <AIAdvisor user={user} transactions={transactions} goals={goals} />
+           <AIAdvisor 
+             user={user} 
+             transactions={transactions} 
+             goals={goals} 
+             onUpgrade={onUpgrade} 
+           />
          </div>
          <div>
            <SubscriptionManager 

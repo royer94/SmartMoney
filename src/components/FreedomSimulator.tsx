@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
 import { UserProfile } from '../types';
 
-export function FreedomSimulator({ user, balance, actualMonthlySavings = 0 }: { user: UserProfile, balance: number, actualMonthlySavings?: number }) {
+export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { user: UserProfile, balance: number, actualMonthlySavings?: number, onUpgrade?: () => void }) {
   const [currentSavings, setCurrentSavings] = useState(balance);
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(2000000); // Target goal
   const [monthlyExpenses, setMonthlyExpenses] = useState(4000000); // 4M COP exp
@@ -50,7 +50,10 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0 }: { 
               Proyecta tu futuro financiero y descubre tu fecha exacta de retiro. Esta es una función exclusiva de SmartMone¥ Pro.
             </p>
             <div className="flex flex-col gap-3">
-              <button className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 active:scale-95 transition-all">
+              <button 
+                onClick={onUpgrade}
+                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+              >
                 Activar Plan Pro
               </button>
             </div>

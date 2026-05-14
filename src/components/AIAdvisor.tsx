@@ -5,7 +5,7 @@ import { getFinancialInsights } from '../lib/gemini';
 import { UserProfile, Transaction, Goal } from '../types';
 import Markdown from 'react-markdown';
 
-export function AIAdvisor({ user, transactions, goals }: { user: UserProfile, transactions: Transaction[], goals: Goal[] }) {
+export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], onUpgrade?: () => void }) {
   const [insights, setInsights] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -45,6 +45,7 @@ export function AIAdvisor({ user, transactions, goals }: { user: UserProfile, tr
             Recibe análisis profundos de tus hábitos, predicciones de fin de mes y consejos personalizados basados en tus datos reales.
           </p>
           <button 
+             onClick={onUpgrade}
              className="px-6 py-3 bg-white text-slate-900 rounded-2xl font-bold hover:bg-indigo-100 transition-all transform active:scale-95 flex items-center gap-2"
           >
             Suscribirme a Pro
