@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Command as CommandIcon, Camera } from 'lucide-react';
+import { Send, Mic, MicOff, Sparkles, Command as CommandIcon, Trash2, X, DollarSign, Camera, Image, FileUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { parseTransaction, generateVoiceReport, transcribeAudio } from '../lib/gemini';
+import { parseTransaction, generateVoiceReport } from '../lib/gemini';
 import { Transaction, UserProfile, COMMANDS, FREE_LIMIT } from '../types';
 import { cn, formatCurrency } from '../lib/utils';
 import { FINANCE_TIPS } from '../lib/tips';
@@ -59,34 +59,77 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validación de tamaño (Límite 5MB para OCR estable)
+    if (file.size > 5 * 1024 * 1024) {
+      addMessage('ai', "La imagen es demasiado grande. Por favor usa una foto de menos de 5MB.");
+      return;
+    }
+
     setIsLoading(true);
     addMessage('ai', "Procesando imagen con SmartMone¥ AI...");
+
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const [mime, data] = base64.split(';');
-        const mimeType = mime.split(':')[1];
-        const pureData = data.split(',')[1];
-        const result = await parseTransaction({ mimeType, data: pureData });
-        if (result && result.amount > 0) {
-          const { id, alerts } = await addTransaction(result);
+      console.log("[handleFileUpload] Reading file...");
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        const timeout = setTimeout(() => reject(new Error("Tiempo de espera agotado al leer el archivo.")), 15000);
+        reader.onload = () => {
+          clearTimeout(timeout);
+          resolve(reader.result as string);
+        };
+        reader.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error("Error al leer el archivo de imagen."));
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const mimeType = base64.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
+      const pureData = base64.split(',')[1];
+
+      if (!pureData) {
+        throw new Error("No se pudo extraer la información de la imagen.");
+      }
+
+      console.log(`[handleFileUpload] Processing image of type ${mimeType}. Length: ${pureData.length}`);
+      
+      // Promesa con Timeout para evitar el congelamiento si la IA no responde
+      const result = await Promise.race([
+        parseTransaction({ mimeType, data: pureData }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("La IA está tardando demasiado. Prueba con una imagen más pequeña o con mejor luz.")), 25000))
+      ]) as any;
+
+      console.log(`[handleFileUpload] Model result:`, result);
+      
+      if (result && result.amount >= 0) {
+        const addResult = await addTransaction(result);
+        if (addResult) {
+          const { id, alerts } = addResult;
           addMessage('ai', `¡Listo! He registrado un ${result.type === 'expense' ? 'gasto' : 'ingreso'} por ${formatCurrency(result.amount)}: "${result.description}"`, { ...result, id });
           alerts.forEach((alert: string) => addMessage('ai', alert));
         } else {
-          addMessage('ai', "No pude detectar un monto claro en el recibo. Por favor, intenta con otra foto o escríbelo manualmente.");
+          addMessage('ai', "Error al guardar el registro en la base de datos.");
         }
-        setIsLoading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (e) {
-      addMessage('ai', "Error al procesar la imagen.");
+      } else {
+        addMessage('ai', "No pude detectar un monto claro en el recibo. Por favor, intenta con otra foto o escríbelo manualmente.");
+      }
+    } catch (error: any) {
+      console.error("[handleFileUpload] Critical error:", error);
+      const errorMsg = error.message?.includes('JSON') || error.message?.includes('formato')
+        ? "Hubo un problema al interpretar los datos de la imagen. Prueba de nuevo o escribe el gasto."
+        : `Error al procesar la imagen: ${error.message || 'Error desconocido'}`;
+      addMessage('ai', errorMsg);
+    } finally {
       setIsLoading(false);
+      // Importante: Resetear el input para permitir volver a elegir la misma foto
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleCommand = async (cmd: string) => {
     const cleanCmd = cmd.toLowerCase().trim();
+    
     if (cleanCmd.startsWith('/')) {
       const parts = cleanCmd.split(' ');
       const action = parts[0];
@@ -102,6 +145,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('ai', `Hoy has gastado ${formatCurrency(totalHoy)} en ${hoy.length} movimientos.`);
           break;
         }
+
         case '/semana': {
           const weekAgo = new Date();
           weekAgo.setDate(now.getDate() - 7);
@@ -110,12 +154,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('ai', `En los últimos 7 días has gastado ${formatCurrency(exp)}.`);
           break;
         }
+
         case '/mes': {
           const mes = transactions.filter(t => t.timestamp.toDate().getMonth() === now.getMonth());
           const exp = mes.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
           addMessage('ai', `Este mes llevas gastados ${formatCurrency(exp)}.`);
           break;
         }
+
         case '/balance': {
           if (!user.isPro) {
             addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.");
@@ -126,6 +172,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('ai', `Balance General:\nTotal Ingresos: ${formatCurrency(inc)}\nTotal Gastos: ${formatCurrency(exp)}\nNeto: ${formatCurrency(inc - exp)}`);
           break;
         }
+
         case '/top': {
           const top = [...transactions]
             .filter(t => t.type === 'expense')
@@ -134,6 +181,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('ai', `Tus mayores gastos:\n${top.map(t => `- ${t.description}: ${formatCurrency(t.amount)}`).join('\n')}`);
           break;
         }
+
         case '/meta': {
           if (!user.isPro) {
             addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.");
@@ -145,8 +193,8 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             const amount = parseFloat(parts[parts.length - 1]);
             const name = parts.slice(1, -1).join(' ');
             if (isNaN(amount)) {
-              addMessage('ai', "Monto inválido. Ej: /meta Carro 50000000");
-              break;
+                addMessage('ai', "Monto inválido. Ej: /meta Carro 50000000");
+                break;
             }
             addMessage('ai', `¿Confirmas crear la meta "${name}" por ${formatCurrency(amount)}?`, {
               isGoal: true,
@@ -157,18 +205,23 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           }
           break;
         }
+          
         case '/pro':
           addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y elimina el límite de 20 registros mensuales.`);
           break;
+
         case '/ayuda':
           addMessage('ai', `Comandos disponibles:\n${COMMANDS.filter(c => c.name !== 'pro').map(c => `${c.usage}: ${c.description}`).join('\n')}\nNota: El plan gratuito está limitado a 20 registros por mes.`);
           break;
+
         case '/start':
           addMessage('ai', `¡Hola ${user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". También puedes escanear recibos. El plan gratuito permite hasta 20 registros mensuales.`);
           break;
+
         case '/libertad':
           addMessage('ai', "He habilitado el Simulador de Libertad Financiera en tu Dashboard. Puedes acceder desde la pestaña superior.");
           break;
+
         case '/suscripciones': {
           const recurring = transactions.filter(t => t.isRecurring);
           const total = recurring.reduce((acc, t) => acc + t.amount, 0);
@@ -179,9 +232,11 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           }
           break;
         }
+
         case '/ocultar':
           addMessage('ai', "Modo de privacidad activado. Ahora los montos sensibles están ofuscados en la interfaz principal.");
           break;
+
         default:
           addMessage('ai', `Comando no reconocido. Escribe /ayuda para ver la lista.`);
       }
@@ -192,10 +247,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
   const processInput = async (text: string) => {
     if (!text.trim()) return;
+    
     addMessage('user', text);
     setInput('');
+    
     const wasCommand = await handleCommand(text);
     if (wasCommand) return;
+
     setIsLoading(true);
     try {
       const result = await parseTransaction(text);
@@ -215,16 +273,19 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     try {
       setIsLoading(true);
       const result = await addTransaction(tx);
-      setMessages(prev => prev.map(m =>
+      setMessages(prev => prev.map(m => 
         m.id === msgId ? { ...m, transaction: null, text: m.text + " (Registrado ✅)" } : m
       ));
+      
       if (result?.alerts && result.alerts.length > 0) {
         result.alerts.forEach(alert => {
-          addMessage('ai', alert);
+            addMessage('ai', alert);
         });
       }
+
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
+      
       if (newCount % 3 === 0) {
         const randomTip = FINANCE_TIPS[Math.floor(Math.random() * FINANCE_TIPS.length)];
         setTimeout(() => {
@@ -240,43 +301,41 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: { ideal: true },
           noiseSuppression: { ideal: true },
           autoGainControl: { ideal: true },
           channelCount: 1,
           sampleRate: 48000,
-        }
+          latency: { ideal: 0.01 },
+          // @ts-ignore
+          voiceIsolation: true 
+        } 
       });
       streamRef.current = stream;
       mediaRecorder.current = new MediaRecorder(stream);
       audioChunks.current = [];
 
       mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
-
       mediaRecorder.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
-
-        addMessage('user', '🎤 Registro de voz enviado');
-        setIsLoading(true);
-
-        try {
-          const transcription = await transcribeAudio(audioBlob);
-          if (!transcription) throw new Error('No se pudo transcribir');
-          addMessage('ai', `Escuché: "${transcription}"`);
-          const result = await parseTransaction(transcription);
-          if (result.amount > 0) {
-            addMessage('ai', `Detecté un ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
-          } else {
-            addMessage('ai', "No pude detectar un monto claro. Intenta de nuevo.");
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Audio = (reader.result as string).split(',')[1];
+          addMessage('user', '🎤 Registro de voz enviado');
+          setIsLoading(true);
+          try {
+            const result = await parseTransaction({ mimeType: 'audio/webm', data: base64Audio });
+            addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}.`, result);
+          } catch (error) {
+            addMessage('ai', "No pude procesar el audio correctamente.");
+          } finally {
+            setIsLoading(false);
           }
-        } catch (error) {
-          addMessage('ai', "No pude procesar el audio correctamente.");
-        } finally {
-          setIsLoading(false);
-        }
-
+        };
+        
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
@@ -287,28 +346,31 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         }
       };
 
-      // Silence detection
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       audioContext.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
       source.connect(analyser);
+
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
-
       let lastSoundTime = Date.now();
       let hasHeardSpeech = false;
       let noiseFloor = 20;
       const SILENCE_DURATION = 800;
+      const SPEECH_ONSET_RATIO = 1.8;
       const ABSOLUTE_MIN_SPEECH = 35;
       const MIN_MAINTAIN_LEVEL = 30;
 
       const checkSilence = () => {
         if (!mediaRecorder.current || mediaRecorder.current.state !== 'recording') return;
+        
         analyser.getByteFrequencyData(dataArray);
-
+        
         let speechEnergy = 0;
         let highEnergy = 0;
         const speechBinStart = 4;
@@ -321,7 +383,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             highEnergy += dataArray[i];
           }
         }
-
+        
         const speechAverage = speechEnergy / (speechBinEnd - speechBinStart + 1);
         const highAverage = highEnergy / (bufferLength - speechBinEnd);
         const focusRatio = speechAverage / (highAverage + 1);
@@ -330,12 +392,12 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           noiseFloor = noiseFloor * 0.9 + speechAverage * 0.1;
         }
 
-        const isStrongSpeech = speechAverage > ABSOLUTE_MIN_SPEECH &&
-          speechAverage > noiseFloor * 1.8 &&
-          focusRatio > 1.4;
+        const isStrongSpeech = speechAverage > ABSOLUTE_MIN_SPEECH && 
+                             speechAverage > noiseFloor * SPEECH_ONSET_RATIO &&
+                             focusRatio > 1.4;
 
-        const isMaintainingSpeech = speechAverage > MIN_MAINTAIN_LEVEL &&
-          speechAverage > noiseFloor * 1.4;
+        const isMaintainingSpeech = speechAverage > MIN_MAINTAIN_LEVEL && 
+                                   speechAverage > noiseFloor * 1.4;
 
         if (isStrongSpeech) {
           hasHeardSpeech = true;
@@ -346,14 +408,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           stopRecording();
           return;
         }
-
+        
         silenceTimer.current = requestAnimationFrame(checkSilence);
       };
 
       mediaRecorder.current.start();
       setIsRecording(true);
       silenceTimer.current = requestAnimationFrame(checkSilence);
-
     } catch (err) {
       console.error("Mic error", err);
     }
@@ -372,7 +433,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] md:h-[calc(100vh-100px)]">
-      <div
+      <div 
         ref={scrollRef}
         className="flex-1 overflow-y-auto space-y-4 p-4 scroll-smooth"
       >
@@ -389,38 +450,39 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             >
               <div className={cn(
                 "p-4 rounded-2xl text-sm leading-relaxed",
-                msg.role === 'user'
-                  ? "bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20"
+                msg.role === 'user' 
+                  ? "bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20" 
                   : "bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-sm"
               )}>
                 {msg.text}
               </div>
+              
               {msg.transaction && (
                 <div className="mt-2 flex gap-2">
-                  <button
+                  <button 
                     onClick={async () => {
-                      if (msg.transaction.isGoal) {
-                        try {
-                          await addGoal({
-                            name: msg.transaction.name,
-                            targetAmount: msg.transaction.targetAmount,
-                            currentAmount: 0,
-                            month: new Date().getMonth() + 1,
-                            year: new Date().getFullYear()
-                          });
-                          setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, text: m.text + " (Meta creada ✅)" } : m));
-                        } catch (e) {
-                          addMessage('ai', "Error creando la meta.");
+                        if (msg.transaction.isGoal) {
+                            try {
+                                await addGoal({
+                                    name: msg.transaction.name,
+                                    targetAmount: msg.transaction.targetAmount,
+                                    currentAmount: 0,
+                                    month: new Date().getMonth() + 1,
+                                    year: new Date().getFullYear()
+                                });
+                                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, text: m.text + " (Meta creada ✅)" } : m));
+                            } catch (e) {
+                                addMessage('ai', "Error creando la meta.");
+                            }
+                        } else {
+                            confirmTransaction(msg.id, msg.transaction);
                         }
-                      } else {
-                        confirmTransaction(msg.id, msg.transaction);
-                      }
                     }}
                     className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
                   >
                     Confirmar
                   </button>
-                  <button
+                  <button 
                     onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}
                     className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors"
                   >
@@ -444,21 +506,21 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
       <div className="p-4 glass rounded-3xl mt-4">
         <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
+          <input 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
             ref={fileInputRef}
             onChange={handleFileUpload}
           />
-          <button
+          <button 
             onClick={() => fileInputRef.current?.click()}
             className="p-3 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-2xl transition-all"
             title="Escanear Recibo"
           >
             <Camera className="w-6 h-6" />
           </button>
-          <button
+          <button 
             onClick={isRecording ? stopRecording : startRecording}
             className={cn(
               "p-3 rounded-2xl transition-all",
@@ -468,7 +530,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
           <div className="flex-1 relative">
-            <input
+            <input 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && processInput(input)}
@@ -477,7 +539,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             />
             <CommandIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           </div>
-          <button
+          <button 
             onClick={() => processInput(input)}
             disabled={!input.trim()}
             className="p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-lg shadow-blue-600/30"
