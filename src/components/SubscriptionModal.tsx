@@ -17,7 +17,7 @@ import { cn } from '../lib/utils';
 
 interface SubscriptionModalProps {
   onClose: () => void;
-  onUpgrade: () => void;
+  onUpgrade: (months: number) => void;
 }
 
 export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps) {
@@ -37,7 +37,7 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
     setIsProcessing(true);
     // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 2000));
-    onUpgrade();
+    onUpgrade(selectedPlan.months);
     setIsProcessing(false);
     onClose();
   };

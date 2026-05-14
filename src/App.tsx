@@ -331,7 +331,7 @@ export default function App() {
         {showSubscription && (
           <SubscriptionModal 
             onClose={() => setShowSubscription(false)} 
-            onUpgrade={activatePro} 
+            onUpgrade={(months) => activatePro(undefined, months)} 
           />
         )}
         {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
