@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Sparkles, Command as CommandIcon } from 'lucide-react';
+import { Send, Mic, MicOff, Command as CommandIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { parseTransaction, generateVoiceReport } from '../lib/gemini';
 import { Transaction, UserProfile, COMMANDS, FREE_LIMIT } from '../types';
@@ -143,7 +143,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           break;
 
         case '/start':
-          addMessage('ai', `¡Hola ${user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". También puedes escanear recibos. El plan gratuito permite hasta 20 registros mensuales.`);
+          addMessage('ai', `¡Hola ${user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". El plan gratuito permite hasta 20 registros mensuales.`);
           break;
 
         case '/libertad':
