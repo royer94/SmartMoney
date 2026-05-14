@@ -97,29 +97,29 @@ export function useFinance() {
     };
 
     // Crear usuario en Firestore si no existe, ANTES de escuchar
-const userRef = doc(db, 'users', userId);
-const snapInit = await getDoc(userRef);
-if (!snapInit.exists()) {
-  const newData = {
-    uid: userId,
-    email: authUser.email || '',
-    isPro: false,
-    freeRecordsCount: 0
-  };
-  await setDoc(userRef, newData).catch(e => handleFirestoreError(e, OperationType.WRITE, pathUser));
-}
-
+    const userRef = doc(db, 'users', userId);
+    const snapInit = await getDoc(userRef);
+    if (!snapInit.exists()) {
+      const newData = {
+        uid: userId,
+        email: authUser.email || '',
+        isPro: false,
+        freeRecordsCount: 0
+      };
+      await setDoc(userRef, newData).catch(e => handleFirestoreError(e, OperationType.WRITE, pathUser));
+    }
 // User profile subscription
-const unsubUser = onSnapshot(userRef, async (snapshot: any) => {
-  const isSystemAdmin = await checkAdmin();
-  if (snapshot.exists()) {
-    setUser({ ...snapshot.data(), isAdmin: isSystemAdmin } as UserProfile);
-  }
-  setLoading(false);
-}, (error) => {
-  handleFirestoreError(error, OperationType.GET, pathUser);
-  setLoading(false);
-});
+// User profile subscription
+    const unsubUser = onSnapshot(userRef, async (snapshot: any) => {
+      const isSystemAdmin = await checkAdmin();
+      if (snapshot.exists()) {
+        setUser({ ...snapshot.data(), isAdmin: isSystemAdmin } as UserProfile);
+      }
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, pathUser);
+      setLoading(false);
+    });
     // Transactions subscription
     const pathTx = 'transactions';
     const qTransactions = query(
