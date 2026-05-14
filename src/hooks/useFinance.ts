@@ -108,8 +108,7 @@ export function useFinance() {
       };
       await setDoc(userRef, newData).catch(e => handleFirestoreError(e, OperationType.WRITE, pathUser));
     }
-// User profile subscription
-// User profile subscription
+    // User profile subscription
     const unsubUser = onSnapshot(userRef, async (snapshot: any) => {
       const isSystemAdmin = await checkAdmin();
       if (snapshot.exists()) {
