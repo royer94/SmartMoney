@@ -23,7 +23,7 @@ export const parseTransaction = async (input: string | { mimeType: string, data:
   }
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: (typeof input !== 'string') ? {
       parts: [
         { text: prompt },
@@ -54,7 +54,7 @@ export const generateVoiceReport = async (transactions: any[], timeframe: string
   const summary = transactions.map(t => `${t.type === 'expense' ? 'Gasto' : 'Ingreso'}: ${t.description} por $${t.amount}`).join(', ');
   
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: `Genera un reporte corto y natural en español sobre estos movimientos financieros de la ${timeframe}: ${summary}. 
     Menciona el total de gastos e ingresos y da un breve consejo financiero.`,
   });
@@ -67,7 +67,7 @@ export const getFinancialInsights = async (transactions: any[], goals: any[]) =>
   const goalsSummary = goals.map(g => `Presupuesto ${g.name}: ${g.currentAmount}/${g.targetAmount}`).join('\n');
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: `Actúa como un experto asesor financiero certificado. 
     Analiza estos movimientos recientes del usuario:\n${summary}\n\nPresupuestos actuales:\n${goalsSummary}\n
     
