@@ -220,7 +220,7 @@ export function useFinance() {
 
         for (const goal of goals) {
           if (goal.month === txMonth && goal.year === txYear) {
-            const newCurrent = (goal.currentAmount || 0) + t.amount;
+            const newCurrent = (goal.currentAmount || 0) + Number(t.amount);
             const prevProgress = (goal.currentAmount || 0) / goal.targetAmount;
             const currProgress = newCurrent / goal.targetAmount;
 
@@ -260,7 +260,7 @@ export function useFinance() {
           for (const goal of goals) {
             if (goal.month === txMonth && goal.year === txYear) {
               const goalRef = doc(db, 'goals', goal.id!);
-              await updateDoc(goalRef, { currentAmount: Math.max(0, (goal.currentAmount || 0) - t.amount) });
+              await updateDoc(goalRef, { currentAmount: Math.max(0, (goal.currentAmount || 0) - Number(t.amount)) });
             }
           }
         }
@@ -282,10 +282,30 @@ export function useFinance() {
     const initialAmount = transactions
       .filter(t => {
         if (t.type !== 'expense') return false;
-        const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
-        return (tDate.getMonth() + 1) === g.month && tDate.getFullYear() === g.year;
+        
+        let tDate: Date;
+        try {
+          if (t.timestamp?.toDate) {
+            tDate = t.timestamp.toDate();
+          } else if (t.timestamp instanceof Date) {
+            tDate = t.timestamp;
+          } else if (t.timestamp?.seconds) {
+            tDate = new Date(t.timestamp.seconds * 1000);
+          } else {
+            tDate = new Date(t.timestamp);
+          }
+          
+          if (isNaN(tDate.getTime())) return false;
+        } catch (e) {
+          return false;
+        }
+
+        const tMonth = tDate.getMonth() + 1;
+        const tYear = tDate.getFullYear();
+        
+        return tMonth === Number(g.month) && tYear === Number(g.year);
       })
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
 
     const path = 'goals';
     try {
@@ -358,6 +378,36 @@ export function useFinance() {
     }
   };
 
+  const recalculateGoal = async (id: string) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+
+    const amount = transactions
+      .filter(t => {
+        if (t.type !== 'expense') return false;
+        let tDate: Date;
+        try {
+          if (t.timestamp?.toDate) tDate = t.timestamp.toDate();
+          else if (t.timestamp instanceof Date) tDate = t.timestamp;
+          else if (t.timestamp?.seconds) tDate = new Date(t.timestamp.seconds * 1000);
+          else tDate = new Date(t.timestamp);
+          if (isNaN(tDate.getTime())) return false;
+        } catch (e) { return false; }
+
+        const tMonth = tDate.getMonth() + 1;
+        const tYear = tDate.getFullYear();
+        return tMonth === goal.month && tYear === goal.year;
+      })
+      .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+
+    const goalRef = doc(db, 'goals', id);
+    try {
+      await updateDoc(goalRef, { currentAmount: amount });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `goals/${id}`);
+    }
+  };
+
   return { 
     user, 
     transactions, 
@@ -369,6 +419,7 @@ export function useFinance() {
     addGoal, 
     removeGoal,
     updateGoal,
+    recalculateGoal,
     activatePro,
     deactivatePro,
     toggleRecurring

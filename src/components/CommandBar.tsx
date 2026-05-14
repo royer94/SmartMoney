@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Command as CommandIcon } from 'lucide-react';
+import { Send, Mic, MicOff, Command as CommandIcon, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { parseTransaction, generateVoiceReport } from '../lib/gemini';
 import { Transaction, UserProfile, COMMANDS, FREE_LIMIT } from '../types';
@@ -13,7 +13,7 @@ interface Message {
   transaction?: any;
 }
 
-export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean }) {
+export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -92,7 +92,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
         case '/balance': {
           if (!user.isPro) {
-            addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.");
+            addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.", { isUpgrade: true });
             break;
           }
           const exp = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
@@ -112,7 +112,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
         case '/meta': {
           if (!user.isPro) {
-            addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.");
+            addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.", { isUpgrade: true });
             break;
           }
           if (parts.length < 3) {
@@ -127,15 +127,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             addMessage('ai', `¿Confirmas crear la meta "${name}" por ${formatCurrency(amount)}?`, {
               isGoal: true,
               name,
-              targetAmount: amount,
-              currentAmount: 0
+              targetAmount: amount
             });
           }
           break;
         }
           
         case '/pro':
-          addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y elimina el límite de 20 registros mensuales.`);
+          addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y elimina el límite de 20 registros mensuales.`, { isUpgrade: true });
           break;
 
         case '/ayuda':
@@ -385,34 +384,46 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               
               {msg.transaction && (
                 <div className="mt-2 flex gap-2">
-                  <button 
-                    onClick={async () => {
-                        if (msg.transaction.isGoal) {
-                            try {
-                                await addGoal({
-                                    name: msg.transaction.name,
-                                    targetAmount: msg.transaction.targetAmount,
-                                    month: new Date().getMonth() + 1,
-                                    year: new Date().getFullYear()
-                                });
-                                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, text: m.text + " (Meta creada ✅)" } : m));
-                            } catch (e) {
-                                addMessage('ai', "Error creando la meta.");
+                  {msg.transaction.isUpgrade ? (
+                    <button 
+                      onClick={onUpgrade}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"
+                    >
+                      Ver Planes Pro
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={async () => {
+                            if (msg.transaction.isGoal) {
+                                try {
+                                    await addGoal({
+                                        name: msg.transaction.name,
+                                        targetAmount: msg.transaction.targetAmount,
+                                        month: new Date().getMonth() + 1,
+                                        year: new Date().getFullYear()
+                                    });
+                                    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, text: m.text + " (Meta creada ✅)" } : m));
+                                } catch (e) {
+                                    addMessage('ai', "Error creando la meta.");
+                                }
+                            } else {
+                                confirmTransaction(msg.id, msg.transaction);
                             }
-                        } else {
-                            confirmTransaction(msg.id, msg.transaction);
-                        }
-                    }}
-                    className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
-                  >
-                    Confirmar
-                  </button>
-                  <button 
-                    onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}
-                    className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors"
-                  >
-                    Ignorar
-                  </button>
+                        }}
+                        className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
+                      >
+                        Confirmar
+                      </button>
+                      <button 
+                        onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}
+                        className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors"
+                      >
+                        Ignorar
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </motion.div>

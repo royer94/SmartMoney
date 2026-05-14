@@ -20,7 +20,8 @@ import {
   Trash2,
   FileText,
   Download,
-  Lock
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 import { generateReportPDF } from '../lib/pdfGenerator';
 import { exportTransactionsToCSV } from '../lib/exportUtils';
@@ -29,7 +30,9 @@ import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { Table } from 'lucide-react';
 
-export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any }) {
+import { WelcomeCard } from './WelcomeCard';
+
+export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, recalculateGoal?: any, onUpgrade?: () => void }) {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
   const [privacyMode, setPrivacyMode] = useState(false);
@@ -62,7 +65,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGoal.target) return;
+    if (!user.isPro && goals.length >= 1) {
+      onUpgrade?.();
+      return;
+    }
     try {
       await addGoal({
         name: `Presupuesto ${MONTHS[newGoal.month - 1]} ${newGoal.year}`,
@@ -313,6 +319,14 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             exit={{ opacity: 0, x: 20 }}
             className="space-y-8"
           >
+            <WelcomeCard 
+              user={user} 
+              goals={goals} 
+              onConfigureBudget={() => {
+                setShowGoalForm(true);
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+              }} 
+            />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div onClick={() => {
@@ -367,7 +381,12 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
            <AIAdvisor user={user} transactions={transactions} goals={goals} />
          </div>
          <div>
-           <SubscriptionManager user={user} transactions={transactions} toggleRecurring={toggleRecurring} />
+           <SubscriptionManager 
+             user={user} 
+             transactions={transactions} 
+             toggleRecurring={toggleRecurring} 
+             onUpgrade={onUpgrade}
+           />
          </div>
       </div>
 
@@ -431,44 +450,53 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                   <span className="font-semibold text-slate-700">{goal.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500">{Math.round(((goal.currentAmount || 0) / goal.targetAmount) * 100)}%</span>
-                    <AnimatePresence mode="wait">
-                      {goalToDelete === goal.id ? (
-                        <motion.div 
-                          key="confirm"
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          className="flex items-center gap-1 bg-red-50 rounded-lg p-1 border border-red-100"
-                        >
-                          <button 
-                            type="button"
-                            onClick={() => handleDeleteGoal(goal.id!)}
-                            className="text-[10px] font-bold text-red-600 px-2 py-1 hover:bg-red-100 rounded-md transition-colors"
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => recalculateGoal?.(goal.id!)}
+                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                        title="Recalcular presupuesto"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                      <AnimatePresence mode="wait">
+                        {goalToDelete === goal.id ? (
+                          <motion.div 
+                            key="confirm"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="flex items-center gap-1 bg-red-50 rounded-lg p-1 border border-red-100"
                           >
-                            Eliminar
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => setGoalToDelete(null)}
-                            className="text-[10px] font-bold text-slate-400 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors"
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteGoal(goal.id!)}
+                              className="text-[10px] font-bold text-red-600 px-2 py-1 hover:bg-red-100 rounded-md transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => setGoalToDelete(null)}
+                              className="text-[10px] font-bold text-slate-400 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors"
+                            >
+                              No
+                            </button>
+                          </motion.div>
+                        ) : (
+                          <motion.button 
+                            key="delete-btn"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setGoalToDelete(goal.id!)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Eliminar presupuesto"
                           >
-                            No
-                          </button>
-                        </motion.div>
-                      ) : (
-                        <motion.button 
-                          key="delete-btn"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          onClick={() => setGoalToDelete(goal.id!)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                          title="Eliminar presupuesto"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
+                            <Trash2 className="w-4 h-4" />
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">

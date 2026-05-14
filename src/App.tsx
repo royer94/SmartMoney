@@ -9,6 +9,8 @@ import { Guide } from './components/Guide';
 import { PWAPrompt } from './components/PWAPrompt';
 import { AdminPanel } from './components/AdminPanel';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
+import { HelpModal } from './components/HelpModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { Logo } from './components/Logo';
 import { 
   Plus, 
@@ -27,7 +29,8 @@ import {
   Target,
   Sun,
   Moon,
-  Shield
+  Shield,
+  HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -38,9 +41,11 @@ import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
 export default function App() {
-  const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring } = useFinance();
+  const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
+  const [showHelp, setShowHelp] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
   
   // Handle ePayco Response
   useEffect(() => {
@@ -158,6 +163,16 @@ export default function App() {
           <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
           <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
           <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
+          
+          <div className="pt-4 mt-4 border-t border-slate-100">
+            <button 
+              onClick={() => setShowHelp(true)}
+              className="w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold"
+            >
+              <HelpCircle className="w-5 h-5" />
+              Guía y Ayuda
+            </button>
+          </div>
         </nav>
 
         <div className="mt-auto pt-6 border-t border-slate-100">
@@ -179,6 +194,13 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <button 
+              onClick={() => setShowHelp(true)}
+              className="p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50"
+              aria-label="Help"
+            >
+              <HelpCircle className="w-6 h-6" />
+            </button>
+            <button 
               onClick={() => auth.signOut()} 
               className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
               aria-label="Sign out"
@@ -199,10 +221,22 @@ export default function App() {
                 addGoal={addGoal} 
                 removeGoal={removeGoal} 
                 toggleRecurring={toggleRecurring}
+                recalculateGoal={recalculateGoal}
+                onUpgrade={() => setShowSubscription(true)}
               />
             )}
             {activeTab === 'list' && <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />}
-            {activeTab === 'chat' && <CommandBar key="chat" user={user} addTransaction={addTransaction} transactions={transactions} addGoal={addGoal} autoStartRecording={recordingRequested} />}
+            {activeTab === 'chat' && (
+              <CommandBar 
+                key="chat" 
+                user={user} 
+                addTransaction={addTransaction} 
+                transactions={transactions} 
+                addGoal={addGoal} 
+                autoStartRecording={recordingRequested} 
+                onUpgrade={() => setShowSubscription(true)}
+              />
+            )}
             {activeTab === 'settings' && (
               <motion.div 
                 key="settings"
@@ -294,6 +328,13 @@ export default function App() {
       </nav>
 
       <AnimatePresence>
+        {showSubscription && (
+          <SubscriptionModal 
+            onClose={() => setShowSubscription(false)} 
+            onUpgrade={activatePro} 
+          />
+        )}
+        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
         {showGuide && <Guide onClose={() => setShowGuide(false)} />}
         {showAdminPanel && user.isAdmin && (
           <AdminPanel 

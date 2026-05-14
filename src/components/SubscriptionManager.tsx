@@ -4,7 +4,7 @@ import { Transaction, UserProfile } from '../types';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
 
-export function SubscriptionManager({ user, transactions, toggleRecurring }: { user: UserProfile, transactions: Transaction[], toggleRecurring: any }) {
+export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade }: { user: UserProfile, transactions: Transaction[], toggleRecurring: any, onUpgrade?: () => void }) {
   const recurringItems = transactions.filter(t => t.isRecurring);
   
   // Advanced Detection Logic (Forgotten Subscriptions)
@@ -46,7 +46,10 @@ export function SubscriptionManager({ user, transactions, toggleRecurring }: { u
         <p className="text-slate-500 text-xs mb-6 max-w-[240px]">
           Detectamos automáticamente tus pagos recurrentes (Netflix, Spotify, Gym) para que nunca pierdas el control.
         </p>
-        <button className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:shadow-lg shadow-indigo-200 transition-all">
+        <button 
+          onClick={onUpgrade}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:shadow-lg shadow-indigo-200 transition-all"
+        >
           Activar Monitor Pro
         </button>
       </div>
