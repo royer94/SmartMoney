@@ -53,6 +53,24 @@ Responde ÚNICAMENTE con un JSON con esta estructura exacta: {"type":"expense","
   return JSON.parse(text);
 };
 
+export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.webm');
+  formData.append('model', 'whisper-large-v3');
+  formData.append('language', 'es');
+
+  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+    },
+    body: formData
+  });
+
+  const data = await response.json();
+  return data.text || '';
+};
+
 export const generateVoiceReport = async (transactions: any[], timeframe: string) => {
   const summary = transactions
     .map(t => `${t.type === 'expense' ? 'Gasto' : 'Ingreso'}: ${t.description} por $${t.amount}`)
