@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/**/*.mjs": {
-      "runtime": "@vercel/node"
-    }
-  },
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
