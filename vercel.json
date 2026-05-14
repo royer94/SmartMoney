@@ -1,8 +1,12 @@
 {
+  "functions": {
+    "api/**/*.mjs": {
+      "runtime": "@vercel/node"
+    }
+  },
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
