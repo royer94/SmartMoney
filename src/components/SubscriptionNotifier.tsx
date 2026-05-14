@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Sparkles, AlertCircle, X, ShieldCheck } from 'lucide-react';
+import { Bell, AlertCircle, X, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 
@@ -69,7 +69,7 @@ export function SubscriptionNotifier({ user }: SubscriptionNotifierProps) {
             "p-2 rounded-xl transition-colors shrink-0",
             alert.type === 'warning' ? "bg-amber-200 text-amber-600" : "bg-indigo-200 text-indigo-600"
           )}>
-            {alert.type === 'warning' ? <AlertCircle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+            {alert.type === 'warning' ? <AlertCircle className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
           </div>
           
           <div className="flex-1 space-y-1">

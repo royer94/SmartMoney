@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, TrendingUp, Calendar, Info, Calculator, Sparkles, HelpCircle, Heart, User, Zap, Flame, CheckCircle2 } from 'lucide-react';
+import { Target, TrendingUp, Calendar, Info, Calculator, HelpCircle, Heart, User, Zap, Flame, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
 import { UserProfile } from '../types';

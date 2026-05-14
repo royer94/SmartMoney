@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Logo } from './Logo';
-import { ArrowRight, ShieldCheck, CreditCard, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldCheck, CreditCard, Zap } from 'lucide-react';
 import { UserProfile, FREE_LIMIT } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -72,7 +72,7 @@ export function ProBanner({ user }: { user: UserProfile }) {
           onClick={() => setShowPlans(true)}
           className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
         >
-          Desbloquear Pro <Sparkles className="w-4 h-4 text-emerald-400" />
+          Desbloquear Pro <Zap className="w-4 h-4 text-emerald-400" />
         </button>
       ) : (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">

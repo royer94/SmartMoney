@@ -449,7 +449,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               placeholder={isRecording ? "Grabando..." : "Escribe algo o usa /comandos..."}
               className="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 transition-colors placeholder:text-slate-400"
             />
-            <CommandIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           </div>
           <button 
             onClick={() => processInput(input)}

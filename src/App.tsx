@@ -17,7 +17,6 @@ import {
   Home, 
   BarChart3, 
   List, 
-  Sparkles,
   Search,
   MessageSquare,
   Mic,

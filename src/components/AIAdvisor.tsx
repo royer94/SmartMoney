@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Lock, ChevronDown, ChevronUp, BrainCircuit } from 'lucide-react';
+import { RefreshCw, Lock, ChevronDown, ChevronUp, BrainCircuit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getFinancialInsights } from '../lib/gemini';
 import { UserProfile, Transaction, Goal } from '../types';
@@ -33,7 +33,7 @@ export function AIAdvisor({ user, transactions, goals }: { user: UserProfile, tr
     return (
       <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform">
-          <Sparkles className="w-24 h-24" />
+          <BrainCircuit className="w-24 h-24" />
         </div>
         <div className="relative z-10 space-y-4">
           <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-widest text-xs">
