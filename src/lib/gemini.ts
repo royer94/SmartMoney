@@ -15,17 +15,18 @@ export const parseTransaction = async (input: string | { mimeType: string, data:
   try {
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: [{
-        role: "user",
-        parts: (typeof input !== 'string') ? [
+      contents: (typeof input !== 'string') ? {
+        parts: [
           { text: prompt },
           { inlineData: input }
-        ] : [{
+        ]
+      } : {
+        parts: [{
           text: `Identify the transaction type (expense or income), amount, category (from the list), and description from this text: "${input}". 
           Categories: ${CATEGORIES.join(', ')}.
           Return as JSON.`
         }]
-      }],
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -56,13 +57,12 @@ export const generateVoiceReport = async (transactions: any[], timeframe: string
   
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: [{
-      role: 'user',
+    contents: {
       parts: [{
         text: `Genera un reporte corto y natural en español sobre estos movimientos financieros de la ${timeframe}: ${summary}. 
         Menciona el total de gastos e ingresos y da un breve consejo financiero.`
       }]
-    }],
+    },
   });
 
   return response.text;
@@ -74,8 +74,7 @@ export const getFinancialInsights = async (transactions: any[], goals: any[]) =>
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: [{
-      role: 'user',
+    contents: {
       parts: [{
         text: `Actúa como un experto asesor financiero certificado. 
         Analiza estos movimientos recientes del usuario:\n${summary}\n\nPresupuestos actuales:\n${goalsSummary}\n
@@ -87,7 +86,7 @@ export const getFinancialInsights = async (transactions: any[], goals: any[]) =>
         
         Usa un tono profesional, motivador y directo. Formato: Markdown.`
       }]
-    }],
+    },
   });
 
   return response.text;

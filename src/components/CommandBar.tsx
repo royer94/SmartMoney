@@ -240,7 +240,15 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         } 
       });
       streamRef.current = stream;
-      mediaRecorder.current = new MediaRecorder(stream);
+
+      // Determine supported mime type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : MediaRecorder.isTypeSupported('audio/mp4') 
+          ? 'audio/mp4' 
+          : 'audio/aac';
+
+      mediaRecorder.current = new MediaRecorder(stream, { mimeType });
       audioChunks.current = [];
 
       mediaRecorder.current.ondataavailable = (e) => {
@@ -248,7 +256,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       };
 
       mediaRecorder.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunks.current, { type: mimeType });
         if (audioBlob.size === 0) {
           setIsLoading(false);
           return;
@@ -261,10 +269,11 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Registro de voz enviado');
           setIsLoading(true);
           try {
-            const result = await parseTransaction({ mimeType: 'audio/webm', data: base64Audio });
+            const result = await parseTransaction({ mimeType, data: base64Audio });
             addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}.`, result);
           } catch (error) {
-            addMessage('ai', "No pude procesar el audio correctamente.");
+            console.error("Gemini Error:", error);
+            addMessage('ai', "No pude procesar el audio correctamente. Intenta escribiéndolo.");
           } finally {
             setIsLoading(false);
           }
