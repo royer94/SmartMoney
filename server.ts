@@ -22,12 +22,24 @@ const CATEGORIES = [
   'Intercambios', 'Premios', 'Pensión', 'Comisiones', 'Donaciones', 'Varios'
 ];
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+let googleAI: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!googleAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY environment variable is required. Please set it in your environment (e.g., Firebase Secrets or Vercel Environment Variables).');
+    }
+    googleAI = new GoogleGenAI({ apiKey });
+  }
+  return googleAI;
+}
 
 // API Routes
 app.post("/api/gemini/parse", async (req, res) => {
   try {
     const { input } = req.body;
+    const ai = getAI();
     const isAudio = typeof input !== 'string';
     const prompt = `Identify the transaction type (expense or income), amount (as a number), category (from the list), and description from this input.
     Categories: ${CATEGORIES.join(', ')}.
@@ -54,7 +66,7 @@ app.post("/api/gemini/parse", async (req, res) => {
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents,
+      contents: contents,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -73,13 +85,20 @@ app.post("/api/gemini/parse", async (req, res) => {
     res.json(JSON.parse(response.text || '{}'));
   } catch (error: any) {
     console.error("Gemini Parse Error:", error);
-    res.status(500).json({ error: error.message });
+    if (error.message?.includes("429")) {
+      return res.status(429).json({ error: "Cuota agotada. Por favor, intenta de nuevo en un minuto." });
+    }
+    if (error.message?.includes("GEMINI_API_KEY")) {
+      return res.status(500).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || "Error interno del servidor" });
   }
 });
 
 app.post("/api/gemini/report", async (req, res) => {
   try {
     const { timeframe, summary } = req.body;
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
@@ -90,11 +109,12 @@ app.post("/api/gemini/report", async (req, res) => {
             Menciona el total de gastos e ingresos y da un breve consejo financiero.`
           }]
         }
-      ],
+      ]
     });
 
     res.json({ text: response.text });
   } catch (error: any) {
+    console.error("Gemini Report Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -102,6 +122,7 @@ app.post("/api/gemini/report", async (req, res) => {
 app.post("/api/gemini/insights", async (req, res) => {
   try {
     const { summary, goalsSummary } = req.body;
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
@@ -119,11 +140,12 @@ app.post("/api/gemini/insights", async (req, res) => {
             Usa un tono profesional, motivador y directo. Formato: Markdown.`
           }]
         }
-      ],
+      ]
     });
 
     res.json({ text: response.text });
   } catch (error: any) {
+    console.error("Gemini Insights Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
