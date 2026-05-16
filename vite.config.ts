@@ -8,17 +8,17 @@ import { VitePWA } from 'vite-plugin-pwa';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [
-      react(), 
+      react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: ['favicon.ico', 'SM_icon.png'],
         workbox: {
-          maximumFileSizeToCacheInBytes: 5000000 // 5MB
+          maximumFileSizeToCacheInBytes: 5000000
         },
         manifest: {
           name: 'SmartMone¥ AI',
@@ -29,19 +29,22 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           start_url: '/',
           icons: [
-  {
-    src: 'SM_icon.png',
-    sizes: '1024x1024',
-    type: 'image/png',
-    purpose: 'any'
-  },
-  {
-    src: 'SM_icon.png',
-    sizes: '1024x1024',
-    type: 'image/png',
-    purpose: 'maskable'
-  }
-],
+            {
+              src: 'SM_icon.png',
+              sizes: '1024x1024',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: 'SM_icon.png',
+              sizes: '1024x1024',
+              type: 'image/png',
+              purpose: 'maskable'
+            }
+          ]
+        }
+      })
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
