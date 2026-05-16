@@ -29,22 +29,19 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           start_url: '/',
           icons: [
-            {
-              src: 'logo.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'any'
-            },
-            {
-              src: 'logo.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'maskable'
-            }
-          ]
-        }
-      })
-    ],
+  {
+    src: 'SM_icon.png',
+    sizes: '1024x1024',
+    type: 'image/png',
+    purpose: 'any'
+  },
+  {
+    src: 'SM_icon.png',
+    sizes: '1024x1024',
+    type: 'image/png',
+    purpose: 'maskable'
+  }
+],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
