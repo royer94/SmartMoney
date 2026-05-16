@@ -42,34 +42,32 @@ import { useSearchParams } from 'react-router-dom';
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
-  // Vincular usuario activo con OneSignal
-useEffect(() => {
-  if (user?.uid) {
-    try {
-      if ((window as any).OneSignalDeferred) {
-        (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
-          await OneSignal.login(user.uid);
-          console.log('[OneSignal] Usuario vinculado:', user.uid);
-        });
-      }
-    } catch (error) {
-      console.error('[OneSignal] Error:', error);
-    }
-  }
-}, [user?.uid]);
-          console.log('[OneSignal] Usuario vinculado con tags:', user.uid);
-        });
-      }
-    } catch (error) {
-      console.error('[OneSignal] Error:', error);
-    }
-  }
-}, [user?.uid]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
   const [showHelp, setShowHelp] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
-  
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [recordingRequested, setRecordingRequested] = useState(false);
+  const longPressTimer = useRef<any>(null);
+
+  // Vincular usuario activo con OneSignal
+  useEffect(() => {
+    if (user?.uid) {
+      try {
+        if ((window as any).OneSignalDeferred) {
+          (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
+            await OneSignal.login(user.uid);
+            console.log('[OneSignal] Usuario vinculado:', user.uid);
+          });
+        }
+      } catch (error) {
+        console.error('[OneSignal] Error:', error);
+      }
+    }
+  }, [user?.uid]);
+
   // Handle ePayco Response
   useEffect(() => {
     const refPayco = searchParams.get('ref_payco');
@@ -81,18 +79,19 @@ useEffect(() => {
           await activatePro(data.x_extra1, months);
           alert(`¡Pago exitoso! Tu plan Pro por ${months} ${months === 1 ? 'mes' : 'meses'} ha sido activado.`);
         }
-        // Clean URL
         searchParams.delete('ref_payco');
         setSearchParams(searchParams);
       };
       verify();
     }
   }, [user, searchParams]);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [recordingRequested, setRecordingRequested] = useState(false);
-  const longPressTimer = useRef<any>(null);
+
+  useEffect(() => {
+    if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown')) {
+      setShowGuide(true);
+      localStorage.setItem('guide_shown', 'true');
+    }
+  }, [user]);
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
@@ -102,13 +101,6 @@ useEffect(() => {
   const handleCentralButtonClick = () => {
     handleTabChange('chat');
   };
-
-  useEffect(() => {
-    if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown')) {
-      setShowGuide(true);
-      localStorage.setItem('guide_shown', 'true');
-    }
-  }, [user]);
 
   const handleLogin = async () => {
     console.log("handleLogin triggered");
@@ -324,8 +316,6 @@ useEffect(() => {
           <button 
             onClick={handleCentralButtonClick}
             onPointerDown={() => {
-              // Optional: still keep the long press for voice if desired, 
-              // but don't let it interfere with the click
               longPressTimer.current = setTimeout(() => {
                 setRecordingRequested(true);
                 setActiveTab('chat');
@@ -403,4 +393,3 @@ function MobileNavItem({ active, icon: Icon, onClick }: any) {
     </button>
   );
 }
-
