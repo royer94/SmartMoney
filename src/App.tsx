@@ -42,6 +42,21 @@ import { useSearchParams } from 'react-router-dom';
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
+  // Vincular usuario activo con OneSignal
+useEffect(() => {
+  if (user?.uid) {
+    try {
+      if ((window as any).OneSignalDeferred) {
+        (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
+          await OneSignal.login(user.uid);
+          console.log('[OneSignal] Usuario vinculado:', user.uid);
+        });
+      }
+    } catch (error) {
+      console.error('[OneSignal] Error:', error);
+    }
+  }
+}, [user?.uid]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
   const [showHelp, setShowHelp] = useState(false);
