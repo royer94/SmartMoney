@@ -1,35 +1,30 @@
-VitePWA({
-  registerType: 'autoUpdate',
-  includeAssets: ['favicon.ico', 'SM_icon.png'],
-  injectRegister: null, // No registrar SW automáticamente
-  workbox: {
-    maximumFileSizeToCacheInBytes: 5000000,
-    navigateFallbackDenylist: [
-      /OneSignalSDKWorker\.js/,
-      /OneSignalSDK/,
-    ],
-  },
-  manifest: {
-    name: 'SmartMone¥ AI',
-    short_name: 'SmartMone¥',
-    description: 'Gestión inteligente de finanzas personales impulsada por IA',
-    theme_color: '#2563eb',
-    background_color: '#ffffff',
-    display: 'standalone',
-    start_url: '/',
-    icons: [
-      {
-        src: 'SM_icon.png',
-        sizes: '1024x1024',
-        type: 'image/png',
-        purpose: 'any'
-      },
-      {
-        src: 'SM_icon.png',
-        sizes: '1024x1024',
-        type: 'image/png',
-        purpose: 'maskable'
-      }
-    ]
-  }
-})
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>$martMone¥ AI</title>
+    <meta name="description" content="Gestión inteligente de finanzas personales impulsada por IA. Proyecta tu libertad financiera hoy." />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="SmartMone¥" />
+    <link rel="icon" type="image/png" href="/SM_icon.png" />
+    <link rel="apple-touch-icon" href="/SM_icon.png" />
+    <script type="text/javascript" src="https://checkout.epayco.co/checkout.js"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "17df480f-051d-4435-ae54-903ef143d099",
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
