@@ -18,7 +18,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'SM_icon.png'],
         workbox: {
-          maximumFileSizeToCacheInBytes: 5000000
+          maximumFileSizeToCacheInBytes: 5000000,
+          navigateFallbackDenylist: [
+            /OneSignalSDKWorker\.js/,
+            /OneSignalSDK/,
+          ],
         },
         manifest: {
           name: 'SmartMone¥ AI',
