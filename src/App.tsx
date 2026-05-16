@@ -49,12 +49,14 @@ useEffect(() => {
       if ((window as any).OneSignalDeferred) {
         (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
           await OneSignal.login(user.uid);
-          // Agregar email y plan como tags
-          await OneSignal.User.addTags({
-            email: user.email,
-            plan: user.isPro ? 'pro' : 'free',
-            uid: user.uid
-          });
+          console.log('[OneSignal] Usuario vinculado:', user.uid);
+        });
+      }
+    } catch (error) {
+      console.error('[OneSignal] Error:', error);
+    }
+  }
+}, [user?.uid]);
           console.log('[OneSignal] Usuario vinculado con tags:', user.uid);
         });
       }
