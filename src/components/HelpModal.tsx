@@ -76,7 +76,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
               <HelpItem 
                 icon={MessageSquare} 
                 title="AI Control (Chat)"
-                description="Usa comandos naturales como '/gasto 50 cena' o simplemente habla para registrar movimientos rápido."
+                description="Escribe o habla naturalmente para registrar movimientos. Prueba con 'Gasté 50 mil en cena' o usa el micrófono."
               />
               <HelpItem 
                 icon={FileText} 
