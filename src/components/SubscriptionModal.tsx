@@ -11,35 +11,65 @@ import {
   Crown,
   Sparkles,
   Target,
-  BarChart3
+  BarChart3,
+  Globe,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { openEpaycoCheckout } from '../services/paymentService';
+import { auth } from '../lib/firebase';
 
 interface SubscriptionModalProps {
   onClose: () => void;
   onUpgrade: (months: number) => void;
 }
 
+const HOTMART_URL = 'https://pay.hotmart.com/O105879229W';
+
+const PLANS_COP = [
+  { months: 1,  amount: 16900,  label: '1 Mes',   desc: 'Acceso mensual' },
+  { months: 3,  amount: 40900,  label: '3 Meses',  desc: 'Plan Trimestral', badge: 'Popular' },
+  { months: 6,  amount: 74900,  label: '6 Meses',  desc: 'Plan Semestral' },
+  { months: 12, amount: 139900, label: '1 Año',    desc: 'Mejor Valor', badge: 'Recomendado' },
+];
+
+const PLANS_USD = [
+  { months: 1,  amount: 4.99,  label: '1 Mes',   desc: 'Acceso mensual' },
+  { months: 3,  amount: 11.99, label: '3 Meses',  desc: 'Plan Trimestral', badge: 'Popular' },
+  { months: 6,  amount: 21.99, label: '6 Meses',  desc: 'Plan Semestral' },
+  { months: 12, amount: 39.99, label: '1 Año',    desc: 'Mejor Valor', badge: 'Recomendado' },
+];
+
 export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedPlanIndex, setSelectedPlanIndex] = useState(3); // Default to Anual (12 months)
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'epayco' | 'hotmart'>('epayco');
 
-  const PLANS = [
-    { months: 1, amount: 16900, label: '1 Mes', desc: 'Acceso mensual' },
-    { months: 3, amount: 40900, label: '3 Meses', desc: 'Plan Trimestral', badge: 'Popular' },
-    { months: 6, amount: 74900, label: '6 Meses', desc: 'Plan Semestral' },
-    { months: 12, amount: 139900, label: '1 Año', desc: 'Mejor Valor', badge: 'Recomendado' },
-  ];
+  const plans = paymentMethod === 'epayco' ? PLANS_COP : PLANS_USD;
+  const selectedPlan = plans[selectedPlanIndex];
+  const user = auth.currentUser;
 
-  const selectedPlan = PLANS[selectedPlanIndex];
-
-  const handleUpgrade = async () => {
+  const handleEpayco = () => {
+    if (!user) return;
     setIsProcessing(true);
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    onUpgrade(selectedPlan.months);
-    setIsProcessing(false);
-    onClose();
+    try {
+      openEpaycoCheckout({
+        amount: selectedPlan.amount,
+        name: `SmartMone¥ Pro — ${selectedPlan.label}`,
+        description: `Plan Pro SmartMone¥ AI por ${selectedPlan.label}`,
+        userId: user.uid,
+        months: selectedPlan.months,
+        email: user.email || '',
+      });
+    } catch (error) {
+      console.error('Error abriendo ePayco:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleHotmart = () => {
+    window.open(HOTMART_URL, '_blank');
   };
 
   return (
@@ -91,7 +121,7 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
             </p>
             <div className="flex items-center gap-3 mt-4">
               <div className="w-8 h-8 bg-indigo-400 rounded-full shadow-lg" />
-              <span className="text-xs font-bold">Fernando G. - Usuario Pro</span>
+              <span className="text-xs font-bold">Fernando G. — Usuario Pro</span>
             </div>
           </div>
         </div>
@@ -105,13 +135,44 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
             <X className="w-6 h-6" />
           </button>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Elige tu plan</h3>
-            <p className="text-slate-500 text-sm">Precios en Pesos Colombianos (COP).</p>
+            <p className="text-slate-500 text-sm">Selecciona tu método de pago preferido.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {PLANS.map((plan, index) => (
+          {/* Payment Method Toggle */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => { setPaymentMethod('epayco'); setSelectedPlanIndex(0); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 font-bold text-sm transition-all",
+                paymentMethod === 'epayco'
+                  ? "border-indigo-600 bg-indigo-50 text-indigo-600"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+              )}
+            >
+              <CreditCard className="w-4 h-4" />
+              ePayco
+              <span className="text-[10px] font-normal opacity-70">(COP)</span>
+            </button>
+            <button
+              onClick={() => { setPaymentMethod('hotmart'); setSelectedPlanIndex(0); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 font-bold text-sm transition-all",
+                paymentMethod === 'hotmart'
+                  ? "border-indigo-600 bg-indigo-50 text-indigo-600"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+              )}
+            >
+              <Globe className="w-4 h-4" />
+              Hotmart
+              <span className="text-[10px] font-normal opacity-70">(USD)</span>
+            </button>
+          </div>
+
+          {/* Plans Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {plans.map((plan, index) => (
               <button
                 key={plan.label}
                 onClick={() => setSelectedPlanIndex(index)}
@@ -133,38 +194,57 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
                 </div>
                 <div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-slate-900">${plan.amount.toLocaleString()}</span>
-                    <span className="text-xs font-bold text-slate-400">COP</span>
+                    <span className="text-2xl font-black text-slate-900">
+                      {paymentMethod === 'epayco' 
+                        ? `$${(plan.amount as number).toLocaleString()}` 
+                        : `$${plan.amount}`}
+                    </span>
+                    <span className="text-xs font-bold text-slate-400">
+                      {paymentMethod === 'epayco' ? 'COP' : 'USD'}
+                    </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                    Pago único
-                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Pago único</p>
                 </div>
               </button>
             ))}
           </div>
 
+          {/* Payment info */}
+          <div className="mb-4 p-4 rounded-2xl bg-white border border-slate-100 text-xs text-slate-500">
+            {paymentMethod === 'epayco' ? (
+              <p>💳 <strong>ePayco:</strong> Acepta tarjetas de crédito/débito, PSE y Efecty. El Pro se activa automáticamente después del pago.</p>
+            ) : (
+              <p>🌎 <strong>Hotmart:</strong> Acepta tarjetas internacionales, PayPal y Google Pay. Serás redirigido a Hotmart para completar el pago. El Pro se activa automáticamente.</p>
+            )}
+          </div>
+
+          {/* CTA Button */}
           <div className="mt-auto space-y-4">
             <button 
-              onClick={handleUpgrade}
+              onClick={paymentMethod === 'epayco' ? handleEpayco : handleHotmart}
               disabled={isProcessing}
               className={cn(
                 "w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-indigo-200",
-                isProcessing ? "opacity-70 cursor-not-allowed" : "hover:bg-indigo-700 active:shadow-indigo-100"
+                isProcessing ? "opacity-70 cursor-not-allowed" : "hover:bg-indigo-700"
               )}
             >
               {isProcessing ? (
                 <RefreshCw className="w-6 h-6 animate-spin" />
+              ) : paymentMethod === 'epayco' ? (
+                <>
+                  Pagar con ePayco — {selectedPlan.label}
+                  <ArrowRight className="w-5 h-5" />
+                </>
               ) : (
                 <>
-                  Pagar Plan de {selectedPlan.label}
+                  Comprar en Hotmart — {selectedPlan.label}
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
             
             <p className="text-[10px] text-center text-slate-400 px-8 leading-relaxed">
-              Pagos procesados de forma segura. Al suscribirte aceptas nuestros términos. La activación pro permite registros y presupuestos ilimitados, así como todas las funciones de IA.
+              Pagos procesados de forma segura. Al suscribirte aceptas nuestros términos. La activación Pro permite registros y presupuestos ilimitados, así como todas las funciones de IA.
             </p>
           </div>
         </div>
@@ -181,39 +261,5 @@ function BenefitItem({ icon: Icon, text }: { icon: any, text: string }) {
       </div>
       <span className="text-sm font-medium opacity-90">{text}</span>
     </div>
-  );
-}
-
-function PlanFeature({ text, highlighted }: { text: string, highlighted?: boolean }) {
-  return (
-    <li className={cn(
-      "flex items-center gap-2 text-xs",
-      highlighted ? "text-indigo-600 font-bold" : "text-slate-600"
-    )}>
-      <Check className={cn("w-4 h-4", highlighted ? "text-indigo-600" : "text-emerald-500")} />
-      {text}
-    </li>
-  );
-}
-
-function RefreshCw(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
   );
 }
