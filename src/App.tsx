@@ -89,22 +89,21 @@ export default function App() {
   };
 
   if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 transition-colors">
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="flex flex-col items-center gap-4 text-slate-800"
-        >
-          <Logo size="lg" />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
-  }
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
+      <motion.div 
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ repeat: Infinity, duration: 2 }}
+      >
+        <img 
+          src="/SmartMoney_logo.png" 
+          alt="SmartMone¥ AI"
+          className="w-48 md:w-56 lg:w-64"
+        />
+      </motion.div>
+    </div>
+  );
+}
 
   return (
     <CurrencyProvider userId={user.uid}>
