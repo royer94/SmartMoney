@@ -23,11 +23,11 @@ const STEPS = [
     color: "bg-orange-500"
   },
   {
-    title: "Pásate a Pro",
-    description: "Desbloquea ingresos, metas, y reportes ilimitados por solo $15K mensuales.",
-    icon: ShieldCheck,
-    color: "bg-green-500"
-  }
+  title: "Pásate a Pro",
+  description: "Desbloquea registros ilimitados, metas financieras y reportes detallados con el plan Pro.",
+  icon: ShieldCheck,
+  color: "bg-green-500"
+}
 ];
 
 export function Guide({ onClose }: { onClose: () => void }) {
