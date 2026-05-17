@@ -99,7 +99,7 @@ export default function App() {
           <img 
             src="/SmartMoney_logo.png" 
             alt="SmartMone¥ AI"
-            className="w-48 md:w-56 lg:w-64"
+            className="w-72 md:w-80 lg:w-96 max-w-xs md:max-w-sm"
           />
         </motion.div>
       </div>
