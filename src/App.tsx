@@ -12,6 +12,7 @@ import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { HelpModal } from './components/HelpModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { Logo } from './components/Logo';
+import { LandingPage } from './components/LandingPage';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { 
@@ -19,26 +20,15 @@ import {
   Settings, 
   LogOut, 
   Home, 
-  BarChart3, 
   List, 
-  Search,
   MessageSquare,
-  Mic,
   DollarSign,
-  MessageCircle,
-  Lightbulb,
-  X,
-  Target,
-  Sun,
-  Moon,
   Shield,
   HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { FINANCE_TIPS } from './lib/tips';
 import { FREE_LIMIT } from './types';
-
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
@@ -54,7 +44,6 @@ export default function App() {
   const [recordingRequested, setRecordingRequested] = useState(false);
   const longPressTimer = useRef<any>(null);
 
-  // Handle ePayco Response
   useEffect(() => {
     const refPayco = searchParams.get('ref_payco');
     if (refPayco && user) {
@@ -89,7 +78,6 @@ export default function App() {
   };
 
   const handleLogin = async () => {
-    console.log("handleLogin triggered");
     setIsLoggingIn(true);
     try {
       await signInWithGoogle();
@@ -115,40 +103,7 @@ export default function App() {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-6 overflow-hidden relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_70%)] animate-pulse" />
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full glass p-10 rounded-[2rem] text-center z-10 border-slate-700/50"
-        >
-          <div className="inline-flex mb-6">
-            <Logo size="lg" />
-          </div>
-          <p className="text-slate-400 mb-10 leading-relaxed text-lg">
-            Control integral de tus finanzas con el poder de la Inteligencia Artificial.
-          </p>
-          <button 
-            type="button"
-            onClick={(e) => {
-              console.log("Button clicked!");
-              handleLogin();
-            }}
-            disabled={isLoggingIn}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95"
-            style={{ cursor: 'pointer', zIndex: 9999, position: 'relative' }}
-          >
-            {isLoggingIn ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 bg-white rounded-full p-0.5" alt="G" />
-            )}
-            {isLoggingIn ? "Cargando..." : "Ingresar con Google"}
-          </button>
-        </motion.div>
-      </div>
-    );
+    return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
   return (
@@ -159,13 +114,11 @@ export default function App() {
           <div className="flex items-center justify-between mb-10">
             <Logo size="md" />
           </div>
-          
           <nav className="flex-1 space-y-2">
             <NavItem active={activeTab === 'dash'} icon={Home} label="Dashboard" onClick={() => handleTabChange('dash')} />
             <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
             <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
             <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
-            
             <div className="pt-4 mt-4 border-t border-slate-100">
               <button 
                 onClick={() => setShowHelp(true)}
@@ -176,7 +129,6 @@ export default function App() {
               </button>
             </div>
           </nav>
-
           <div className="mt-auto pt-6 border-t border-slate-100">
             <button 
               onClick={() => auth.signOut()}
@@ -227,7 +179,14 @@ export default function App() {
                   onUpgrade={() => setShowSubscription(true)}
                 />
               )}
-              {activeTab === 'list' && <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />}
+              {activeTab === 'list' && (
+                <TransactionList 
+                  key="list" 
+                  transactions={transactions} 
+                  onDelete={removeTransaction} 
+                  onToggleRecurring={toggleRecurring} 
+                />
+              )}
               {activeTab === 'chat' && (
                 <CommandBar 
                   key="chat" 
@@ -255,7 +214,6 @@ export default function App() {
                       {user.isPro ? "Plan Pro" : "Plan Free"}
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 transition-colors">
                       <div>
@@ -263,12 +221,10 @@ export default function App() {
                         <p className="font-semibold">{user.email}</p>
                       </div>
                     </div>
-
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
                       <CurrencySelector userId={user.uid} />
                     </div>
-                    
                     {user.isAdmin && (
                       <button 
                         onClick={() => setShowAdminPanel(true)}
@@ -281,10 +237,8 @@ export default function App() {
                         <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                       </button>
                     )}
-                    
                     <ProBanner user={user} />
                   </div>
-
                   <div className="pt-6">
                     <button 
                       onClick={() => auth.signOut()}
