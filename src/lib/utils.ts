@@ -24,7 +24,14 @@ export function formatCurrency(amount: number, currencyCode?: string) {
 export function formatDate(date: any) {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);
-  
-  // Usar el locale de la moneda seleccionada
+
   const code = localStorage.getItem('currency') || DEFAULT_CURRENCY;
-  const currency = CURRE
+  const currency = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+
+  return new Intl.DateTimeFormat(currency.locale, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(d);
+}
