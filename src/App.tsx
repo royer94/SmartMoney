@@ -12,6 +12,8 @@ import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { HelpModal } from './components/HelpModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { Logo } from './components/Logo';
+import { CurrencyProvider } from './context/CurrencyContext';
+import { CurrencySelector } from './components/CurrencySelector';
 import { 
   Plus, 
   Settings, 
@@ -51,22 +53,6 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
   const longPressTimer = useRef<any>(null);
-
- // // Vincular usuario activo con OneSignal
-  // useEffect(() => {
-  //   if (user?.uid) {
-  //     try {
-  //       if ((window as any).OneSignalDeferred) {
-  //         (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
-  //           await OneSignal.login(user.uid);
-  //           console.log('[OneSignal] Usuario vinculado:', user.uid);
-  //         });
-  //       }
-  //     } catch (error) {
-  //       console.error('[OneSignal] Error:', error);
-  //     }
-  //   }
-  // }, [user?.uid]);
 
   // Handle ePayco Response
   useEffect(() => {
@@ -166,202 +152,209 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 glass border-r border-slate-200 p-6 z-20">
-        <div className="flex items-center justify-between mb-10">
-          <Logo size="md" />
-        </div>
-        
-        <nav className="flex-1 space-y-2">
-          <NavItem active={activeTab === 'dash'} icon={Home} label="Dashboard" onClick={() => handleTabChange('dash')} />
-          <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
-          <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
-          <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
+    <CurrencyProvider userId={user.uid}>
+      <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
+        {/* Desktop Sidebar */}
+        <aside className="hidden md:flex flex-col w-64 glass border-r border-slate-200 p-6 z-20">
+          <div className="flex items-center justify-between mb-10">
+            <Logo size="md" />
+          </div>
           
-          <div className="pt-4 mt-4 border-t border-slate-100">
-            <button 
-              onClick={() => setShowHelp(true)}
-              className="w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold"
-            >
-              <HelpCircle className="w-5 h-5" />
-              Guía y Ayuda
-            </button>
-          </div>
-        </nav>
-
-        <div className="mt-auto pt-6 border-t border-slate-100">
-          <button 
-            onClick={() => auth.signOut()}
-            className="mt-6 w-full flex items-center gap-3 p-3 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl font-medium"
-          >
-            <LogOut className="w-5 h-5" />
-            Cerrar Sesión
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative outline-none selection:bg-blue-100">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex items-center justify-between z-50 md:hidden transition-all duration-300">
-          <div className="flex items-center gap-2">
-            <Logo size="sm" />
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowHelp(true)}
-              className="p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50"
-              aria-label="Help"
-            >
-              <HelpCircle className="w-6 h-6" />
-            </button>
-            <button 
-              onClick={() => auth.signOut()} 
-              className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
-              aria-label="Sign out"
-            >
-              <LogOut className="w-6 h-6" />
-            </button>
-          </div>
-        </header>
-
-        <div className="max-w-5xl mx-auto p-4 md:p-10">
-          <AnimatePresence mode="wait">
-            {activeTab === 'dash' && (
-              <Dashboard 
-                key="dash" 
-                user={user} 
-                transactions={transactions} 
-                goals={goals} 
-                addGoal={addGoal} 
-                removeGoal={removeGoal} 
-                toggleRecurring={toggleRecurring}
-                recalculateGoal={recalculateGoal}
-                onUpgrade={() => setShowSubscription(true)}
-              />
-            )}
-            {activeTab === 'list' && <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />}
-            {activeTab === 'chat' && (
-              <CommandBar 
-                key="chat" 
-                user={user} 
-                addTransaction={addTransaction} 
-                transactions={transactions} 
-                addGoal={addGoal} 
-                autoStartRecording={recordingRequested} 
-                onUpgrade={() => setShowSubscription(true)}
-              />
-            )}
-            {activeTab === 'settings' && (
-              <motion.div 
-                key="settings"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass p-10 rounded-[2.5rem] space-y-8"
+          <nav className="flex-1 space-y-2">
+            <NavItem active={activeTab === 'dash'} icon={Home} label="Dashboard" onClick={() => handleTabChange('dash')} />
+            <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
+            <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
+            <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
+            
+            <div className="pt-4 mt-4 border-t border-slate-100">
+              <button 
+                onClick={() => setShowHelp(true)}
+                className="w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold"
               >
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
-                  <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
-                    user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
-                  )}>
-                    {user.isPro ? "Plan Pro" : "Plan Free"}
-                  </div>
-                </div>
+                <HelpCircle className="w-5 h-5" />
+                Guía y Ayuda
+              </button>
+            </div>
+          </nav>
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 transition-colors">
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
-                      <p className="font-semibold">{user.email}</p>
+          <div className="mt-auto pt-6 border-t border-slate-100">
+            <button 
+              onClick={() => auth.signOut()}
+              className="mt-6 w-full flex items-center gap-3 p-3 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl font-medium"
+            >
+              <LogOut className="w-5 h-5" />
+              Cerrar Sesión
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto relative outline-none selection:bg-blue-100">
+          <header className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex items-center justify-between z-50 md:hidden transition-all duration-300">
+            <div className="flex items-center gap-2">
+              <Logo size="sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowHelp(true)}
+                className="p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50"
+                aria-label="Help"
+              >
+                <HelpCircle className="w-6 h-6" />
+              </button>
+              <button 
+                onClick={() => auth.signOut()} 
+                className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-6 h-6" />
+              </button>
+            </div>
+          </header>
+
+          <div className="max-w-5xl mx-auto p-4 md:p-10">
+            <AnimatePresence mode="wait">
+              {activeTab === 'dash' && (
+                <Dashboard 
+                  key="dash" 
+                  user={user} 
+                  transactions={transactions} 
+                  goals={goals} 
+                  addGoal={addGoal} 
+                  removeGoal={removeGoal} 
+                  toggleRecurring={toggleRecurring}
+                  recalculateGoal={recalculateGoal}
+                  onUpgrade={() => setShowSubscription(true)}
+                />
+              )}
+              {activeTab === 'list' && <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />}
+              {activeTab === 'chat' && (
+                <CommandBar 
+                  key="chat" 
+                  user={user} 
+                  addTransaction={addTransaction} 
+                  transactions={transactions} 
+                  addGoal={addGoal} 
+                  autoStartRecording={recordingRequested} 
+                  onUpgrade={() => setShowSubscription(true)}
+                />
+              )}
+              {activeTab === 'settings' && (
+                <motion.div 
+                  key="settings"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass p-10 rounded-[2.5rem] space-y-8"
+                >
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
+                    <div className={cn(
+                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
+                      user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
+                    )}>
+                      {user.isPro ? "Plan Pro" : "Plan Free"}
                     </div>
                   </div>
-                  
-                  {user.isAdmin && (
-                    <button 
-                      onClick={() => setShowAdminPanel(true)}
-                      className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Shield className="w-5 h-5" />
-                        <span className="font-bold">Panel de Administración</span>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 transition-colors">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
+                        <p className="font-semibold">{user.email}</p>
                       </div>
-                      <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
+                      <CurrencySelector userId={user.uid} />
+                    </div>
+                    
+                    {user.isAdmin && (
+                      <button 
+                        onClick={() => setShowAdminPanel(true)}
+                        className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Shield className="w-5 h-5" />
+                          <span className="font-bold">Panel de Administración</span>
+                        </div>
+                        <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+                      </button>
+                    )}
+                    
+                    <ProBanner user={user} />
+                  </div>
+
+                  <div className="pt-6">
+                    <button 
+                      onClick={() => auth.signOut()}
+                      className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Cerrar Sesión Activa
                     </button>
-                  )}
-                  
-                  <ProBanner user={user} />
-                </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </main>
 
-                <div className="pt-6">
-                  <button 
-                    onClick={() => auth.signOut()}
-                    className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    Cerrar Sesión Activa
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </main>
+        {/* Mobile Bottom Nav */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-4 flex justify-around md:hidden z-30 transition-colors">
+          <MobileNavItem active={activeTab === 'dash'} icon={Home} onClick={() => handleTabChange('dash')} />
+          <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
+          <div className="relative -top-8">
+            <button 
+              onClick={handleCentralButtonClick}
+              onPointerDown={() => {
+                longPressTimer.current = setTimeout(() => {
+                  setRecordingRequested(true);
+                  setActiveTab('chat');
+                }, 600);
+              }}
+              onPointerUp={() => {
+                if (longPressTimer.current) {
+                  clearTimeout(longPressTimer.current);
+                  longPressTimer.current = null;
+                }
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              className={cn(
+                "p-5 rounded-full shadow-2xl transition-all active:scale-95 select-none touch-none",
+                activeTab === 'chat' ? "bg-blue-600 text-white scale-110 shadow-blue-500/40" : "bg-white text-slate-900 border border-slate-200"
+              )}
+            >
+              <DollarSign className="w-8 h-8" />
+            </button>
+          </div>
+          <MobileNavItem active={activeTab === 'chat'} icon={MessageSquare} onClick={() => handleTabChange('chat')} />
+          <MobileNavItem active={activeTab === 'settings'} icon={Settings} onClick={() => handleTabChange('settings')} />
+        </nav>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-4 flex justify-around md:hidden z-30 transition-colors">
-        <MobileNavItem active={activeTab === 'dash'} icon={Home} onClick={() => handleTabChange('dash')} />
-        <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
-        <div className="relative -top-8">
-          <button 
-            onClick={handleCentralButtonClick}
-            onPointerDown={() => {
-              longPressTimer.current = setTimeout(() => {
-                setRecordingRequested(true);
-                setActiveTab('chat');
-              }, 600);
-            }}
-            onPointerUp={() => {
-              if (longPressTimer.current) {
-                clearTimeout(longPressTimer.current);
-                longPressTimer.current = null;
-              }
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-            className={cn(
-              "p-5 rounded-full shadow-2xl transition-all active:scale-95 select-none touch-none",
-              activeTab === 'chat' ? "bg-blue-600 text-white scale-110 shadow-blue-500/40" : "bg-white text-slate-900 border border-slate-200"
-            )}
-          >
-            <DollarSign className="w-8 h-8" />
-          </button>
-        </div>
-        <MobileNavItem active={activeTab === 'chat'} icon={MessageSquare} onClick={() => handleTabChange('chat')} />
-        <MobileNavItem active={activeTab === 'settings'} icon={Settings} onClick={() => handleTabChange('settings')} />
-      </nav>
+        <AnimatePresence>
+          {showSubscription && (
+            <SubscriptionModal 
+              onClose={() => setShowSubscription(false)} 
+              onUpgrade={(months) => activatePro(undefined, months)} 
+            />
+          )}
+          {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+          {showGuide && <Guide onClose={() => setShowGuide(false)} />}
+          {showAdminPanel && user.isAdmin && (
+            <AdminPanel 
+              users={allUsers} 
+              onActivatePro={activatePro} 
+              onDeactivatePro={deactivatePro} 
+              onClose={() => setShowAdminPanel(false)} 
+            />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {showSubscription && (
-          <SubscriptionModal 
-            onClose={() => setShowSubscription(false)} 
-            onUpgrade={(months) => activatePro(undefined, months)} 
-          />
-        )}
-        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-        {showGuide && <Guide onClose={() => setShowGuide(false)} />}
-        {showAdminPanel && user.isAdmin && (
-          <AdminPanel 
-            users={allUsers} 
-            onActivatePro={activatePro} 
-            onDeactivatePro={deactivatePro} 
-            onClose={() => setShowAdminPanel(false)} 
-          />
-        )}
-      </AnimatePresence>
-
-      <PWAPrompt />
-      {user && <SubscriptionNotifier user={user} />}
-    </div>
+        <PWAPrompt />
+        {user && <SubscriptionNotifier user={user} />}
+      </div>
+    </CurrencyProvider>
   );
 }
 
