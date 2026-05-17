@@ -12,13 +12,13 @@ const STEPS = [
   },
   {
     title: "Habla con la IA",
-    description: "Registra gastos escribiendo o hablando. Prueba con 'Gasté 20 mil en pizza'.",
+    description: "Registra gastos escribiendo o hablando. Prueba con 'Gasté 20 mil en pizza' o usa el micrófono.",
     icon: MessageSquare,
     color: "bg-purple-500"
   },
   {
-    title: "Comandos Rápidos",
-    description: "Usa /hoy, /semana o /mes para ver resúmenes instantáneos de tus movimientos.",
+    title: "Controla tu dinero",
+    description: "Consulta tus gastos de hoy, esta semana o el mes completo desde el chat con la IA.",
     icon: Mic,
     color: "bg-orange-500"
   },
@@ -32,7 +32,6 @@ const STEPS = [
 
 export function Guide({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
       <motion.div 
@@ -46,7 +45,6 @@ export function Guide({ onClose }: { onClose: () => void }) {
         >
           <X className="w-5 h-5 text-slate-400" />
         </button>
-
         <div className="p-10 text-center">
           <AnimatePresence mode="wait">
             <motion.div
@@ -68,7 +66,6 @@ export function Guide({ onClose }: { onClose: () => void }) {
               <p className="text-slate-500 leading-relaxed mb-10 transition-colors">{STEPS[step].description}</p>
             </motion.div>
           </AnimatePresence>
-
           <div className="flex gap-2 justify-center mb-10">
             {STEPS.map((_, i) => (
               <div 
@@ -80,7 +77,6 @@ export function Guide({ onClose }: { onClose: () => void }) {
               />
             ))}
           </div>
-
           <button 
             onClick={() => step < STEPS.length - 1 ? setStep(step + 1) : onClose()}
             className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
