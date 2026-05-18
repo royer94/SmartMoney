@@ -42,6 +42,9 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
+  const [helpPulsed, setHelpPulsed] = useState(() => {
+    return localStorage.getItem('help_pulsed') === 'true';
+  });
   const longPressTimer = useRef<any>(null);
 
   useEffect(() => {
@@ -88,6 +91,14 @@ export default function App() {
     }
   };
 
+  const handleShowHelp = () => {
+    setShowHelp(true);
+    if (!helpPulsed) {
+      setHelpPulsed(true);
+      localStorage.setItem('help_pulsed', 'true');
+    }
+  };
+
   // 1. Pantalla de carga
   if (loading) {
     return (
@@ -127,8 +138,11 @@ export default function App() {
             <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
             <div className="pt-4 mt-4 border-t border-slate-100">
               <button 
-                onClick={() => setShowHelp(true)}
-                className="w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold"
+                onClick={handleShowHelp}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold",
+                  !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
+                )}
               >
                 <HelpCircle className="w-5 h-5" />
                 Guía y Ayuda
@@ -154,8 +168,11 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => setShowHelp(true)}
-                className="p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50"
+                onClick={handleShowHelp}
+                className={cn(
+                  "p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50",
+                  !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
+                )}
                 aria-label="Help"
               >
                 <HelpCircle className="w-6 h-6" />
