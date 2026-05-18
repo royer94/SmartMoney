@@ -7,19 +7,19 @@ import { UserProfile } from '../types';
 export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { user: UserProfile, balance: number, actualMonthlySavings?: number, onUpgrade?: () => void }) {
   const [currentSavings, setCurrentSavings] = useState(balance);
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(2000000); // Target goal
-  const [monthlyExpenses, setMonthlyExpenses] = useState(4000000); // 4M COP exp
-  const [returnRate, setReturnRate] = useState(12); // 12% anual
+  const [monthlyExpenses, setMonthlyExpenses] = useState(4000000); // Base target expense
+  const [returnRate, setReturnRate] = useState(12); // Annual rate
   const [currentAge, setCurrentAge] = useState(() => {
-  if (user.birthdate) {
-    const birth = new Date(user.birthdate + 'T00:00:00');
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-  }
-  return 30;
-});
+    if (user.birthdate) {
+      const birth = new Date(user.birthdate + 'T00:00:00');
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      return age;
+    }
+    return 30;
+  });
   const [useActualBalance, setUseActualBalance] = useState(true);
   
   const annualReturn = returnRate / 100;
@@ -271,7 +271,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   value={returnRate} onChange={(e) => setReturnRate(Number(e.target.value))}
                   className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500 transition-colors"
                 />
-                <p className="text-[10px] text-slate-400">Retorno promedio de tus inversiones. Un 10-14% es realista en Colombia (CDTs/Fici).</p>
+                <p className="text-[10px] text-slate-400">Retorno promedio estimado de tus inversiones. Asegúrate de calcularlo usando una tasa neta estimada.</p>
               </div>
             </div>
           </div>
@@ -321,9 +321,10 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
              <Info className="w-6 h-6" />
           </div>
           <div>
-            <h4 className="font-bold text-slate-900 text-sm mb-1">Cálculo en COP</h4>
+            {/* TEXTO ACTUALIZADO AQUÍ PARA HACERLO MULTIMONEDA */}
+            <h4 className="font-bold text-slate-900 text-sm mb-1">Cálculo en Moneda Local</h4>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Este simulador asume que mantienes tu poder adquisitivo. Recuerda que la inflación en Colombia debe ser considerada al elegir tu rentabilidad real.
+              Este simulador asume que mantienes tu poder adquisitivo en tu moneda de configuración. Recuerda que la inflación local de tu país debe ser considerada al elegir tu rentabilidad real.
             </p>
           </div>
         </div>
@@ -341,6 +342,5 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
         </div>
       </div>
     </div>
-  </div>
   );
 }
