@@ -7,7 +7,10 @@ export interface UserProfile {
   proExpiresAt?: string;
   freeRecordsCount: number;
   isAdmin?: boolean;
-  currency?: string; // moneda preferida del usuario
+  currency?: string;
+  name?: string;        // nombre del usuario
+  birthdate?: string;   // fecha de nacimiento ISO: "1994-05-18"
+  onboardingDone?: boolean; // si ya completó el onboarding
 }
 
 export interface Transaction {
@@ -41,18 +44,18 @@ export interface Currency {
 }
 
 export const CURRENCIES: Currency[] = [
-  { code: 'COP', symbol: '$', name: 'Peso colombiano',    locale: 'es-CO', flag: '🇨🇴', countries: 'Colombia' },
-  { code: 'MXN', symbol: '$', name: 'Peso mexicano',      locale: 'es-MX', flag: '🇲🇽', countries: 'México' },
-  { code: 'ARS', symbol: '$', name: 'Peso argentino',     locale: 'es-AR', flag: '🇦🇷', countries: 'Argentina' },
-  { code: 'CLP', symbol: '$', name: 'Peso chileno',       locale: 'es-CL', flag: '🇨🇱', countries: 'Chile' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol peruano',       locale: 'es-PE', flag: '🇵🇪', countries: 'Perú' },
-  { code: 'UYU', symbol: '$', name: 'Peso uruguayo',      locale: 'es-UY', flag: '🇺🇾', countries: 'Uruguay' },
-  { code: 'PYG', symbol: '₲', name: 'Guaraní paraguayo', locale: 'es-PY', flag: '🇵🇾', countries: 'Paraguay' },
-  { code: 'BOB', symbol: 'Bs', name: 'Boliviano',         locale: 'es-BO', flag: '🇧🇴', countries: 'Bolivia' },
-  { code: 'CRC', symbol: '₡', name: 'Colón costarricense',locale: 'es-CR', flag: '🇨🇷', countries: 'Costa Rica' },
-  { code: 'GTQ', symbol: 'Q', name: 'Quetzal guatemalteco',locale: 'es-GT', flag: '🇬🇹', countries: 'Guatemala' },
-  { code: 'USD', symbol: '$', name: 'Dólar americano',    locale: 'en-US', flag: '🇺🇸', countries: 'Ecuador, Venezuela, Panamá, USA' },
-  { code: 'EUR', symbol: '€', name: 'Euro',               locale: 'es-ES', flag: '🇪🇺', countries: 'Europa' },
+  { code: 'COP', symbol: '$', name: 'Peso colombiano',     locale: 'es-CO', flag: '🇨🇴', countries: 'Colombia' },
+  { code: 'MXN', symbol: '$', name: 'Peso mexicano',       locale: 'es-MX', flag: '🇲🇽', countries: 'México' },
+  { code: 'ARS', symbol: '$', name: 'Peso argentino',      locale: 'es-AR', flag: '🇦🇷', countries: 'Argentina' },
+  { code: 'CLP', symbol: '$', name: 'Peso chileno',        locale: 'es-CL', flag: '🇨🇱', countries: 'Chile' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol peruano',        locale: 'es-PE', flag: '🇵🇪', countries: 'Perú' },
+  { code: 'UYU', symbol: '$', name: 'Peso uruguayo',       locale: 'es-UY', flag: '🇺🇾', countries: 'Uruguay' },
+  { code: 'PYG', symbol: '₲', name: 'Guaraní paraguayo',  locale: 'es-PY', flag: '🇵🇾', countries: 'Paraguay' },
+  { code: 'BOB', symbol: 'Bs', name: 'Boliviano',          locale: 'es-BO', flag: '🇧🇴', countries: 'Bolivia' },
+  { code: 'CRC', symbol: '₡', name: 'Colón costarricense', locale: 'es-CR', flag: '🇨🇷', countries: 'Costa Rica' },
+  { code: 'GTQ', symbol: 'Q', name: 'Quetzal guatemalteco', locale: 'es-GT', flag: '🇬🇹', countries: 'Guatemala' },
+  { code: 'USD', symbol: '$', name: 'Dólar americano',     locale: 'en-US', flag: '🇺🇸', countries: 'Ecuador, Venezuela, Panamá, USA' },
+  { code: 'EUR', symbol: '€', name: 'Euro',                locale: 'es-ES', flag: '🇪🇺', countries: 'Europa' },
 ];
 
 export const DEFAULT_CURRENCY = 'COP';
@@ -75,16 +78,16 @@ export interface Command {
 }
 
 export const COMMANDS: Command[] = [
-  { name: 'hoy',           description: 'Gastos de hoy',                    usage: '/hoy' },
-  { name: 'semana',        description: 'Gastos de esta semana',             usage: '/semana' },
-  { name: 'mes',           description: 'Gastos de este mes',                usage: '/mes' },
-  { name: 'top',           description: 'Top 5 mayores gastos',              usage: '/top' },
-  { name: 'balance',       description: 'Balance general (Pro)',              usage: '/balance' },
-  { name: 'meta',          description: 'Crear meta financiera (Pro)',        usage: '/meta [nombre] [valor]' },
-  { name: 'suscripciones', description: 'Ver suscripciones activas',         usage: '/suscripciones' },
-  { name: 'ocultar',       description: 'Ocultar balance (Privacidad)',       usage: '/ocultar' },
-  { name: 'libertad',      description: 'Simulador de Libertad Financiera',  usage: '/libertad' },
-  { name: 'ayuda',         description: 'Ver todos los comandos',            usage: '/ayuda' },
-  { name: 'start',         description: 'Mensaje de bienvenida',             usage: '/start' },
-  { name: 'pro',           description: 'Información del plan Pro',          usage: '/pro' },
+  { name: 'hoy',           description: 'Gastos de hoy',                   usage: '/hoy' },
+  { name: 'semana',        description: 'Gastos de esta semana',            usage: '/semana' },
+  { name: 'mes',           description: 'Gastos de este mes',               usage: '/mes' },
+  { name: 'top',           description: 'Top 5 mayores gastos',             usage: '/top' },
+  { name: 'balance',       description: 'Balance general (Pro)',             usage: '/balance' },
+  { name: 'meta',          description: 'Crear meta financiera (Pro)',       usage: '/meta [nombre] [valor]' },
+  { name: 'suscripciones', description: 'Ver suscripciones activas',        usage: '/suscripciones' },
+  { name: 'ocultar',       description: 'Ocultar balance (Privacidad)',      usage: '/ocultar' },
+  { name: 'libertad',      description: 'Simulador de Libertad Financiera', usage: '/libertad' },
+  { name: 'ayuda',         description: 'Ver todos los comandos',           usage: '/ayuda' },
+  { name: 'start',         description: 'Mensaje de bienvenida',            usage: '/start' },
+  { name: 'pro',           description: 'Información del plan Pro',         usage: '/pro' },
 ];
