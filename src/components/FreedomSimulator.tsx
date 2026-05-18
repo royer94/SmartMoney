@@ -9,7 +9,17 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(2000000); // Target goal
   const [monthlyExpenses, setMonthlyExpenses] = useState(4000000); // 4M COP exp
   const [returnRate, setReturnRate] = useState(12); // 12% anual
-  const [currentAge, setCurrentAge] = useState(30);
+  const [currentAge, setCurrentAge] = useState(() => {
+  if (user.birthdate) {
+    const birth = new Date(user.birthdate + 'T00:00:00');
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  }
+  return 30;
+});
   const [useActualBalance, setUseActualBalance] = useState(true);
   
   const annualReturn = returnRate / 100;
