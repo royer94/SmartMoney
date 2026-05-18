@@ -13,18 +13,12 @@ import { HelpModal } from './components/HelpModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { Logo } from './components/Logo';
 import { LandingPage } from './components/LandingPage';
+import { OnboardingModal } from './components/OnboardingModal';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { 
-  Plus, 
-  Settings, 
-  LogOut, 
-  Home, 
-  List, 
-  MessageSquare,
-  DollarSign,
-  Shield,
-  HelpCircle
+  Plus, Settings, LogOut, Home, List, 
+  MessageSquare, DollarSign, Shield, HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -42,9 +36,7 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
-  const [helpPulsed, setHelpPulsed] = useState(() => {
-    return localStorage.getItem('help_pulsed') === 'true';
-  });
+  const [helpPulsed, setHelpPulsed] = useState(() => localStorage.getItem('help_pulsed') === 'true');
   const longPressTimer = useRef<any>(null);
 
   useEffect(() => {
@@ -65,7 +57,7 @@ export default function App() {
   }, [user, searchParams]);
 
   useEffect(() => {
-    if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown')) {
+    if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown') && user.onboardingDone) {
       setShowGuide(true);
       localStorage.setItem('guide_shown', 'true');
     }
@@ -74,10 +66,6 @@ export default function App() {
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
     setRecordingRequested(false);
-  };
-
-  const handleCentralButtonClick = () => {
-    handleTabChange('chat');
   };
 
   const handleLogin = async () => {
@@ -103,26 +91,34 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
-        <motion.div 
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-        >
-          <img 
-            src="/SmartMoney_logo.png" 
-            alt="SmartMone¥ AI"
-            className="w-80 md:w-96 lg:w-[28rem] max-w-[85vw]"
-          />
+        <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
+          <img src="/SmartMoney_logo.png" alt="SmartMone¥ AI" className="w-80 md:w-96 lg:w-[28rem] max-w-[85vw]" />
         </motion.div>
       </div>
     );
   }
 
-  // 2. Landing page si no hay usuario
+  // 2. Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // 3. App principal
+  // 3. Onboarding si es nuevo usuario
+  if (!user.onboardingDone) {
+    return (
+      <OnboardingModal
+        userId={user.uid}
+        email={user.email}
+        onComplete={(name, birthdate) => {
+          // useFinance actualizará el perfil via onSnapshot automáticamente
+        }}
+      />
+    );
+  }
+
+  // 4. App principal
+  const displayName = user.name || user.email.split('@')[0];
+
   return (
     <CurrencyProvider userId={user.uid}>
       <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
@@ -137,7 +133,7 @@ export default function App() {
             <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
             <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
             <div className="pt-4 mt-4 border-t border-slate-100">
-              <button 
+              <button
                 onClick={handleShowHelp}
                 className={cn(
                   "w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold",
@@ -150,7 +146,7 @@ export default function App() {
             </div>
           </nav>
           <div className="mt-auto pt-6 border-t border-slate-100">
-            <button 
+            <button
               onClick={() => auth.signOut()}
               className="mt-6 w-full flex items-center gap-3 p-3 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl font-medium"
             >
@@ -167,7 +163,7 @@ export default function App() {
               <Logo size="sm" />
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={handleShowHelp}
                 className={cn(
                   "p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50",
@@ -177,8 +173,8 @@ export default function App() {
               >
                 <HelpCircle className="w-6 h-6" />
               </button>
-              <button 
-                onClick={() => auth.signOut()} 
+              <button
+                onClick={() => auth.signOut()}
                 className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
                 aria-label="Sign out"
               >
@@ -190,39 +186,34 @@ export default function App() {
           <div className="max-w-5xl mx-auto p-4 md:p-10">
             <AnimatePresence mode="wait">
               {activeTab === 'dash' && (
-                <Dashboard 
-                  key="dash" 
-                  user={user} 
-                  transactions={transactions} 
-                  goals={goals} 
-                  addGoal={addGoal} 
-                  removeGoal={removeGoal} 
+                <Dashboard
+                  key="dash"
+                  user={user}
+                  transactions={transactions}
+                  goals={goals}
+                  addGoal={addGoal}
+                  removeGoal={removeGoal}
                   toggleRecurring={toggleRecurring}
                   recalculateGoal={recalculateGoal}
                   onUpgrade={() => setShowSubscription(true)}
                 />
               )}
               {activeTab === 'list' && (
-                <TransactionList 
-                  key="list" 
-                  transactions={transactions} 
-                  onDelete={removeTransaction} 
-                  onToggleRecurring={toggleRecurring} 
-                />
+                <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
               )}
               {activeTab === 'chat' && (
-                <CommandBar 
-                  key="chat" 
-                  user={user} 
-                  addTransaction={addTransaction} 
-                  transactions={transactions} 
-                  addGoal={addGoal} 
-                  autoStartRecording={recordingRequested} 
+                <CommandBar
+                  key="chat"
+                  user={user}
+                  addTransaction={addTransaction}
+                  transactions={transactions}
+                  addGoal={addGoal}
+                  autoStartRecording={recordingRequested}
                   onUpgrade={() => setShowSubscription(true)}
                 />
               )}
               {activeTab === 'settings' && (
-                <motion.div 
+                <motion.div
                   key="settings"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -238,18 +229,32 @@ export default function App() {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 transition-colors">
+                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
+                        <p className="font-semibold">{user.name || '—'}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
                         <p className="font-semibold">{user.email}</p>
                       </div>
                     </div>
+                    {user.birthdate && (
+                      <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</p>
+                          <p className="font-semibold">{new Date(user.birthdate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
                       <CurrencySelector userId={user.uid} />
                     </div>
                     {user.isAdmin && (
-                      <button 
+                      <button
                         onClick={() => setShowAdminPanel(true)}
                         className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
                       >
@@ -263,7 +268,7 @@ export default function App() {
                     <ProBanner user={user} />
                   </div>
                   <div className="pt-6">
-                    <button 
+                    <button
                       onClick={() => auth.signOut()}
                       className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
                     >
@@ -282,8 +287,8 @@ export default function App() {
           <MobileNavItem active={activeTab === 'dash'} icon={Home} onClick={() => handleTabChange('dash')} />
           <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
           <div className="relative -top-8">
-            <button 
-              onClick={handleCentralButtonClick}
+            <button
+              onClick={() => handleTabChange('chat')}
               onPointerDown={() => {
                 longPressTimer.current = setTimeout(() => {
                   setRecordingRequested(true);
@@ -291,10 +296,7 @@ export default function App() {
                 }, 600);
               }}
               onPointerUp={() => {
-                if (longPressTimer.current) {
-                  clearTimeout(longPressTimer.current);
-                  longPressTimer.current = null;
-                }
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
               }}
               onContextMenu={(e) => e.preventDefault()}
               className={cn(
@@ -311,20 +313,12 @@ export default function App() {
 
         <AnimatePresence>
           {showSubscription && (
-            <SubscriptionModal 
-              onClose={() => setShowSubscription(false)} 
-              onUpgrade={(months) => activatePro(undefined, months)} 
-            />
+            <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
           )}
           {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
           {showGuide && <Guide onClose={() => setShowGuide(false)} />}
           {showAdminPanel && user.isAdmin && (
-            <AdminPanel 
-              users={allUsers} 
-              onActivatePro={activatePro} 
-              onDeactivatePro={deactivatePro} 
-              onClose={() => setShowAdminPanel(false)} 
-            />
+            <AdminPanel users={allUsers} onActivatePro={activatePro} onDeactivatePro={deactivatePro} onClose={() => setShowAdminPanel(false)} />
           )}
         </AnimatePresence>
 
@@ -337,13 +331,7 @@ export default function App() {
 
 function NavItem({ active, icon: Icon, label, onClick }: any) {
   return (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all",
-        active ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "text-slate-600 hover:bg-slate-100"
-      )}
-    >
+    <button onClick={onClick} className={cn("w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all", active ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "text-slate-600 hover:bg-slate-100")}>
       <Icon className="w-5 h-5" />
       {label}
     </button>
@@ -352,13 +340,7 @@ function NavItem({ active, icon: Icon, label, onClick }: any) {
 
 function MobileNavItem({ active, icon: Icon, onClick }: any) {
   return (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "p-2 transition-all",
-        active ? "text-blue-600 scale-110" : "text-slate-400"
-      )}
-    >
+    <button onClick={onClick} className={cn("p-2 transition-all", active ? "text-blue-600 scale-110" : "text-slate-400")}>
       <Icon className="w-6 h-6" />
     </button>
   );
