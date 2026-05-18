@@ -31,6 +31,27 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { Table } from 'lucide-react';
 import { WelcomeCard } from './WelcomeCard';
 
+function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
+  return (
+    <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
+      <div className="flex justify-between items-start mb-4">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <div className={cn("p-2.5 rounded-xl", bg, color)}>
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+      <div>
+        <h4 className={cn("text-2xl font-bold text-slate-900 tracking-tight mb-1", privacyMode && "tracking-widest text-slate-300")}>
+          {privacyMode ? '••••••' : formatCurrency(amount)}
+        </h4>
+        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", trend.includes('-') || trend.includes('Déficit') ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>
+          {trend}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, recalculateGoal?: any, onUpgrade?: () => void }) {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
@@ -238,7 +259,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Hola, {user.email.split('@')[0]}</h2>
+          {/* CAMBIO CLAVE AQUÍ: Se prioriza user.name en lugar del split del email */}
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+            Hola, {user.name || user.email.split('@')[0]}
+          </h2>
           <p className="text-slate-500">Aquí tienes el resumen de tus finanzas.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -585,109 +609,23 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Límite Total para el periodo</label>
-                  <input type="number" value={newGoal.target} onChange={e => setNewGoal({ ...newGoal, target: e.target.value })} placeholder="Ej: 2000000" className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-colors placeholder:text-slate-400" />
+                  <input 
+                    type="number" 
+                    required 
+                    placeholder="Ej. 1500000" 
+                    value={newGoal.target} 
+                    onChange={e => setNewGoal({ ...newGoal, target: e.target.value })} 
+                    className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  />
                 </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/30 active:scale-95 transition-all">Establecer Límite</button>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-600/20">
+                  Crear Presupuesto
+                </button>
               </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* Report Modal */}
-      <AnimatePresence>
-        {showReportModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="glass max-w-md w-full p-8 rounded-[2.5rem]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-900">Generar Reporte</h3>
-                <button type="button" onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
-              </div>
-              <div className="space-y-6">
-                <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl transition-colors">
-                  {(['monthly', 'quarterly', 'annual'] as const).map((type) => (
-                    <button key={type} type="button" onClick={() => setReportType(type)} className={cn("flex-1 py-2 text-xs font-bold rounded-xl transition-all", reportType === type ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-                      {type === 'monthly' ? 'Mes' : type === 'quarterly' ? 'Trimestre' : 'Año'}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {reportType === 'monthly' && (
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Seleccionar Mes</label>
-                      <select value={reportPeriod.month} onChange={(e) => setReportPeriod({ ...reportPeriod, month: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium transition-colors">
-                        {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  {reportType === 'quarterly' && (
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Seleccionar Trimestre</label>
-                      <select value={reportPeriod.quarter} onChange={(e) => setReportPeriod({ ...reportPeriod, quarter: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium transition-colors">
-                        <option value={0}>Q1 (Ene-Mar)</option>
-                        <option value={1}>Q2 (Abr-Jun)</option>
-                        <option value={2}>Q3 (Jul-Sep)</option>
-                        <option value={3}>Q4 (Oct-Dic)</option>
-                      </select>
-                    </div>
-                  )}
-                  <div className={cn("col-span-1", reportType === 'annual' && "col-span-2")}>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Seleccionar Año</label>
-                    <select value={reportPeriod.year} onChange={(e) => setReportPeriod({ ...reportPeriod, year: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium transition-colors">
-                      {[currentYear, currentYear - 1, currentYear - 2].map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => handleDownloadReport('print')} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
-                      <Download className="w-4 h-4" />
-                      Imprimir PDF
-                    </button>
-                    <button type="button" onClick={() => handleDownloadReport('save')} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/30 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Guardar PDF
-                    </button>
-                  </div>
-                  <button type="button" onClick={handleExportCSV} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
-                    <Table className="w-4 h-4" />
-                    Exportar CSV
-                  </button>
-                  <button type="button" onClick={() => setShowReportModal(false)} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold active:scale-95 transition-all text-sm">
-                    Volver a la App
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </motion.div>
-  );
-}
-
-function StatCard({ label, amount, icon: Icon, color, bg, trend, interactive, privacyMode }: any) {
-  const displayAmount = privacyMode ? '••••••' : formatCurrency(amount);
-  return (
-    <div className={cn("glass p-8 rounded-[2.5rem] card-hover transition-all flex flex-col justify-between h-full relative group", interactive && "hover:border-blue-200 active:scale-95")}>
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className={cn("p-3 rounded-2xl transition-colors", bg, color)}>
-            <Icon className="w-6 h-6" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-md transition-colors">{trend}</span>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-slate-500 mb-1 transition-colors">{label}</p>
-          <p className="text-2xl font-bold tracking-tight text-slate-900 transition-colors">{displayAmount}</p>
-        </div>
-      </div>
-      {interactive && (
-        <div className="mt-4 flex items-center text-blue-600 text-[10px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
-          <span>Detalles</span>
-          <ChevronRight className="w-3 h-3 ml-1" />
-        </div>
-      )}
-    </div>
   );
 }
