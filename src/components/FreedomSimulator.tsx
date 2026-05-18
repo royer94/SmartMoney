@@ -1,15 +1,37 @@
-import React, { useState } from 'react';
-import { Target, TrendingUp, Calendar, Info, Calculator, HelpCircle, Heart, User, Zap, Flame, CheckCircle2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { Target, TrendingUp, Info, Calculator, Heart, User, Zap, Flame } from 'lucide-react';
+import { motion } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
 import { UserProfile } from '../types';
 
 export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { user: UserProfile, balance: number, actualMonthlySavings?: number, onUpgrade?: () => void }) {
-  const [currentSavings, setCurrentSavings] = useState(balance);
-  const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(2000000); // Target goal
-  const [monthlyExpenses, setMonthlyExpenses] = useState(4000000); // Base target expense
-  const [returnRate, setReturnRate] = useState(12); // Annual rate
+  
+  // --- PERSISTENCIA DE ESTADOS UTILIZANDO LOCALSTORAGE (Asociados al ID del Usuario) ---
+  
+  const [currentSavings, setCurrentSavings] = useState(() => {
+    const saved = localStorage.getItem(`fs_savings_${user.id}`);
+    return saved ? Number(saved) : balance;
+  });
+
+  const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(() => {
+    const saved = localStorage.getItem(`fs_savings_goal_${user.id}`);
+    return saved ? Number(saved) : 2000000;
+  });
+
+  const [monthlyExpenses, setMonthlyExpenses] = useState(() => {
+    const saved = localStorage.getItem(`fs_expenses_${user.id}`);
+    return saved ? Number(saved) : 4000000;
+  });
+
+  const [returnRate, setReturnRate] = useState(() => {
+    const saved = localStorage.getItem(`fs_return_rate_${user.id}`);
+    return saved ? Number(saved) : 12;
+  });
+
   const [currentAge, setCurrentAge] = useState(() => {
+    const saved = localStorage.getItem(`fs_current_age_${user.id}`);
+    if (saved) return Number(saved);
+    
     if (user.birthdate) {
       const birth = new Date(user.birthdate + 'T00:00:00');
       const today = new Date();
@@ -20,10 +42,50 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
     }
     return 30;
   });
-  const [useActualBalance, setUseActualBalance] = useState(true);
+
+  const [useActualBalance, setUseActualBalance] = useState(() => {
+    const saved = localStorage.getItem(`fs_use_actual_balance_${user.id}`);
+    return saved ? saved === 'true' : true;
+  });
+
+  // --- EFECTOS PARA GUARDAR AUTOMÁTICAMENTE LOS CAMBIOS ---
+  
+  useEffect(() => {
+    localStorage.setItem(`fs_savings_${user.id}`, currentSavings.toString());
+  }, [currentSavings, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`fs_savings_goal_${user.id}`, monthlySavingsGoal.toString());
+  }, [monthlySavingsGoal, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`fs_expenses_${user.id}`, monthlyExpenses.toString());
+  }, [monthlyExpenses, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`fs_return_rate_${user.id}`, returnRate.toString());
+  }, [returnRate, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`fs_current_age_${user.id}`, currentAge.toString());
+  }, [currentAge, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`fs_use_actual_balance_${user.id}`, useActualBalance.toString());
+  }, [useActualBalance, user.id]);
+
+  // Sincronizar dinámicamente si el balance neto del sistema cambia y el usuario no ha personalizado su capital
+  useEffect(() => {
+    const saved = localStorage.getItem(`fs_savings_${user.id}`);
+    if (!saved) {
+      setCurrentSavings(balance);
+    }
+  }, [balance, user.id]);
+
+
+  // --- CÁLCULOS LOGÍCOS MATEMÁTICOS ---
   
   const annualReturn = returnRate / 100;
-  // Regla del 4%: Necesitas 25 veces tus gastos anuales invertidos para vivir del interés perpetuamente
   const targetNetWorth = monthlyExpenses * 12 * 25; 
   
   let months = 0;
@@ -35,7 +97,6 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const isMeetingGoal = actualMonthlySavings >= monthlySavingsGoal;
   const diff = actualMonthlySavings - monthlySavingsGoal;
 
-  // Use a minimum of 0 for contribution to avoid infinite loop if savings are negative
   const monthlyContribution = Math.max(0, effectiveMonthlySavings);
 
   while (simulatedBalance < targetNetWorth && months < 600 && monthlyContribution >= 0) { 
@@ -70,6 +131,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
           </div>
         </div>
       )}
+      
       <div className={cn("space-y-8", !user.isPro && "opacity-40 pointer-events-none grayscale-[0.5]")}>
         <div className="glass p-8 rounded-[3rem] bg-white border-slate-100 shadow-xl shadow-slate-200/50 transition-colors">
           <div className="max-w-2xl mb-10">
@@ -186,7 +248,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   </div>
                 </div>
 
-                {/* Ahorro Mensual (Control Proyección) */}
+                {/* Ahorro Mensual */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -302,19 +364,16 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                 </p>
               )}
 
-              <motion.div 
-                 animate={{ scale: [1, 1.05, 1], opacity: [0.5, 1, 0.5] }}
-                 transition={{ duration: 4, repeat: Infinity }}
-                 className="mt-10 p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"
-              >
+              <div className="mt-10 p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
                 <p className="text-[10px] text-emerald-400 leading-relaxed font-bold uppercase tracking-tight">
                   {monthlyContribution > 0 ? '🚀 Plan de Inversión Activo' : '📉 Necesitas Capacidad de Ahorro'}
                 </p>
-              </motion.div>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Bloque inferior de consejos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="glass p-6 rounded-3xl bg-emerald-50/50 border-emerald-100 flex gap-4 transition-colors">
             <div className="p-3 bg-white rounded-2xl text-emerald-600 shadow-sm shrink-0 transition-colors">
