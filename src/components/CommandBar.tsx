@@ -17,7 +17,20 @@ interface Message {
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // Persistencia de mensajes en sessionStorage para evitar pérdida al cambiar de pestañas en el Dashboard
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = sessionStorage.getItem('smartmoney_chat_messages');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error al cargar historial de chat:", e);
+      }
+    }
+    return [];
+  });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const isRecordingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -28,13 +41,126 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
 
-  // Función de sanitización y parseo tolerante a fallos para procesar la IA
+  // Guardar mensajes automáticamente en sessionStorage ante cualquier cambio
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem('smartmoney_chat_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Motor NLP local como fallback robusto para identificar palabras comunes y estructurar la transacción
+  const parseLocalTransaction = (text: string) => {
+    const cleanText = text.toLowerCase().trim();
+    let amount = 0;
+    
+    // 1. Identificar montos numéricos (ej. "45000", "120 mil", "150.000", "1.5M")
+    const milMatch = cleanText.match(/(\d+(?:[\.,]\d+)?)\s*(mil|k\b)/i);
+    const millonMatch = cleanText.match(/(\d+(?:[\.,]\d+)?)\s*(millón|millon|millones|m\b)/i);
+
+    if (milMatch) {
+      const base = parseFloat(milMatch[1].replace(',', '.'));
+      amount = base * 1000;
+    } else if (millonMatch) {
+      const base = parseFloat(millonMatch[1].replace(',', '.'));
+      amount = base * 1000000;
+    } else {
+      const numMatch = cleanText.match(/(?:\$\s*)?(\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d+)?|\d+)/g);
+      if (numMatch) {
+        const candidates = numMatch.map(n => {
+          const cleanNum = n.replace(/[\$\s]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.');
+          return parseFloat(cleanNum);
+        }).filter(n => n > 0);
+        
+        if (candidates.length > 0) {
+          // Tomar el valor más lógico como precio (evitar números pequeños que puedan ser fechas o cantidades)
+          amount = candidates.find(c => c > 100) || candidates[0];
+        }
+      }
+    }
+
+    if (amount <= 0 || isNaN(amount)) return null;
+
+    // 2. Determinar tipo (Gasto o Ingreso) mediante palabras comunes
+    let type: 'expense' | 'income' = 'expense';
+    const incomeKeywords = ['recibí', 'recibi', 'gané', 'gane', 'ingreso', 'pago', 'salario', 'sueldo', 'nómina', 'nomina', 'transferencia', 'venta', 'comisión', 'comision', 'honorarios', 'me pagaron', 'recompensa', 'vendi', 'vendí', 'abono'];
+    const expenseKeywords = ['gasté', 'gaste', 'pagué', 'pague', 'compré', 'compre', 'comida', 'almuerzo', 'transporte', 'uber', 'taxi', 'bus', 'gasolina', 'arriendo', 'renta', 'luz', 'agua', 'internet', 'netflix', 'spotify', 'gym', 'mercado', 'ropa', 'salida', 'cerveza', 'cine', 'deuda', 'perdí', 'perdi'];
+
+    const hasIncomeKw = incomeKeywords.some(kw => cleanText.includes(kw));
+    const hasExpenseKw = expenseKeywords.some(kw => cleanText.includes(kw));
+
+    if (hasIncomeKw && !hasExpenseKw) {
+      type = 'income';
+    }
+
+    // 3. Categorización basada en semántica de palabras comunes
+    let category = 'Otros';
+    const categoryRules = [
+      { cat: 'Comida', keywords: ['comida', 'almuerzo', 'cena', 'desayuno', 'restaurante', 'café', 'cafe', 'mercado', 'supermercado', 'pan', 'leche', 'carne', 'fruta', 'verdura', 'mercar', 'tienda', 'gaseosa', 'agua', 'corrientazo', 'empanada', 'pizza', 'hamburguesa', 'comida rápida'] },
+      { cat: 'Transporte', keywords: ['transporte', 'uber', 'taxi', 'bus', 'gasolina', 'carro', 'moto', 'peaje', 'pasaje', 'mío', 'transmilenio', 'metro', 'combustible', 'parqueadero', 'taller', 'repuesto', 'mantenimiento', 'indrive', 'didi'] },
+      { cat: 'Servicios', keywords: ['servicios', 'luz', 'agua', 'gas', 'internet', 'celular', 'plan', 'datos', 'arriendo', 'renta', 'administración', 'administracion', 'colegio', 'pensión', 'pension', 'universidad', 'electricidad', 'seguro', 'seguros'] },
+      { cat: 'Suscripciones', keywords: ['netflix', 'spotify', 'youtube', 'amazon', 'prime', 'disney', 'hbo', 'apple', 'gym', 'gimnasio', 'crunchyroll', 'canva', 'microsoft', 'adobe', 'suscripcion', 'suscripción'] },
+      { cat: 'Entretenimiento', keywords: ['cine', 'cerveza', 'rumba', 'fiesta', 'salida', 'viaje', 'hotel', 'paseo', 'juego', 'consola', 'playstation', 'steam', 'bar', 'club', 'concierto', 'evento', 'regalo', 'regalos', 'tragos', 'licor'] },
+      { cat: 'Salud', keywords: ['médico', 'doctor', 'droga', 'farmacia', 'medicamento', 'salud', 'eps', 'medicina', 'dentista', 'odontologo', 'odontólogo', 'pastillas', 'jarabe', 'clínica', 'clinica'] },
+      { cat: 'Educación', keywords: ['curso', 'libro', 'cuaderno', 'platzi', 'udemy', 'clase', 'tutor', 'papelería', 'papeleria', 'estudios'] },
+      { cat: 'Ropa', keywords: ['ropa', 'zapato', 'tenis', 'camisa', 'pantalón', 'pantalon', 'chaqueta', 'vestido', 'tienda', 'centro comercial', 'moda'] }
+    ];
+
+    for (const rule of categoryRules) {
+      if (rule.keywords.some(kw => cleanText.includes(kw))) {
+        category = rule.cat;
+        break;
+      }
+    }
+
+    if (type === 'income') {
+      category = 'Ingresos';
+      if (cleanText.includes('salario') || cleanText.includes('nomina') || cleanText.includes('nómina') || cleanText.includes('sueldo')) {
+        category = 'Salario';
+      } else if (cleanText.includes('venta') || cleanText.includes('vendi') || cleanText.includes('vendí')) {
+        category = 'Ventas';
+      } else if (cleanText.includes('comisión') || cleanText.includes('comision') || cleanText.includes('honorarios')) {
+        category = 'Honorarios';
+      }
+    }
+
+    // 4. Extracción de descripción limpia
+    let cleanDesc = text;
+    // Remover cantidades numéricas y palabras auxiliares
+    cleanDesc = cleanDesc.replace(/\b\d+(?:[\.,]\d+)?\s*(mil|k\b|millón|millon|millones|m\b)?\b/gi, '');
+    cleanDesc = cleanDesc.replace(/[\$\.\,]/g, '');
+    
+    const keywordsToRemove = [
+      'gaste en', 'gasté en', 'pague', 'pagué', 'compre', 'compré', 
+      'recibi', 'recibí', 'ingreso de', 'gasto de', 'de', 'en', 'por', 
+      'un', 'una', 'ayer', 'hoy', 'el', 'la', 'los', 'las', 'del'
+    ];
+    
+    keywordsToRemove.forEach(kw => {
+      const regex = new RegExp('\\b' + kw + '\\b', 'gi');
+      cleanDesc = cleanDesc.replace(regex, '');
+    });
+
+    let description = cleanDesc.replace(/\s+/g, ' ').trim();
+    if (!description) {
+      description = type === 'expense' ? `Gasto en ${category}` : `Ingreso de ${category}`;
+    } else {
+      description = description.charAt(0).toUpperCase() + description.slice(1);
+    }
+
+    return {
+      amount,
+      description,
+      type,
+      category
+    };
+  };
+
+  // Sanitización y parseo tolerante a fallos para procesar la IA
   const sanitizeAndParseAIResponse = (result: any) => {
     if (!result) return null;
     
     let data = result;
     
-    // Si la respuesta de Gemini viene formateada como un String (con o sin bloques de Markdown JSON)
     if (typeof result === 'string') {
       try {
         const cleanJson = result.replace(/```json|```/g, '').trim();
@@ -45,7 +171,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       }
     }
 
-    // Normalización de las propiedades mapeadas (soportando variantes de idioma e iniciales en mayúsculas)
     const amount = parseFloat(data.amount || data.Monto || data.monto || data.Amount || 0);
     const description = data.description || data.Descripción || data.descripcion || data.concepto || data.Concepto || data.Description || 'Movimiento registrado';
     
@@ -55,7 +180,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
     const category = data.category || data.categoría || data.categoria || data.Category || 'Otros';
 
-    // Validación defensiva para confirmar que es una transacción monetaria válida
     if (isNaN(amount) || amount <= 0) return null;
 
     return { amount, description, type, category };
@@ -77,6 +201,9 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   };
 
   useEffect(() => {
+    // Si ya existen mensajes persistidos, no lanzar el saludo de bienvenida duplicado
+    if (messages.length > 0) return;
+
     const userName = user.name || user.email.split('@')[0];
     const welcomeText = `¡Hola, ${userName}! 👋 Aquí puedes registrar tus gastos e ingresos de forma súper fácil y rápida.
 
@@ -121,7 +248,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   }, []);
 
   const addMessage = (role: 'user' | 'ai', text: string, transaction?: any, isSubscriptionCheck?: boolean) => {
-    setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
+    setMessages(prev => [...prev, { 
+      id: Math.random().toString(), 
+      role, 
+      text, 
+      transaction, 
+      isSubscriptionCheck, 
+      isConfirmed: false 
+    }]);
   };
 
   const handleCommand = async (cmd: string) => {
@@ -253,7 +387,12 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setIsLoading(true);
     try {
       const rawResult = await parseTransaction(text);
-      const validatedResult = sanitizeAndParseAIResponse(rawResult);
+      let validatedResult = sanitizeAndParseAIResponse(rawResult);
+      
+      // Fallback NLP Local Inteligente: Si el parser de IA no logra extraer datos estructurados, lo evalúa nuestro parser por reglas
+      if (!validatedResult) {
+        validatedResult = parseLocalTransaction(text);
+      }
       
       if (validatedResult) {
         addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
@@ -262,7 +401,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       }
     } catch (error) {
       console.error("Error al procesar texto con IA:", error);
-      sendFriendlyHelpMessage();
+      // Fallback local secundario ante error de red o de API
+      const localResult = parseLocalTransaction(text);
+      if (localResult) {
+        addMessage('ai', `Detecté un ${localResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(localResult.amount)} en ${localResult.category}. ¿Deseas registrarlo?`, localResult);
+      } else {
+        sendFriendlyHelpMessage();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -377,7 +522,12 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           setIsLoading(true);
           try {
             const rawResult = await parseTransaction({ mimeType, data: base64Audio });
-            const validatedResult = sanitizeAndParseAIResponse(rawResult);
+            let validatedResult = sanitizeAndParseAIResponse(rawResult);
+
+            if (!validatedResult) {
+              // Si la IA de voz no detecta un JSON, intentamos procesar localmente
+              validatedResult = parseLocalTransaction(rawResult || '');
+            }
 
             if (validatedResult) {
               addMessage('ai', `Detecté por voz: ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
