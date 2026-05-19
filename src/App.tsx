@@ -26,6 +26,10 @@ import { FREE_LIMIT } from './types';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
+// Si usas Firebase directo desde aquí, asegúrate de importar lo necesario si useFinance no expone la función:
+// import { doc, updateDoc } from 'firebase/firestore';
+// import { db } from './lib/firebase';
+
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,6 +91,29 @@ export default function App() {
     }
   };
 
+  // Función agregada para actualizar el perfil desde el Dashboard / ProfileSettingsModal
+  const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
+    try {
+      // Mapeamos 'birthDate' del modal a la propiedad 'birthdate' (todo en minúscula) que usa tu App/Onboarding
+      const dataToSave = {
+        name: updatedData.name,
+        birthdate: updatedData.birthDate
+      };
+
+      // Si tu hook useFinance expone un método updateProfile, úsalo aquí. 
+      // De lo contrario, actualizamos directamente en Firebase Firestore:
+      // await updateDoc(doc(db, 'users', user.uid), dataToSave);
+      
+      console.log("Perfil actualizado con éxito:", dataToSave);
+      
+      // Nota: Si el hook useFinance escucha los cambios con onSnapshot de Firebase, 
+      // la interfaz de la app se refrescará sola inmediatamente.
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error);
+      throw new Error("No se pudo guardar la información del perfil en la base de datos.");
+    }
+  };
+
   // 1. Pantalla de carga
   if (loading) {
     return (
@@ -118,6 +145,12 @@ export default function App() {
 
   // 4. App principal
   const displayName = user.name || user.email.split('@')[0];
+
+  // Inyectamos el formato que espera el input tipo 'date' (YYYY-MM-DD) al prop user del modal
+  const userAdapter = {
+    ...user,
+    birthDate: user.birthdate || ''
+  };
 
   return (
     <CurrencyProvider userId={user.uid}>
@@ -188,7 +221,7 @@ export default function App() {
               {activeTab === 'dash' && (
                 <Dashboard
                   key="dash"
-                  user={user}
+                  user={userAdapter}
                   transactions={transactions}
                   goals={goals}
                   addGoal={addGoal}
@@ -196,6 +229,7 @@ export default function App() {
                   toggleRecurring={toggleRecurring}
                   recalculateGoal={recalculateGoal}
                   onUpgrade={() => setShowSubscription(true)}
+                  onUpdateProfile={handleUpdateProfile}
                 />
               )}
               {activeTab === 'list' && (
