@@ -16,18 +16,38 @@ interface Message {
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isRecordingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const mediaRecorder = useRef<MediaRecorder | null>(null);
-  const audioChunks = useRef<Blob[]>([]);
   const silenceTimer = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+
+  // Efecto para insertar el mensaje amigable de bienvenida en cuanto se abre el componente
+  useEffect(() => {
+    const userName = user.name || user.email.split('@')[0];
+    const welcomeText = `¡Hola, ${userName}! 👋 Aquí puedes registrar tus gastos e ingresos de forma súper fácil y rápida.
+
+💡 Puedes hacerlo de dos maneras:
+1️⃣ Escribiendo directamente en el chat, por ejemplo: "Gasté 35000 en materia prima" o "Recibí 150000 de una venta".
+2️⃣ ¡El modo rápido! Deja presionado el botón azul del micrófono para activar el dictado por voz y cuéntame qué compraste. Al soltarlo, procesaré tu transacción al instante.
+
+¿Qué movimiento deseas guardar hoy? 📑`;
+
+    setMessages([
+      {
+        id: 'welcome-msg',
+        role: 'ai',
+        text: welcomeText
+      }
+    ]);
+  }, [user]);
 
   useEffect(() => {
     if (autoStartRecording) {
-      // Delay slightly to ensure browser allows audio context if it was a user interaction that triggered this
       const timer = setTimeout(() => {
         startRecording();
       }, 100);
@@ -142,7 +162,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           break;
 
         case '/start':
-          addMessage('ai', `¡Hola ${user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". El plan gratuito permite hasta 20 registros mensuales.`);
+          addMessage('ai', `¡Hola ${user.name || user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". El plan gratuito permite hasta 20 registros mensuales.`);
           break;
 
         case '/libertad':
@@ -210,7 +230,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         });
       }
 
-      // Tip logic: Show tip every 3 registrations
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
       
@@ -229,6 +248,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
   const startRecording = async () => {
     setIsRecording(true);
+    isRecordingRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -241,7 +261,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       });
       streamRef.current = stream;
 
-      // Determine supported mime type
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
         ? 'audio/webm' 
         : MediaRecorder.isTypeSupported('audio/mp4') 
@@ -279,7 +298,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           }
         };
         
-        // Cleanup resources
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
@@ -290,7 +308,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         }
       };
 
-      // Silence detection
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
         await audioCtx.resume();
@@ -322,7 +339,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         }
         const average = sum / bufferLength;
 
-        // Update noise floor slowly
         if (average < noiseFloor) {
           noiseFloor = noiseFloor * 0.99 + average * 0.01;
         }
@@ -350,6 +366,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     } catch (err) {
       console.error("Mic error", err);
       setIsRecording(false);
+      isRecordingRef.current = false;
       addMessage('ai', "No se pudo acceder al micrófono. Por favor, verifica los permisos.");
     }
   };
@@ -363,6 +380,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       mediaRecorder.current.stop();
     }
     setIsRecording(false);
+    isRecordingRef.current = false;
   };
 
   return (
@@ -383,7 +401,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               )}
             >
               <div className={cn(
-                "p-4 rounded-2xl text-sm leading-relaxed",
+                "p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-line",
                 msg.role === 'user' 
                   ? "bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20" 
                   : "bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-sm"
@@ -452,11 +470,16 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       <div className="p-4 glass rounded-3xl mt-4">
         <div className="flex items-center gap-3">
           <button 
-            onClick={isRecording ? stopRecording : startRecording}
+            onMouseDown={startRecording}
+            onMouseUp={stopRecording}
+            onMouseLeave={() => { if (isRecordingRef.current) stopRecording(); }}
+            onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+            onTouchEnd={stopRecording}
             className={cn(
-              "p-3 rounded-2xl transition-all",
-              isRecording ? "bg-red-500 text-white animate-pulse" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              "p-3 rounded-2xl transition-all select-none touch-none",
+              isRecording ? "bg-red-500 text-white animate-pulse scale-105" : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20"
             )}
+            title="Mantén presionado para hablar"
           >
             {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
@@ -465,7 +488,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && processInput(input)}
-              placeholder={isRecording ? "Grabando..." : "Escribe algo o usa /comandos..."}
+              placeholder={isRecording ? "Escuchando..." : "Escribe algo o usa /comandos..."}
               className="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 transition-colors placeholder:text-slate-400"
             />
           </div>
