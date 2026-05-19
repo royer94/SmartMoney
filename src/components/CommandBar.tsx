@@ -574,48 +574,52 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   };
   
   const processInput = async (text: string) => {
-    if (!text.trim()) return;
+  if (!text.trim()) return;
+  
+  addMessage('user', text);
+  setInput('');
+  
+  const wasCommand = await handleCommand(text);
+  if (wasCommand) return;
+  
+  setIsLoading(true);
+  try {
+    let validatedResult = null;
     
-    addMessage('user', text);
-    setInput('');
-    
-    const wasCommand = await handleCommand(text);
-    if (wasCommand) return;
-    
-    setIsLoading(true);
+    // 🎯 PRIORIDAD 1: Gemini (entiende contexto, jerga y categorización inteligente)
     try {
-      // PRIORIDAD 1: Parser local NLP avanzado (sin depender de internet)
-      let validatedResult = parseLocalTransaction(text);
+      const rawResult = await parseTransaction(text);
+      validatedResult = sanitizeAndParseAIResponse(rawResult);
       
-      // PRIORIDAD 2: Si el local falla, intentar con Gemini
+      // Si Gemini devuelve algo inválido o incompleto, intentamos con NLP local
       if (!validatedResult) {
-        try {
-          const rawResult = await parseTransaction(text);
-          validatedResult = sanitizeAndParseAIResponse(rawResult);
-        } catch (geminiError) {
-          console.error("Gemini processing error:", geminiError);
-          // Si Gemini falla, no intentamos nada más, el validatedResult queda null
-        }
+        console.log("Gemini no devolvió datos válidos, usando NLP local como fallback");
+        validatedResult = parseLocalTransaction(text);
       }
-      
-      if (validatedResult) {
-        addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
-      } else {
-        sendFriendlyHelpMessage();
-      }
-    } catch (error) {
-      console.error("Error al procesar texto:", error);
-      // Fallback final: intentar el parser local nuevamente como última esperanza
-      const localResult = parseLocalTransaction(text);
-      if (localResult) {
-        addMessage('ai', `Detecté un ${localResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(localResult.amount)} en ${localResult.category}. ¿Deseas registrarlo?`, localResult);
-      } else {
-        sendFriendlyHelpMessage();
-      }
-    } finally {
-      setIsLoading(false);
+    } catch (geminiError) {
+      console.error("❌ Gemini error, usando fallback local:", geminiError);
+      // Fallback a NLP local cuando Gemini falla (sin internet, error API, etc.)
+      validatedResult = parseLocalTransaction(text);
     }
-  };
+    
+    if (validatedResult) {
+      addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
+    } else {
+      sendFriendlyHelpMessage();
+    }
+  } catch (error) {
+    console.error("Error al procesar texto:", error);
+    // Último recurso: NLP local
+    const localResult = parseLocalTransaction(text);
+    if (localResult) {
+      addMessage('ai', `Detecté un ${localResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(localResult.amount)} en ${localResult.category}. ¿Deseas registrarlo?`, localResult);
+    } else {
+      sendFriendlyHelpMessage();
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
   
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
@@ -741,16 +745,23 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             }
             
             let validatedResult = null;
-            
-            // Prioridad 1: NLP local sobre el texto transcrito (si existe)
-            if (transcribedText && typeof transcribedText === 'string') {
-              validatedResult = parseLocalTransaction(transcribedText);
-            }
-            
-            // Prioridad 2: Intentar parsear respuesta estructurada de Gemini
-            if (!validatedResult && transcribedText) {
-              validatedResult = sanitizeAndParseAIResponse(transcribedText);
-            }
+
+// 🎯 PRIORIDAD 1: Gemini primero para voz (mejor comprensión contextual)
+if (transcribedText && typeof transcribedText === 'string') {
+  try {
+    // Intentar con Gemini primero
+    const geminiResult = await parseTransaction(transcribedText);
+    validatedResult = sanitizeAndParseAIResponse(geminiResult);
+    
+    // Si Gemini falla, usar NLP local
+    if (!validatedResult) {
+      validatedResult = parseLocalTransaction(transcribedText);
+    }
+  } catch (error) {
+    console.error("Gemini voice error, usando fallback local:", error);
+    validatedResult = parseLocalTransaction(transcribedText);
+  }
+}
             
             if (validatedResult) {
               addMessage('ai', `Detecté por voz: ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
