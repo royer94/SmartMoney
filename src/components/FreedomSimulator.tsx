@@ -442,15 +442,46 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
             <div className="p-3 bg-white rounded-2xl text-indigo-600 shadow-sm shrink-0 transition-colors">
                <Target className="w-6 h-6" />
             </div>
-            <div>
-              <h4 className="font-bold text-slate-900 text-sm mb-1">Ahorro vs Gasto</h4>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Entre menos gastes hoy, más ahorras y menos capital necesitas para tu libertad. ¡Es una doble victoria!
-              </p>
-            </div>
-          </div>
-        </div>
+            <d{/* Bloque inferior de consejos */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {/* NUEVO: Explicación Rigurosa de la Ecuación de Fisher */}
+  <div className="glass p-6 rounded-3xl bg-emerald-50/60 border-emerald-100 flex flex-col justify-between transition-colors">
+    <div className="flex gap-4 mb-4">
+      <div className="p-3 bg-white rounded-2xl text-emerald-600 shadow-sm shrink-0 h-fit transition-colors">
+         <Info className="w-6 h-6" />
+      </div>
+      <div className="space-y-2">
+        <h4 className="font-bold text-slate-900 text-sm">¿Cómo calculamos tu Tasa Real?</h4>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          Para proyectar tu retiro con total certeza, no basta con restar la inflación del rendimiento (<span className="font-semibold">{returnRate}% - {inflationRate}% ≠ {(returnRate - inflationRate).toFixed(1)}%</span>). La inflación también erosiona los intereses que vas ganando mes a mes.
+        </p>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          Por eso aplicamos la <strong>Ecuación de Fisher</strong>, el estándar matemático en alta finanzas:
+        </p>
       </div>
     </div>
-  );
-}
+    
+    {/* Contenedor de la Fórmula Estilizada */}
+    <div className="bg-white/80 border border-emerald-200/60 rounded-2xl p-3 text-center shadow-inner font-mono text-xs text-slate-700 space-y-1">
+      <div className="font-bold text-emerald-700">
+        Tasa Real = [ (1 + Nominal) / (1 + Inflación) ] - 1
+      </div>
+      <div className="text-[10px] text-slate-400">
+        En tu caso: [ (1 + {(returnRate/100).toFixed(3)}) / (1 + {(inflationRate/100).toFixed(3)}) ] - 1 = <span className="font-bold text-emerald-600">{(annualRealReturn * 100).toFixed(2)}%</span>
+      </div>
+    </div>
+  </div>
+
+  {/* El segundo bloque (el de ahorro vs gasto) se mantiene exactamente igual */}
+  <div className="glass p-6 rounded-3xl bg-indigo-50/50 border-indigo-100 flex gap-4 transition-colors">
+    <div className="p-3 bg-white rounded-2xl text-indigo-600 shadow-sm shrink-0 transition-colors">
+       <Target className="w-6 h-6" />
+    </div>
+    <div>
+      <h4 className="font-bold text-slate-900 text-sm mb-1">Ahorro vs Gasto</h4>
+      <p className="text-[11px] text-slate-600 leading-relaxed">
+        Entre menos gastes hoy, más ahorras y menos capital necesitas para tu libertad. ¡Es una doble victoria!
+      </p>
+    </div>
+  </div>
+</div>
