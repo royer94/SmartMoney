@@ -12,6 +12,7 @@ interface Message {
   text: string;
   transaction?: any;
   isSubscriptionCheck?: boolean;
+  isConfirmed?: boolean; // Nueva bandera para controlar la persistencia visual sin borrar los datos
 }
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
@@ -27,7 +28,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
 
-  // Mensaje de ayuda amable reutilizable cuando el parser falla
+  // Mensaje amable educativo si no se detecta una estructura de gasto o ingreso válida
   const sendFriendlyHelpMessage = () => {
     const userName = user.name || user.email.split('@')[0];
     addMessage(
@@ -88,7 +89,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   }, []);
 
   const addMessage = (role: 'user' | 'ai', text: string, transaction?: any, isSubscriptionCheck?: boolean) => {
-    setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck }]);
+    setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
   };
 
   const handleCommand = async (cmd: string) => {
@@ -220,14 +221,15 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setIsLoading(true);
     try {
       const result = await parseTransaction(text);
-      if (result && result.amount > 0) {
+      // Validación segura: controla si result viene undefined, nulo, o sin un monto real estructurado
+      if (result && result.amount && result.amount > 0) {
         addMessage('ai', `Detecté un ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
       } else {
-        // Modificación: Llamamos al mensaje amable de ayuda en vez de la respuesta genérica
         sendFriendlyHelpMessage();
       }
     } catch (error) {
-      addMessage('ai', "Hubo un error procesando tu solicitud.");
+      console.error("Error al procesar texto:", error);
+      sendFriendlyHelpMessage(); // Si el backend/parser falla o devuelve un formato extraño, mostramos la guía amable
     } finally {
       setIsLoading(false);
     }
@@ -239,8 +241,9 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       
       const result = await addTransaction(tx);
       
+      // Corregido para persistencia: En vez de eliminar el tx (transaction: null), marcamos el mensaje como confirmado
       setMessages(prev => prev.map(m => 
-        m.id === msgId ? { ...m, transaction: null } : m
+        m.id === msgId ? { ...m, isConfirmed: true } : m
       ));
 
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${tx.description}" por ${formatCurrency(tx.amount)}.`);
@@ -291,7 +294,8 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const updatedTx = { ...tx, isRecurring: true };
       await addTransaction(updatedTx); 
       
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, transaction: null, isSubscriptionCheck: false } : m));
+      // Corregido para persistencia: Ocultamos la botonera marcando como confirmado
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
       addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
     } catch (error: any) {
       addMessage('ai', `❌ No pude actualizar el estado de la suscripción: ${error.message}`);
@@ -343,15 +347,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           setIsLoading(true);
           try {
             const result = await parseTransaction({ mimeType, data: base64Audio });
-            if (result && result.amount > 0) {
+            if (result && result.amount && result.amount > 0) {
               addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
             } else {
-              // Modificación: Mensaje amable de ayuda también para transcripciones de voz fallidas
               sendFriendlyHelpMessage();
             }
           } catch (error) {
-            console.error("Gemini Error:", error);
-            addMessage('ai', "No pude procesar el audio correctamente. Intenta escribiéndolo.");
+            console.error("Gemini Audio Error:", error);
+            sendFriendlyHelpMessage(); // Captura cualquier fallo en la transcripción y lanza la ayuda amable
           } finally {
             setIsLoading(false);
           }
@@ -468,7 +471,8 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                 {msg.text}
               </div>
               
-              {msg.transaction && (
+              {/* Los botones solo se renderizan si el mensaje NO ha sido confirmado */}
+              {msg.transaction && !msg.isConfirmed && (
                 <div className="mt-2 flex gap-2">
                   {msg.transaction.isUpgrade ? (
                     <button 
@@ -487,7 +491,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                         Sí, es suscripción 🔁
                       </button>
                       <button 
-                        onClick={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, isSubscriptionCheck: false } : m))}
+                        onClick={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m))}
                         className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors"
                       >
                         No, gasto único
@@ -505,7 +509,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                                         month: new Date().getMonth() + 1,
                                         year: new Date().getFullYear()
                                     });
-                                    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, text: m.text + " (Meta creada ✅)" } : m));
+                                    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m));
                                 } catch (e) {
                                     addMessage('ai', "Error creando la meta.");
                                 }
