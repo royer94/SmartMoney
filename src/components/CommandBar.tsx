@@ -12,7 +12,7 @@ interface Message {
   text: string;
   transaction?: any;
   isSubscriptionCheck?: boolean;
-  isConfirmed?: boolean; // Nueva bandera para controlar la persistencia visual sin borrar los datos
+  isConfirmed?: boolean; // Controla la persistencia visual de la transacción ya registrada
 }
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
@@ -28,7 +28,39 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
 
-  // Mensaje amable educativo si no se detecta una estructura de gasto o ingreso válida
+  // Función de sanitización y parseo tolerante a fallos para procesar la IA
+  const sanitizeAndParseAIResponse = (result: any) => {
+    if (!result) return null;
+    
+    let data = result;
+    
+    // Si la respuesta de Gemini viene formateada como un String (con o sin bloques de Markdown JSON)
+    if (typeof result === 'string') {
+      try {
+        const cleanJson = result.replace(/```json|```/g, '').trim();
+        data = JSON.parse(cleanJson);
+      } catch (e) {
+        console.error("Error al intentar parsear el JSON string de Gemini:", e);
+        return null;
+      }
+    }
+
+    // Normalización de las propiedades mapeadas (soportando variantes de idioma e iniciales en mayúsculas)
+    const amount = parseFloat(data.amount || data.Monto || data.monto || data.Amount || 0);
+    const description = data.description || data.Descripción || data.descripcion || data.concepto || data.Concepto || data.Description || 'Movimiento registrado';
+    
+    let type = (data.type || data.tipo || data.Type || 'expense').toLowerCase();
+    if (type === 'ingreso' || type === 'income') type = 'income';
+    else type = 'expense';
+
+    const category = data.category || data.categoría || data.categoria || data.Category || 'Otros';
+
+    // Validación defensiva para confirmar que es una transacción monetaria válida
+    if (isNaN(amount) || amount <= 0) return null;
+
+    return { amount, description, type, category };
+  };
+
   const sendFriendlyHelpMessage = () => {
     const userName = user.name || user.email.split('@')[0];
     addMessage(
@@ -220,16 +252,17 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
 
     setIsLoading(true);
     try {
-      const result = await parseTransaction(text);
-      // Validación segura: controla si result viene undefined, nulo, o sin un monto real estructurado
-      if (result && result.amount && result.amount > 0) {
-        addMessage('ai', `Detecté un ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
+      const rawResult = await parseTransaction(text);
+      const validatedResult = sanitizeAndParseAIResponse(rawResult);
+      
+      if (validatedResult) {
+        addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
       } else {
         sendFriendlyHelpMessage();
       }
     } catch (error) {
-      console.error("Error al procesar texto:", error);
-      sendFriendlyHelpMessage(); // Si el backend/parser falla o devuelve un formato extraño, mostramos la guía amable
+      console.error("Error al procesar texto con IA:", error);
+      sendFriendlyHelpMessage();
     } finally {
       setIsLoading(false);
     }
@@ -238,10 +271,9 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      
       const result = await addTransaction(tx);
       
-      // Corregido para persistencia: En vez de eliminar el tx (transaction: null), marcamos el mensaje como confirmado
+      // Se marca el mensaje con isConfirmed para la persistencia del bloque y remover botones sin vaciar el objeto
       setMessages(prev => prev.map(m => 
         m.id === msgId ? { ...m, isConfirmed: true } : m
       ));
@@ -257,7 +289,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       if (tx.type === 'expense' && tx.description) {
         const desc = tx.description.toLowerCase();
         const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
-        
         const isPotentialSub = subscriptionKeywords.some(keyword => desc.includes(keyword));
         
         if (isPotentialSub) {
@@ -294,7 +325,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const updatedTx = { ...tx, isRecurring: true };
       await addTransaction(updatedTx); 
       
-      // Corregido para persistencia: Ocultamos la botonera marcando como confirmado
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
       addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
     } catch (error: any) {
@@ -346,15 +376,17 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Registro de voz enviado');
           setIsLoading(true);
           try {
-            const result = await parseTransaction({ mimeType, data: base64Audio });
-            if (result && result.amount && result.amount > 0) {
-              addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
+            const rawResult = await parseTransaction({ mimeType, data: base64Audio });
+            const validatedResult = sanitizeAndParseAIResponse(rawResult);
+
+            if (validatedResult) {
+              addMessage('ai', `Detecté por voz: ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
             } else {
               sendFriendlyHelpMessage();
             }
           } catch (error) {
             console.error("Gemini Audio Error:", error);
-            sendFriendlyHelpMessage(); // Captura cualquier fallo en la transcripción y lanza la ayuda amable
+            sendFriendlyHelpMessage(); 
           } finally {
             setIsLoading(false);
           }
@@ -471,7 +503,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                 {msg.text}
               </div>
               
-              {/* Los botones solo se renderizan si el mensaje NO ha sido confirmado */}
+              {/* Los botones de acción solo se muestran si la transacción NO ha sido confirmada */}
               {msg.transaction && !msg.isConfirmed && (
                 <div className="mt-2 flex gap-2">
                   {msg.transaction.isUpgrade ? (
