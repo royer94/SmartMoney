@@ -11,6 +11,7 @@ interface Message {
   role: 'user' | 'ai';
   text: string;
   transaction?: any;
+  isSubscriptionCheck?: boolean; // Identificador para el flujo de suscripción recurrente
 }
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
@@ -26,7 +27,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
 
-  // Efecto para insertar el mensaje amigable de bienvenida en cuanto se abre el componente
   useEffect(() => {
     const userName = user.name || user.email.split('@')[0];
     const welcomeText = `¡Hola, ${userName}! 👋 Aquí puedes registrar tus gastos e ingresos de forma súper fácil y rápida.
@@ -71,8 +71,8 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     };
   }, []);
 
-  const addMessage = (role: 'user' | 'ai', text: string, transaction?: any) => {
-    setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction }]);
+  const addMessage = (role: 'user' | 'ai', text: string, transaction?: any, isSubscriptionCheck?: boolean) => {
+    setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck }]);
   };
 
   const handleCommand = async (cmd: string) => {
@@ -219,10 +219,17 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
+      
+      // 1. Ejecutamos la inserción en la base de datos/estado principal
       const result = await addTransaction(tx);
+      
+      // Ajuste: El mensaje original ya no desaparece ni pierde sus botones; simplemente lo marcamos quitando la botonera de confirmación
       setMessages(prev => prev.map(m => 
-        m.id === msgId ? { ...m, transaction: null, text: m.text + " (Registrado ✅)" } : m
+        m.id === msgId ? { ...m, transaction: null } : m
       ));
+
+      // 2. Insertamos un nuevo mensaje de confirmación persistente en el chat
+      addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${tx.description}" por ${formatCurrency(tx.amount)}.`);
       
       if (result?.alerts && result.alerts.length > 0) {
         result.alerts.forEach(alert => {
@@ -230,6 +237,27 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         });
       }
 
+      // 3. Verificamos si es un gasto recurrente/suscripción (Spotify, Netflix, etc.)
+      if (tx.type === 'expense' && tx.description) {
+        const desc = tx.description.toLowerCase();
+        const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
+        
+        const isPotentialSub = subscriptionKeywords.some(keyword => desc.includes(keyword));
+        
+        if (isPotentialSub) {
+          // Guardamos temporalmente los datos de la transacción creada para poder editarla si acepta
+          setTimeout(() => {
+            addMessage(
+              'ai', 
+              `🔍 Noté que "${tx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como un gasto recurrente para rastrearlo automáticamente en tu Dashboard?`, 
+              tx, 
+              true // Marcamos que este mensaje activa el flujo de suscripción
+            );
+          }, 800);
+        }
+      }
+
+      // Tip logic
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
       
@@ -237,10 +265,31 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         const randomTip = FINANCE_TIPS[Math.floor(Math.random() * FINANCE_TIPS.length)];
         setTimeout(() => {
           addMessage('ai', `💡 Tip $martMone¥: ${randomTip}`);
-        }, 1000);
+        }, 1200);
       }
     } catch (error: any) {
       addMessage('ai', `❌ Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Función para manejar la actualización a gasto recurrente
+  const handleMarkAsRecurring = async (msgId: string, tx: any) => {
+    try {
+      setIsLoading(true);
+      // Creamos la versión con la bandera de recurrencia activa
+      const updatedTx = { ...tx, isRecurring: true };
+      
+      // Llamamos a addTransaction de nuevo; tu backend/reducer debería actualizar por descripción/id o simplemente registrarlo configurado
+      await addTransaction(updatedTx); 
+      
+      // Limpiamos la botonera del mensaje de pregunta
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, transaction: null, isSubscriptionCheck: false } : m));
+      
+      addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
+    } catch (error: any) {
+      addMessage('ai', `❌ No pude actualizar el estado de la suscripción: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -289,7 +338,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           setIsLoading(true);
           try {
             const result = await parseTransaction({ mimeType, data: base64Audio });
-            addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}.`, result);
+            addMessage('ai', `Detecté por voz: ${result.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(result.amount)} en ${result.category}. ¿Deseas registrarlo?`, result);
           } catch (error) {
             console.error("Gemini Error:", error);
             addMessage('ai', "No pude procesar el audio correctamente. Intenta escribiéndolo.");
@@ -419,7 +468,24 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                       Ver Planes Pro
                       <ArrowRight className="w-3 h-3" />
                     </button>
+                  ) : msg.isSubscriptionCheck ? (
+                    /* Nueva botonera interactiva para confirmación de suscripción */
+                    <>
+                      <button 
+                        onClick={() => handleMarkAsRecurring(msg.id, msg.transaction)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                      >
+                        Sí, es suscripción 🔁
+                      </button>
+                      <button 
+                        onClick={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, transaction: null, isSubscriptionCheck: false } : m))}
+                        className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors"
+                      >
+                        No, gasto único
+                      </button>
+                    </>
                   ) : (
+                    /* Botonera estándar de confirmación de transacciones o metas */
                     <>
                       <button 
                         onClick={async () => {
