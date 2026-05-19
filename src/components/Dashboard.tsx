@@ -28,7 +28,6 @@ import { exportTransactionsToCSV } from '../lib/exportUtils';
 import { AIAdvisor } from './AIAdvisor';
 import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
-import { Table } from 'lucide-react';
 import { WelcomeCard } from './WelcomeCard';
 
 function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
@@ -259,7 +258,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          {/* CAMBIO CLAVE AQUÍ: Se prioriza user.name en lugar del split del email */}
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">
             Hola, {user.name || user.email.split('@')[0]}
           </h2>
@@ -597,31 +595,151 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               </div>
               <form onSubmit={handleAddGoal} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Mes y Año</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select value={newGoal.month} onChange={e => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })} className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
-                      {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Monto Límite Objetivo</label>
+                  <input type="number" required placeholder="$ 0.00" value={newGoal.target} onChange={e => setNewGoal({ ...newGoal, target: e.target.value })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Mes</label>
+                    <select value={newGoal.month} onChange={e => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
+                      {MONTHS.map((m, idx) => (<option key={m} value={idx + 1}>{m}</option>))}
                     </select>
-                    <select value={newGoal.year} onChange={e => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })} className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Año</label>
+                    <select value={newGoal.year} onChange={e => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
+                      {YEARS.map(y => (<option key={y} value={y}>{y}</option>))}
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Límite Total para el periodo</label>
-                  <input 
-                    type="number" 
-                    required 
-                    placeholder="Ej. 1500000" 
-                    value={newGoal.target} 
-                    onChange={e => setNewGoal({ ...newGoal, target: e.target.value })} 
-                    className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                  />
-                </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-600/20">
-                  Crear Presupuesto
-                </button>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold mt-4 shadow-lg shadow-blue-600/30 active:scale-95 transition-all">Establecer Presupuesto</button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Configuración y Descarga de Reportes Financieros */}
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }} 
+              className="glass max-w-md w-full p-8 rounded-[2.5rem]"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Configurar Reporte</h3>
+                <button type="button" onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Selector del tipo de Reporte */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-2 uppercase tracking-wider">Rango del Periodo</label>
+                  <div className="flex bg-slate-100 p-1 rounded-2xl">
+                    {(['monthly', 'quarterly', 'annual'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setReportType(type)}
+                        className={cn(
+                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-tight",
+                          reportType === type ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                        )}
+                      >
+                        {type === 'monthly' ? 'Mes' : type === 'quarterly' ? 'Trimestre' : 'Año'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Filtros dinámicos basados en la selección */}
+                <div className="grid grid-cols-2 gap-4">
+                  {reportType === 'monthly' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Seleccionar Mes</label>
+                      <select 
+                        value={reportPeriod.month} 
+                        onChange={e => setReportPeriod({ ...reportPeriod, month: parseInt(e.target.value) })}
+                        className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
+                      >
+                        {MONTHS.map((m, idx) => (<option key={m} value={idx}>{m}</option>))}
+                      </select>
+                    </div>
+                  )}
+
+                  {reportType === 'quarterly' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Trimestre</label>
+                      <select 
+                        value={reportPeriod.quarter} 
+                        onChange={e => setReportPeriod({ ...reportPeriod, quarter: parseInt(e.target.value) })}
+                        className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
+                      >
+                        <option value={0}>1er Trimestre (Ene - Mar)</option>
+                        <option value={1}>2do Trimestre (Abr - Jun)</option>
+                        <option value={2}>3er Trimestre (Jul - Sep)</option>
+                        <option value={3}>4to Trimestre (Oct - Dic)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div className={cn(reportType === 'annual' ? "col-span-2" : "col-span-1")}>
+                    <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Año</label>
+                    <select 
+                      value={reportPeriod.year} 
+                      onChange={e => setReportPeriod({ ...reportPeriod, year: parseInt(e.target.value) })}
+                      className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
+                    >
+                      {YEARS.map(y => (<option key={y} value={y}>{y}</option>))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="h-[1px] bg-slate-100 my-2" />
+
+                {/* Botonera de Acción de Descargas */}
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadReport('save');
+                      setShowReportModal(false);
+                    }}
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descargar Documento PDF
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDownloadReport('print');
+                        setShowReportModal(false);
+                      }}
+                      className="py-3.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 active:scale-95 transition-all"
+                    >
+                      Imprimir PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportCSV();
+                        setShowReportModal(false);
+                      }}
+                      className="py-3.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold text-sm hover:bg-emerald-100 active:scale-95 transition-all"
+                    >
+                      Exportar CSV
+                    </button>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
