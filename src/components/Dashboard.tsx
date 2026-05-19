@@ -21,7 +21,8 @@ import {
   FileText,
   Download,
   Lock,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from 'lucide-react';
 import { generateReportPDF } from '../lib/pdfGenerator';
 import { exportTransactionsToCSV } from '../lib/exportUtils';
@@ -29,6 +30,7 @@ import { AIAdvisor } from './AIAdvisor';
 import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
+import { ProfileSettingsModal } from './ProfileSettingsModal';
 
 function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
   return (
@@ -51,13 +53,14 @@ function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, in
   );
 }
 
-export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, recalculateGoal?: any, onUpgrade?: () => void }) {
+export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, recalculateGoal?: any, onUpgrade?: () => void, onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> }) {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [showExpenseDetails, setShowExpenseDetails] = useState(false);
   const [showIncomeDetails, setShowIncomeDetails] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<'total' | 'today' | 'week'>('total');
   const [incomeFilter, setIncomeFilter] = useState<'total' | 'today' | 'week'>('total');
 
@@ -100,7 +103,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         target: '', 
         month: new Date().getMonth() + 1, 
         year: new Date().getFullYear() 
-      });
+  });
     } catch (e: any) {
       alert(e.message || "Error al crear presupuesto");
     }
@@ -258,9 +261,18 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-            Hola, {user.name || user.email.split('@')[0]}
-          </h2>
+          <div className="flex items-center gap-2 group">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+              Hola, {user.name || user.email.split('@')[0]}
+            </h2>
+            <button
+              onClick={() => setIsProfileSettingsOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-all"
+              title="Editar Perfil"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
           <p className="text-slate-500">Aquí tienes el resumen de tus finanzas.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -742,6 +754,18 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Perfil / Ajustes Modal */}
+      <AnimatePresence>
+        {isProfileSettingsOpen && (
+          <ProfileSettingsModal
+            isOpen={isProfileSettingsOpen}
+            onClose={() => setIsProfileSettingsOpen(false)}
+            user={user}
+            onUpdateProfile={onUpdateProfile}
+          />
         )}
       </AnimatePresence>
     </motion.div>
