@@ -63,6 +63,46 @@ const normalizeForNlp = (text: string): string => {
     .trim();
 };
 
+// Convertir palabras numéricas a número (ej. "veinte mil" → 20000)
+const palabrasANumero = (text: string): number | null => {
+  const normalized = normalizeForNlp(text);
+  const palabras = normalized.split(/\s+/);
+  const numeros: Record<string, number> = {
+    'cero': 0, 'un': 1, 'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4,
+    'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
+    'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
+    'dieciseis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+    'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+    'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+    'cien': 100, 'cientos': 100, 'quinientos': 500, 'quinientas': 500,
+    'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
+    'mil': 1000, 'millón': 1000000, 'millones': 1000000
+  };
+  
+  let total = 0;
+  let current = 0;
+  for (let i = 0; i < palabras.length; i++) {
+    const w = palabras[i];
+    if (numeros[w] !== undefined) {
+      if (w === 'mil' || w === 'millón' || w === 'millones') {
+        total += (current || 1) * numeros[w];
+        current = 0;
+      } else {
+        current += numeros[w];
+      }
+    } else if (w === 'y' && i+1 < palabras.length && numeros[palabras[i+1]] && current >= 30) {
+      const next = numeros[palabras[i+1]];
+      if (next && next < 10) current += next;
+      i++;
+    } else if (current > 0 && (w === 'mil' || w === 'millones')) {
+      total += current * numeros[w];
+      current = 0;
+    }
+  }
+  total += current;
+  return total > 0 ? total : null;
+};
+
 const parseMoneyValue = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
   if (normalized.includes('medio millon') || normalized.includes('medio millón')) return 500000;
@@ -100,6 +140,21 @@ const parseMoneyValue = (text: string): number | null => {
 
 const extractAmount = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
+  
+  // 1. Patrón simple: número + slang (sin importar el verbo)
+  const slangMatch = normalized.match(/(\d+(?:[\\.,]\d+)?)\s*(lucas|palos|varos|pavos|guita|kilos|euros|pesos)/i);
+  if (slangMatch) {
+    let amount = parseFloat(slangMatch[1].replace(',', '.'));
+    if (!isNaN(amount)) {
+      const word = slangMatch[2];
+      if (word === 'palos') amount *= 1000000;
+      else if (word === 'lucas' || word === 'guita') amount *= 1000;
+      else if (word === 'kilos') amount *= 1000;
+      return amount;
+    }
+  }
+  
+  // 2. Patrones originales (con verbos) - buscan dígitos
   const patterns = [
     /(?:gast[ée]|pag[ué]|compr[ée]|invert[ée]|perd[ée]|clavaron|fund[íi]|rompieron|ching[ué]|me\s+fui)\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
     /(?:recib[íi]|gan[ée]|cay[óo]|factur[ée]|vend[íi]|cobr[ée]|ingres[óo])\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
@@ -107,6 +162,7 @@ const extractAmount = (text: string): number | null => {
     /(?:me\s+)?(?:cay[óo]|lleg[óo])\s+(?:la\s+)?(?:n[óo]mina|plata)\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)/i,
     /(?:vend[íi]|factur[ée])\s+(?:una\s+)?(?:compu|carro|moto|casa)\s+(?:en\s+)?(\d+(?:[\\.,]\d+)?)/i
   ];
+  
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
@@ -114,6 +170,11 @@ const extractAmount = (text: string): number | null => {
       if (!isNaN(amount)) return amount;
     }
   }
+  
+  // 3. Si no hay dígitos, convertir palabras a número
+  const palabrasNum = palabrasANumero(text);
+  if (palabrasNum && palabrasNum > 0) return palabrasNum;
+  
   return parseMoneyValue(text);
 };
 
@@ -310,34 +371,20 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
   };
 
-  // ==================== NORMALIZACIÓN ROBUSTA (CORREGIDA) ====================
   const normalizeTransaction = (tx: any) => {
     if (!tx) return null;
-    
     let description = '';
-    
-    // 1. Extracción segura del texto (evitamos JSON.stringify)
     if (typeof tx.description === 'string') {
       description = tx.description;
     } else if (tx.description && typeof tx.description === 'object') {
-      // Buscar la primera propiedad que parezca la descripción
-      description = tx.description.descripcion || 
-                    tx.description.concepto || 
-                    tx.description.text || 
-                    tx.description.message || 
-                    '';
+      description = tx.description.descripcion || tx.description.concepto || tx.description.text || tx.description.message || '';
     }
-    
-    // 2. Limpieza estricta: eliminar caracteres que parezcan JSON
     if (typeof description !== 'string') description = '';
     description = description.replace(/[{}[\]"'\\]/g, '').trim().substring(0, 60);
-    
-    // 3. Fallback semántico
     const category = typeof tx.category === 'string' ? tx.category : 'Otros';
     if (!description) {
       description = tx.type === 'expense' ? `Gasto en ${category}` : `Ingreso por ${category}`;
     }
-    
     return {
       ...tx,
       description,
@@ -373,7 +420,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     return false;
   };
 
-  // ==================== PROCESAMIENTO DE TEXTO (PRIORIDAD LOCAL) ====================
   const processInput = async (text: string) => {
     if (!text.trim()) return;
     addMessage('user', text);
@@ -384,8 +430,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setIsLoading(true);
     try {
       let finalTx = null;
-      
-      // 1. Intentar NLP local primero (ahorra tokens)
       const localResult = parseLocalTransaction(text);
       const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
       
@@ -393,7 +437,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         console.log("⚡ NLP local con alta confianza. Saltando llamada a API.");
         finalTx = localResult;
       } else {
-        // 2. Fallback a API solo si es necesario
         console.log("☁️ NLP local insuficiente, llamando a IA...");
         try {
           const rawResult = await parseTransaction(text);
@@ -424,18 +467,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       setIsLoading(true);
       const normalizedTx = normalizeTransaction(tx);
       const result = await addTransaction(normalizedTx);
-      
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
-      
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
-      
       if (result?.alerts && result.alerts.length > 0) {
         result.alerts.forEach((alert: any) => {
           const alertText = typeof alert === 'string' ? alert : JSON.stringify(alert);
           addMessage('ai', alertText);
         });
       }
-      
       if (normalizedTx.type === 'expense' && normalizedTx.description) {
         const desc = normalizedTx.description.toLowerCase();
         const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
@@ -446,7 +485,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           }, 800);
         }
       }
-      
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
       if (newCount % 3 === 0) {
@@ -505,7 +543,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             console.log("✅ Texto transcrito:", transcribedText);
             if (!transcribedText) throw new Error("No se obtuvo transcripción");
             
-            // Priorizar NLP local sobre el texto transcrito
             let finalTx = null;
             const localResult = parseLocalTransaction(transcribedText);
             const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
@@ -515,8 +552,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               finalTx = localResult;
             } else {
               console.log("☁️ Usando IA para analizar la transcripción...");
-              const geminiParseResult = await parseTransaction(transcribedText);
-              finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
+              try {
+                const geminiParseResult = await parseTransaction(transcribedText);
+                finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
+              } catch (apiError) {
+                console.error("❌ Error en API de texto, usando solo NLP local:", apiError);
+                finalTx = localResult;
+              }
             }
             
             if (finalTx && finalTx.amount > 0) {
