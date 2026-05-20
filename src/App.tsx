@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth'; // ✅ Importación modular añadida
 import { CommandBar } from './components/CommandBar';
 import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
@@ -88,7 +89,7 @@ export default function App() {
     }
   };
 
-  // ✅ Función definitiva para actualizar el perfil (usa setDoc con merge)
+  // ✅ Función definitiva corregida sin métodos deprecados
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
     if (!user || !user.uid) {
       console.error('❌ Usuario sin uid:', user);
@@ -112,15 +113,14 @@ export default function App() {
       await setDoc(userRef, dataToSave, { merge: true });
       console.log('✅ Firestore actualizado correctamente');
 
-      // Actualizar displayName en Firebase Authentication
+      // ✅ Solución al error: uso de la función funcional updateProfile
       if (auth.currentUser) {
-        await auth.currentUser.updateProfile({ displayName: updatedData.name.trim() });
-        console.log('✅ Auth profile actualizado');
+        await updateProfile(auth.currentUser, { displayName: updatedData.name.trim() });
+        console.log('✅ Auth profile actualizado de forma segura');
       }
 
     } catch (error: any) {
       console.error('🔥 Error detallado al guardar perfil:', error);
-      // Lanzar mensaje amigable según el código de error
       if (error.code === 'permission-denied') {
         throw new Error('Permiso denegado. Verifica las reglas de Firestore.');
       } else if (error.code === 'unavailable') {
