@@ -90,6 +90,19 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
     }
   }, [balance, user.id]);
 
+  // ✅ NUEVO EFECTO: Sincroniza la edad con la fecha de nacimiento cuando cambie
+  useEffect(() => {
+    if (user.birthdate) {
+      const birth = new Date(user.birthdate + 'T00:00:00');
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      if (age !== currentAge) {
+        setCurrentAge(age);
+      }
+    }
+  }, [user.birthdate]); // Se ejecuta cada vez que cambia la fecha de nacimiento
 
   // --- CÁLCULOS LÓGICOS MATEMÁTICOS ---
   
