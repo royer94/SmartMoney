@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from './hooks/useFinance';
-import { signInWithGoogle, auth } from './lib/firebase';
+import { signInWithGoogle, auth, db } from './lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { CommandBar } from './components/CommandBar';
 import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
@@ -25,10 +26,6 @@ import { cn } from './lib/utils';
 import { FREE_LIMIT } from './types';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
-
-// Si usas Firebase directo desde aquí, asegúrate de importar lo necesario si useFinance no expone la función:
-// import { doc, updateDoc } from 'firebase/firestore';
-// import { db } from './lib/firebase';
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
@@ -91,26 +88,29 @@ export default function App() {
     }
   };
 
-  // Función agregada para actualizar el perfil desde el Dashboard / ProfileSettingsModal
+  // ✅ Función corregida para actualizar el perfil en Firestore y en el estado local
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
+    if (!user || !user.uid) throw new Error('Usuario no autenticado');
+    
     try {
-      // Mapeamos 'birthDate' del modal a la propiedad 'birthdate' (todo en minúscula) que usa tu App/Onboarding
-      const dataToSave = {
+      // Actualizar en Firestore (el campo en la BD se llama 'birthdate' en minúscula)
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
         name: updatedData.name,
-        birthdate: updatedData.birthDate
-      };
-
-      // Si tu hook useFinance expone un método updateProfile, úsalo aquí. 
-      // De lo contrario, actualizamos directamente en Firebase Firestore:
-      // await updateDoc(doc(db, 'users', user.uid), dataToSave);
+        birthdate: updatedData.birthDate  // usar 'birthdate' como está en BD
+      });
       
-      console.log("Perfil actualizado con éxito:", dataToSave);
+      // Opcional: actualizar displayName en Firebase Authentication
+      if (auth.currentUser) {
+        await auth.currentUser.updateProfile({ displayName: updatedData.name });
+      }
       
-      // Nota: Si el hook useFinance escucha los cambios con onSnapshot de Firebase, 
-      // la interfaz de la app se refrescará sola inmediatamente.
+      // El hook useFinance escucha cambios en Firestore (onSnapshot),
+      // por lo que el estado 'user' se actualizará automáticamente.
+      console.log('Perfil actualizado correctamente en Firestore');
     } catch (error) {
-      console.error("Error al actualizar el perfil:", error);
-      throw new Error("No se pudo guardar la información del perfil en la base de datos.");
+      console.error('Error al actualizar perfil:', error);
+      throw new Error('No se pudo guardar la información del perfil en la base de datos.');
     }
   };
 
@@ -146,7 +146,7 @@ export default function App() {
   // 4. App principal
   const displayName = user.name || user.email.split('@')[0];
 
-  // Inyectamos el formato que espera el input tipo 'date' (YYYY-MM-DD) al prop user del modal
+  // Adaptamos el objeto user para que tenga 'birthDate' (mayúscula D) como espera el modal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
