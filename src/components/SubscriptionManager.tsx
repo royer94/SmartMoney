@@ -5,13 +5,16 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
 
 export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade }: { user: UserProfile, transactions: Transaction[], toggleRecurring: any, onUpgrade?: () => void }) {
-  const recurringItems = transactions.filter(t => t.isRecurring);
+  // Filtrar transacciones eliminadas (si tienen campo deleted) para consistencia
+  const activeTransactions = transactions.filter(t => !(t as any).deleted);
   
-  // Advanced Detection Logic (Forgotten Subscriptions)
+  const recurringItems = activeTransactions.filter(t => t.isRecurring);
+  
+  // Advanced Detection Logic (Forgotten Subscriptions) – solo Pro
   const potentialSubscriptions = React.useMemo(() => {
     if (!user.isPro) return [];
     
-    const expenses = transactions.filter(t => t.type === 'expense' && !t.isRecurring);
+    const expenses = activeTransactions.filter(t => t.type === 'expense' && !t.isRecurring);
     const groups: { [key: string]: Transaction[] } = {};
     
     // Group by simplified name (first 6 letters or similar)
@@ -32,9 +35,16 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         return months.size >= 2; // Repeats in at least 2 different months
       })
       .map(group => group[0]); // Take the representative
-  }, [transactions, user.isPro]);
+  }, [activeTransactions, user.isPro]);
 
   const monthlyTotal = recurringItems.reduce((acc, t) => acc + t.amount, 0);
+  
+  // Calcular el gasto total REAL en la categoría "Suscripciones" (incluye pagos no recurrentes)
+  const totalSuscripcionesCategoria = activeTransactions
+    .filter(t => t.type === 'expense' && t.category === 'Suscripciones')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const diferencia = totalSuscripcionesCategoria - monthlyTotal;
 
   if (!user.isPro) {
     return (
@@ -66,8 +76,14 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
           <h3 className="font-bold text-lg text-slate-900">Suscripciones</h3>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-bold text-slate-400 uppercase">Costo Mensual</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase">Costo Mensual (Recurrentes)</p>
           <p className="font-bold text-indigo-600">{formatCurrency(monthlyTotal)}</p>
+          {diferencia > 0 && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              Total en categoría: {formatCurrency(totalSuscripcionesCategoria)} 
+              <span className="text-amber-500"> (incluye pagos no recurrentes)</span>
+            </p>
+          )}
         </div>
       </div>
 
