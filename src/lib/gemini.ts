@@ -128,77 +128,56 @@ export const generateVoiceReport = async (
   return parsed.text || content;
 };
 
-// ==================== INSIGHTS FINANCIEROS CORREGIDOS ====================
+// ==================== INSIGHTS FINANCIEROS (VERSIÓN RESUMIDA Y PRÁCTICA) ====================
 export const getFinancialInsights = async (
   transactions: any[],
   goals: any[]
 ): Promise<string> => {
   try {
-    console.log('[getFinancialInsights] Iniciando análisis con transacciones:', transactions.length);
+    console.log('[getFinancialInsights] Iniciando análisis resumido');
 
-    // 1. Obtener moneda actual (con fallback)
+    // 1. Moneda y formateo
     let currencySymbol = '$';
     try {
       const currency = getCurrentCurrency();
       currencySymbol = currency.symbol || '$';
-    } catch (e) {
-      console.warn('No se pudo obtener moneda, usando $ por defecto');
-    }
-    const formatCurrencyLocal = (amount: number) => `${currencySymbol}${amount.toLocaleString('es-CO')}`;
+    } catch (e) {}
+    const fmt = (amount: number) => `${currencySymbol}${amount.toLocaleString('es-CO')}`;
 
-    // 2. Filtrar transacciones eliminadas (si existe campo deleted)
-    const activeTransactions = transactions.filter(t => !t.deleted);
-    console.log('Transacciones activas:', activeTransactions.length);
-
-    if (activeTransactions.length === 0) {
-      return "No hay movimientos activos para analizar. Registra algunos gastos e ingresos para obtener consejos personalizados.";
-    }
-
-    // 3. Determinar período actual (mes en curso)
+    // 2. Filtrar activas y del mes actual
+    const active = transactions.filter(t => !t.deleted);
+    if (active.length === 0) return "No hay movimientos activos para analizar. Registra algunos gastos e ingresos.";
+    
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-
-    const periodTransactions = activeTransactions.filter(t => {
-      let tDate;
+    const period = active.filter(t => {
+      let d;
       try {
-        if (t.timestamp?.toDate) tDate = t.timestamp.toDate();
-        else if (t.timestamp) tDate = new Date(t.timestamp);
-        else tDate = new Date();
-      } catch (e) {
-        tDate = new Date();
-      }
-      return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+        if (t.timestamp?.toDate) d = t.timestamp.toDate();
+        else if (t.timestamp) d = new Date(t.timestamp);
+        else d = new Date();
+      } catch { d = new Date(); }
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
+    if (period.length === 0) return "Aún no hay movimientos en el mes actual. Registra ingresos y gastos para obtener análisis.";
 
-    console.log('Transacciones del mes actual:', periodTransactions.length);
+    const totalIncome = period.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+    if (!totalIncome) return "No se registraron ingresos en el mes actual. El análisis requiere al menos un ingreso.";
 
-    if (periodTransactions.length === 0) {
-      return "Aún no hay movimientos en el mes actual. Una vez registres ingresos y gastos, podré darte un análisis detallado.";
-    }
+    // 3. Gastos por categoría
+    const expensesByCat: Record<string, number> = {};
+    period.filter(t => t.type === 'expense').forEach(t => {
+      const cat = t.category || 'Otros';
+      expensesByCat[cat] = (expensesByCat[cat] || 0) + (t.amount || 0);
+    });
+    const totalExpenses = Object.values(expensesByCat).reduce((a, b) => a + b, 0);
+    const savings = totalIncome - totalExpenses;
+    const savingsPercent = (savings / totalIncome) * 100;
 
-    // 4. Calcular ingreso total del período
-    const totalIncome = periodTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0), 0);
-
-    if (totalIncome === 0 || isNaN(totalIncome)) {
-      return "No se registraron ingresos válidos en el mes actual. El análisis financiero requiere al menos un ingreso para evaluar tus gastos.";
-    }
-
-    // 5. Agrupar gastos por categoría
-    const expensesByCategory: Record<string, number> = {};
-    periodTransactions
-      .filter(t => t.type === 'expense')
-      .forEach(t => {
-        const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
-        const cat = t.category || 'Otros';
-        expensesByCategory[cat] = (expensesByCategory[cat] || 0) + amount;
-      });
-
-    // 6. Umbrales saludables (% sobre ingreso total)
-    const THRESHOLDS: Record<string, { min?: number; max: number; isFixed?: boolean }> = {
-      Vivienda: { min: 0.25, max: 0.35, isFixed: true },
+    // 4. Umbrales (% del ingreso)
+    const thresholds: Record<string, { max: number; min?: number }> = {
+      Vivienda: { min: 0.25, max: 0.35 },
       Comida: { min: 0.10, max: 0.20 },
       Transporte: { min: 0.05, max: 0.15 },
       Servicios: { min: 0.05, max: 0.10 },
@@ -208,81 +187,84 @@ export const getFinancialInsights = async (
       Educación: { max: 0.15 },
       Ropa: { max: 0.08 },
       Mascotas: { max: 0.05 },
-      Otros: { max: 0.10 }
+      Otros: { max: 0.10 },
     };
 
-    let totalExpenses = 0;
-    let fixedExpenses = 0;
-    const warnings: string[] = [];
-    const positives: string[] = [];
+    // 5. Evaluar categorías
+    const outOfLimit: { cat: string; percent: number; amount: number; max: number }[] = [];
+    const okCategories: string[] = [];
 
-    for (const [cat, amount] of Object.entries(expensesByCategory)) {
-      totalExpenses += amount;
+    for (const [cat, amount] of Object.entries(expensesByCat)) {
       const percent = (amount / totalIncome) * 100;
-      const threshold = THRESHOLDS[cat] || THRESHOLDS.Otros;
-
-      if (threshold.isFixed) fixedExpenses += amount;
-
-      if (threshold.min !== undefined && percent < threshold.min * 100) {
-        positives.push(`- **${cat}**: ${formatCurrencyLocal(amount)} (${percent.toFixed(1)}% del ingreso). Está por debajo del mínimo recomendado. ¡Excelente control!`);
-      } else if (percent > threshold.max * 100) {
-        warnings.push(`- **${cat}**: ${formatCurrencyLocal(amount)} (${percent.toFixed(1)}% del ingreso). El rango saludable es hasta ${(threshold.max * 100).toFixed(0)}%. Revisa si puedes reducir este rubro.`);
+      const th = thresholds[cat] || thresholds.Otros;
+      if (percent > th.max) {
+        outOfLimit.push({ cat, percent, amount, max: th.max * 100 });
       } else {
-        positives.push(`- **${cat}**: Está dentro del rango saludable (${percent.toFixed(1)}%). ¡Bien controlado!`);
+        okCategories.push(cat);
       }
     }
 
-    // 7. Ahorro
-    const savings = totalIncome - totalExpenses;
-    const savingsPercent = (savings / totalIncome) * 100;
-    if (savingsPercent < 10) {
-      warnings.push(`- **Ahorro**: Solo estás ahorrando ${formatCurrencyLocal(savings)} (${savingsPercent.toFixed(1)}% del ingreso). Idealmente deberías ahorrar al menos el 10% mensual.`);
-    } else if (savingsPercent >= 20) {
-      positives.push(`- **Ahorro**: Destinas ${formatCurrencyLocal(savings)} (${savingsPercent.toFixed(1)}% del ingreso). ¡Excelente hábito! Sigue así.`);
+    // 6. Mensaje inicial rápido
+    let markdown = `## Resumen del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
+    markdown += `📊 **Ingresos:** ${fmt(totalIncome)}   |   💸 **Gastos:** ${fmt(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(0)}%)\n`;
+    markdown += `💰 **Ahorro:** ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
+
+    // 7. Categorías fuera de límite (solo estas se detallan)
+    if (outOfLimit.length > 0) {
+      markdown += `### ⚠️ Puntos a mejorar\n`;
+      for (const item of outOfLimit) {
+        markdown += `- **${item.cat}**: ${fmt(item.amount)} (${item.percent.toFixed(0)}% del ingreso). El límite saludable es ≤ ${item.max.toFixed(0)}%.\n`;
+      }
+      markdown += `\n`;
     } else {
-      positives.push(`- **Ahorro**: ${formatCurrencyLocal(savings)} (${savingsPercent.toFixed(1)}% del ingreso). Buen comienzo, intenta aumentarlo.`);
+      markdown += `### ✅ ¡Excelente gestión!\n`;
+      markdown += `Todas tus categorías están dentro de los rangos saludables. Sigue así.\n\n`;
     }
 
-    // 8. Gastos fijos (vivienda + servicios)
-    const fixedPercent = (fixedExpenses / totalIncome) * 100;
-    if (fixedPercent > 50) {
-      warnings.push(`- **Gastos fijos** (vivienda + servicios): ${fixedPercent.toFixed(1)}% del ingreso. Lo recomendable es no superar el 50%.`);
+    // 8. Categorías bien gestionadas (resumen)
+    if (okCategories.length > 0 && outOfLimit.length > 0) {
+      markdown += `### ✅ Bien controladas\n`;
+      markdown += `${okCategories.join(', ')}.\n\n`;
     }
 
-    // 9. Comparación con presupuesto (meta)
+    // 9. Consejo práctico (solo si hay excesos)
+    if (outOfLimit.length > 0) {
+      const worst = outOfLimit.reduce((a, b) => (a.percent > b.percent ? a : b));
+      let tip = "";
+      switch (worst.cat) {
+        case "Comida": tip = "revisar comidas fuera de casa y planificar menús semanales.";
+          break;
+        case "Entretenimiento": tip = "sustituir salidas costosas por alternativas gratuitas o de bajo costo.";
+          break;
+        case "Suscripciones": tip = "cancelar suscripciones que no uses y compartir cuentas familiares.";
+          break;
+        case "Transporte": tip = "usar transporte público, compartir vehículo o revisar mantenimiento.";
+          break;
+        case "Ropa": tip = "comprar en temporada de rebajas o priorizar necesidades reales.";
+          break;
+        default: tip = "revisar tus hábitos y buscar formas de reducir este gasto.";
+      }
+      markdown += `💡 **Tip para ${worst.cat}:** ${tip}\n`;
+    } else {
+      // Si todo bien, dar tip de ahorro general
+      markdown += `🎉 **Sigue así** – mantén el control y considera invertir tu excedente.\n`;
+    }
+
+    // 10. Presupuesto (si existe)
     const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear);
     if (currentGoal && currentGoal.targetAmount > 0) {
       const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
       if (totalExpenses > currentGoal.targetAmount) {
-        warnings.push(`- **Presupuesto mensual**: Superaste tu presupuesto de ${formatCurrencyLocal(currentGoal.targetAmount)} (${goalPercent.toFixed(0)}%).`);
-      } else if (goalPercent > 80) {
-        positives.push(`- **Presupuesto**: Has usado el ${goalPercent.toFixed(0)}% de tu presupuesto. ¡Vas bien!`);
+        markdown += `\n📉 **Presupuesto:** Superaste tu meta de ${fmt(currentGoal.targetAmount)} (${goalPercent.toFixed(0)}%). Intenta ajustar los gastos excedentes.`;
       } else {
-        positives.push(`- **Presupuesto**: Estás dentro del presupuesto (${goalPercent.toFixed(0)}% utilizado). Buen trabajo.`);
+        markdown += `\n📊 **Presupuesto:** Usaste ${goalPercent.toFixed(0)}% de tu presupuesto de ${fmt(currentGoal.targetAmount)}. ¡Bien!`;
       }
-    }
-
-    // 10. Construcción del mensaje final en Markdown
-    let markdown = `## Análisis del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
-    markdown += `**Ingreso total:** ${formatCurrencyLocal(totalIncome)}\n`;
-    markdown += `**Gasto total:** ${formatCurrencyLocal(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(1)}% del ingreso)\n`;
-    markdown += `**Ahorro neto:** ${formatCurrencyLocal(savings)} (${savingsPercent.toFixed(1)}%)\n\n`;
-
-    if (warnings.length) markdown += `### ⚠️ Puntos de atención\n${warnings.join('\n')}\n\n`;
-    if (positives.length) markdown += `### ✅ Aspectos positivos\n${positives.join('\n')}\n\n`;
-
-    if (savings > 0 && savingsPercent >= 15) {
-      markdown += `🎉 **¡Vas por muy buen camino!** Sigue así.`;
-    } else if (savings <= 0) {
-      markdown += `📉 **Alerta:** Gastas más de lo que ganas. Prioriza reducir gastos.`;
-    } else {
-      markdown += `💡 **Sugerencia:** Pequeños ajustes pueden mejorar tu ahorro.`;
     }
 
     return markdown;
   } catch (error: any) {
-    console.error('[getFinancialInsights] ERROR CRÍTICO:', error);
-    return `❌ No se pudo generar el análisis debido a un error interno. Por favor, intenta de nuevo más tarde. Detalle técnico: ${error.message || error}`;
+    console.error('[getFinancialInsights] Error:', error);
+    return "❌ No se pudo generar el análisis. Intenta de nuevo más tarde.";
   }
 };
 
