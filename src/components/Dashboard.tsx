@@ -220,8 +220,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     exportTransactionsToCSV(filtered, periodLabel);
   };
 
-  // NOTA: Ya no se usan totales de todos los tiempos. Usamos currentMonthExpenses/Income/Balance.
-  
   // Categorías del mes actual (para el gráfico de distribución)
   const categoryTotals = React.useMemo(() => {
     const currentMonthExpensesList = transactions.filter(t => {
@@ -341,8 +339,13 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
+            {/* ✅ Adaptador seguro inyectado aquí para corregir la desconfiguración de la edad */}
             <FreedomSimulator 
-              user={user} 
+              user={{
+                ...user,
+                birthDate: user.birthDate || (user as any).birthdate || '',
+                birthdate: (user as any).birthdate || user.birthDate || ''
+              }} 
               balance={currentMonthBalance} 
               actualMonthlySavings={currentMonthIncome - currentMonthExpenses} 
               onUpgrade={onUpgrade}
@@ -378,7 +381,9 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               }} className="cursor-pointer">
                 <StatCard label="Total Ingresos (este mes)" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
               </div>
-              <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
+              <div className="h-full">
+                <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -610,176 +615,75 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Goal Form Modal */}
+      {/* Profile Settings Modal */}
       <AnimatePresence>
-        {showGoalForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="glass max-w-sm w-full p-8 rounded-[2.5rem]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">Crear Presupuesto</h3>
-                <button onClick={() => setShowGoalForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
-              </div>
-              <form onSubmit={handleAddGoal} className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Monto Límite Objetivo</label>
-                  <input type="number" required placeholder="$ 0.00" value={newGoal.target} onChange={e => setNewGoal({ ...newGoal, target: e.target.value })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Mes</label>
-                    <select value={newGoal.month} onChange={e => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
-                      {MONTHS.map((m, idx) => (<option key={m} value={idx + 1}>{m}</option>))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Año</label>
-                    <select value={newGoal.year} onChange={e => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
-                      {YEARS.map(y => (<option key={y} value={y}>{y}</option>))}
-                    </select>
-                  </div>
-                </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold mt-4 shadow-lg shadow-blue-600/30 active:scale-95 transition-all">Establecer Presupuesto</button>
-              </form>
-            </motion.div>
-          </div>
+        {isProfileSettingsOpen && (
+          <ProfileSettingsModal
+            user={user}
+            onClose={() => setIsProfileSettingsOpen(false)}
+            onUpdate={onUpdateProfile}
+          />
         )}
       </AnimatePresence>
 
-      {/* Modal de Configuración y Descarga de Reportes Financieros */}
+      {/* Report Customizer Modal */}
       <AnimatePresence>
         {showReportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.9, opacity: 0 }} 
-              className="glass max-w-md w-full p-8 rounded-[2.5rem]"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-900">Configurar Reporte</h3>
-                <button type="button" onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="glass max-w-md w-full p-8 rounded-[2.5rem] space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Personalizar Reporte</h3>
+                <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
               </div>
-
-              <div className="space-y-6">
-                {/* Selector del tipo de Reporte */}
+              <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-2 uppercase tracking-wider">Rango del Periodo</label>
-                  <div className="flex bg-slate-100 p-1 rounded-2xl">
-                    {(['monthly', 'quarterly', 'annual'] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setReportType(type)}
-                        className={cn(
-                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-tight",
-                          reportType === type ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                        )}
-                      >
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Tipo de Periodo</label>
+                  <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl">
+                    {(['monthly', 'quarterly', 'annual'] as const).map(type => (
+                      <button key={type} onClick={() => setReportType(type)} className={cn("flex-1 py-2 rounded-xl text-xs font-bold transition-all uppercase", reportType === type ? "bg-white text-slate-900 shadow-sm" : "text-slate-500")}>
                         {type === 'monthly' ? 'Mes' : type === 'quarterly' ? 'Trimestre' : 'Año'}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                {/* Filtros dinámicos basados en la selección */}
                 <div className="grid grid-cols-2 gap-4">
                   {reportType === 'monthly' && (
                     <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Seleccionar Mes</label>
-                      <select 
-                        value={reportPeriod.month} 
-                        onChange={e => setReportPeriod({ ...reportPeriod, month: parseInt(e.target.value) })}
-                        className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
-                      >
-                        {MONTHS.map((m, idx) => (<option key={m} value={idx}>{m}</option>))}
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Mes</label>
+                      <select value={reportPeriod.month} onChange={(e) => setReportPeriod({ ...reportPeriod, month: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500">
+                        {MONTHS.map((m, idx) => <option key={m} value={idx}>{m}</option>)}
                       </select>
                     </div>
                   )}
-
                   {reportType === 'quarterly' && (
                     <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Trimestre</label>
-                      <select 
-                        value={reportPeriod.quarter} 
-                        onChange={e => setReportPeriod({ ...reportPeriod, quarter: parseInt(e.target.value) })}
-                        className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
-                      >
-                        <option value={0}>1er Trimestre (Ene - Mar)</option>
-                        <option value={1}>2do Trimestre (Abr - Jun)</option>
-                        <option value={2}>3er Trimestre (Jul - Sep)</option>
-                        <option value={3}>4to Trimestre (Oct - Dic)</option>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Trimestre</label>
+                      <select value={reportPeriod.quarter} onChange={(e) => setReportPeriod({ ...reportPeriod, quarter: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500">
+                        <option value={0}>Q1 (Ene - Mar)</option>
+                        <option value={1}>Q2 (Abr - Jun)</option>
+                        <option value={2}>Q3 (Jul - Sep)</option>
+                        <option value={3}>Q4 (Oct - Dic)</option>
                       </select>
                     </div>
                   )}
-
-                  <div className={cn(reportType === 'annual' ? "col-span-2" : "col-span-1")}>
-                    <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">Año</label>
-                    <select 
-                      value={reportPeriod.year} 
-                      onChange={e => setReportPeriod({ ...reportPeriod, year: parseInt(e.target.value) })}
-                      className="w-full p-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold focus:outline-none focus:border-blue-500 text-slate-700"
-                    >
-                      {YEARS.map(y => (<option key={y} value={y}>{y}</option>))}
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Año</label>
+                    <select value={reportPeriod.year} onChange={(e) => setReportPeriod({ ...reportPeriod, year: parseInt(e.target.value) })} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500">
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                 </div>
-
-                <div className="h-[1px] bg-slate-100 my-2" />
-
-                {/* Botonera de Acción de Descargas */}
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadReport('save');
-                      setShowReportModal(false);
-                    }}
-                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Descargar Documento PDF
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleDownloadReport('print');
-                        setShowReportModal(false);
-                      }}
-                      className="py-3.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 active:scale-95 transition-all"
-                    >
-                      Imprimir PDF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportCSV();
-                        setShowReportModal(false);
-                      }}
-                      className="py-3.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold text-sm hover:bg-emerald-100 active:scale-95 transition-all"
-                    >
-                      Exportar CSV
-                    </button>
-                  </div>
-                </div>
+              </div>
+              <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+                <button onClick={() => { handleDownloadReport('save'); setShowReportModal(false); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4" /> Guardar PDF
+                </button>
+                <button onClick={() => { handleExportCSV(); setShowReportModal(false); }} className="w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <FileText className="w-4 h-4" /> Exportar a Excel / CSV
+                </button>
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* Perfil / Ajustes Modal */}
-      <AnimatePresence>
-        {isProfileSettingsOpen && (
-          <ProfileSettingsModal
-            isOpen={isProfileSettingsOpen}
-            onClose={() => setIsProfileSettingsOpen(false)}
-            user={user}
-            onUpdateProfile={onUpdateProfile}
-          />
         )}
       </AnimatePresence>
     </motion.div>
