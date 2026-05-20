@@ -66,7 +66,10 @@ const normalizeForNlp = (text: string): string => {
 // Convertir palabras numéricas a número (ej. "veinte mil" → 20000)
 const palabrasANumero = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
-  const palabras = normalized.split(/\s+/);
+  // Reemplazar "y" por espacio para manejar "treinta y dos"
+  let processed = normalized.replace(/\by\b/g, ' ');
+  const palabras = processed.split(/\s+/);
+  
   const numeros: Record<string, number> = {
     'cero': 0, 'un': 1, 'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4,
     'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
@@ -81,25 +84,37 @@ const palabrasANumero = (text: string): number | null => {
   
   let total = 0;
   let current = 0;
+  
   for (let i = 0; i < palabras.length; i++) {
     const w = palabras[i];
     if (numeros[w] !== undefined) {
-      if (w === 'mil' || w === 'millón' || w === 'millones') {
-        total += (current || 1) * numeros[w];
+      if (w === 'mil') {
+        // "mil" multiplica lo acumulado o 1
+        total += (current === 0 ? 1 : current) * 1000;
+        current = 0;
+      } else if (w === 'millón' || w === 'millones') {
+        total += (current === 0 ? 1 : current) * 1000000;
         current = 0;
       } else {
-        current += numeros[w];
+        // Es un número simple (unidades, decenas, centenas)
+        if (numeros[w] >= 100) {
+          // Centenas: multiplican lo siguiente
+          total += numeros[w];
+        } else {
+          current += numeros[w];
+        }
       }
-    } else if (w === 'y' && i+1 < palabras.length && numeros[palabras[i+1]] && current >= 30) {
-      const next = numeros[palabras[i+1]];
-      if (next && next < 10) current += next;
-      i++;
-    } else if (current > 0 && (w === 'mil' || w === 'millones')) {
-      total += current * numeros[w];
-      current = 0;
+    } else {
+      // Si encontramos algo que no es número, reiniciamos current (por si hay palabras sueltas)
+      // pero no reiniciamos total
+      if (current > 0 && !w.match(/\d/)) {
+        total += current;
+        current = 0;
+      }
     }
   }
   total += current;
+  
   return total > 0 ? total : null;
 };
 
