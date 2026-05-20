@@ -320,15 +320,25 @@ const parseLocalTransaction = (text: string) => {
 const sanitizeAndParseAIResponse = (result: any) => {
   if (!result) return null;
   
+  console.log("🔍 sanitizeAndParseAIResponse recibió:", result);
+  
   let data = result;
   
+  // Si es string, intentar parsear como JSON
   if (typeof result === 'string') {
+    // Si parece ser solo texto plano (no JSON)
+    if (!result.trim().startsWith('{') && !result.trim().startsWith('[')) {
+      console.log("📝 Es texto plano, no JSON:", result);
+      // Intentar extraer información básica con NLP local
+      return parseLocalTransaction(result);
+    }
+    
     try {
       const cleanJson = result.replace(/```json|```/g, '').trim();
       data = JSON.parse(cleanJson);
     } catch (e) {
-      console.error("Error al intentar parsear el JSON string de Gemini:", e);
-      return null;
+      console.error("Error al parsear JSON, intentando NLP local:", e);
+      return parseLocalTransaction(result);
     }
   }
   
@@ -338,15 +348,19 @@ const sanitizeAndParseAIResponse = (result: any) => {
   }
   
   const amount = parseFloat(data.amount || data.Monto || data.monto || data.Amount || 0);
-  const description = data.description || data.Descripción || data.descripcion || data.concepto || data.Concepto || data.Description || 'Movimiento registrado';
+  const description = data.description || data.Descripción || data.descripcion || data.concepto || data.Concepto || data.Description || '';
   
   let type = (data.type || data.tipo || data.Type || 'expense').toLowerCase();
   if (type === 'ingreso' || type === 'income') type = 'income';
+  else if (type === 'gasto' || type === 'expense') type = 'expense';
   else type = 'expense';
   
   const category = data.category || data.categoría || data.categoria || data.Category || 'Otros';
   
-  if (isNaN(amount) || amount <= 0) return null;
+  if (isNaN(amount) || amount <= 0) {
+    console.log("Monto inválido, intentando NLP local");
+    return parseLocalTransaction(JSON.stringify(data));
+  }
   
   return { amount, description, type, category };
 };
@@ -574,52 +588,52 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   };
   
   const processInput = async (text: string) => {
-  if (!text.trim()) return;
-  
-  addMessage('user', text);
-  setInput('');
-  
-  const wasCommand = await handleCommand(text);
-  if (wasCommand) return;
-  
-  setIsLoading(true);
-  try {
-    let validatedResult = null;
+    if (!text.trim()) return;
     
-    // 🎯 PRIORIDAD 1: Gemini (entiende contexto, jerga y categorización inteligente)
+    addMessage('user', text);
+    setInput('');
+    
+    const wasCommand = await handleCommand(text);
+    if (wasCommand) return;
+    
+    setIsLoading(true);
     try {
-      const rawResult = await parseTransaction(text);
-      validatedResult = sanitizeAndParseAIResponse(rawResult);
+      let validatedResult = null;
       
-      // Si Gemini devuelve algo inválido o incompleto, intentamos con NLP local
-      if (!validatedResult) {
-        console.log("Gemini no devolvió datos válidos, usando NLP local como fallback");
+      // 🎯 PRIORIDAD 1: Gemini (entiende contexto, jerga y categorización inteligente)
+      try {
+        const rawResult = await parseTransaction(text);
+        validatedResult = sanitizeAndParseAIResponse(rawResult);
+        
+        // Si Gemini devuelve algo inválido o incompleto, intentamos con NLP local
+        if (!validatedResult) {
+          console.log("Gemini no devolvió datos válidos, usando NLP local como fallback");
+          validatedResult = parseLocalTransaction(text);
+        }
+      } catch (geminiError) {
+        console.error("❌ Gemini error, usando fallback local:", geminiError);
+        // Fallback a NLP local cuando Gemini falla (sin internet, error API, etc.)
         validatedResult = parseLocalTransaction(text);
       }
-    } catch (geminiError) {
-      console.error("❌ Gemini error, usando fallback local:", geminiError);
-      // Fallback a NLP local cuando Gemini falla (sin internet, error API, etc.)
-      validatedResult = parseLocalTransaction(text);
+      
+      if (validatedResult) {
+        addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
+      } else {
+        sendFriendlyHelpMessage();
+      }
+    } catch (error) {
+      console.error("Error al procesar texto:", error);
+      // Último recurso: NLP local
+      const localResult = parseLocalTransaction(text);
+      if (localResult) {
+        addMessage('ai', `Detecté un ${localResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(localResult.amount)} en ${localResult.category}. ¿Deseas registrarlo?`, localResult);
+      } else {
+        sendFriendlyHelpMessage();
+      }
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (validatedResult) {
-      addMessage('ai', `Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
-    } else {
-      sendFriendlyHelpMessage();
-    }
-  } catch (error) {
-    console.error("Error al procesar texto:", error);
-    // Último recurso: NLP local
-    const localResult = parseLocalTransaction(text);
-    if (localResult) {
-      addMessage('ai', `Detecté un ${localResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(localResult.amount)} en ${localResult.category}. ¿Deseas registrarlo?`, localResult);
-    } else {
-      sendFriendlyHelpMessage();
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
   
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
@@ -715,97 +729,154 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         if (e.data.size > 0) audioChunks.current.push(e.data);
       };
       
-mediaRecorder.current.onstop = async () => {
-  const audioBlob = new Blob(audioChunks.current, { type: mimeType });
-  if (audioBlob.size === 0) {
-    setIsLoading(false);
-    return;
-  }
-  
-  const reader = new FileReader();
-  reader.readAsDataURL(audioBlob);
-  reader.onloadend = async () => {
-    const base64Audio = (reader.result as string).split(',')[1];
-    addMessage('user', '🎤 Procesando tu voz...');
-    setIsLoading(true);
-    
-    try {
-      console.log("🎙️ Enviando audio a Gemini...");
-      
-      // PASO 1: Transcribir audio a texto usando Gemini
-      const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
-      
-      console.log("📝 Resultado de transcripción:", transcriptionResult);
-      
-      let transcribedText = '';
-      
-      // PASO 2: Extraer el texto transcrito (manejar diferentes formatos)
-      if (typeof transcriptionResult === 'string') {
-        transcribedText = transcriptionResult;
-      } else if (transcriptionResult && typeof transcriptionResult === 'object') {
-        // Buscar el texto en varias propiedades posibles
-        transcribedText = transcriptionResult.text || 
-                          transcriptionResult.transcription || 
-                          transcriptionResult.message || 
-                          transcriptionResult.response ||
-                          JSON.stringify(transcriptionResult);
-      }
-      
-      console.log("✅ Texto transcrito:", transcribedText);
-      
-      if (!transcribedText || transcribedText.length === 0) {
-        console.error("No se pudo transcribir el audio");
-        sendFriendlyHelpMessage();
-        setIsLoading(false);
-        return;
-      }
-      
-      // PASO 3: Procesar el texto transcrito para extraer transacción
-      let validatedResult = null;
-      
-      // 🎯 Intentar con Gemini primero (para entender contexto)
-      try {
-        console.log("🤖 Enviando texto a Gemini para análisis:", transcribedText);
-        const geminiParseResult = await parseTransaction(transcribedText);
-        console.log("📊 Resultado del parseo de Gemini:", geminiParseResult);
-        
-        validatedResult = sanitizeAndParseAIResponse(geminiParseResult);
-        
-        if (validatedResult) {
-          console.log("✅ Gemini entendió la transacción:", validatedResult);
-        } else {
-          console.log("⚠️ Gemini no entendió, usando NLP local como fallback");
-          validatedResult = parseLocalTransaction(transcribedText);
+      mediaRecorder.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: mimeType });
+        if (audioBlob.size === 0) {
+          setIsLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error("❌ Error en Gemini, usando NLP local:", error);
-        validatedResult = parseLocalTransaction(transcribedText);
-      }
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Audio = (reader.result as string).split(',')[1];
+          addMessage('user', '🎤 Procesando tu voz...');
+          setIsLoading(true);
+          
+          try {
+            console.log("🎙️ Enviando audio a Gemini...");
+            
+            // PASO 1: Transcribir audio a texto usando Gemini
+            const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
+            
+            console.log("📝 Resultado de transcripción:", transcriptionResult);
+            
+            let transcribedText = '';
+            
+            // PASO 2: Extraer el texto transcrito (manejar diferentes formatos)
+            if (typeof transcriptionResult === 'string') {
+              transcribedText = transcriptionResult;
+            } else if (transcriptionResult && typeof transcriptionResult === 'object') {
+              // Buscar el texto en varias propiedades posibles
+              transcribedText = transcriptionResult.text || 
+                                transcriptionResult.transcription || 
+                                transcriptionResult.message || 
+                                transcriptionResult.response ||
+                                JSON.stringify(transcriptionResult);
+            }
+            
+            console.log("✅ Texto transcrito:", transcribedText);
+            
+            if (!transcribedText || transcribedText.length === 0) {
+              console.error("No se pudo transcribir el audio");
+              sendFriendlyHelpMessage();
+              setIsLoading(false);
+              return;
+            }
+            
+            // PASO 3: Procesar el texto transcrito para extraer transacción
+            let validatedResult = null;
+            
+            // 🎯 Intentar con Gemini primero (para entender contexto)
+            try {
+              console.log("🤖 Enviando texto a Gemini para análisis:", transcribedText);
+              const geminiParseResult = await parseTransaction(transcribedText);
+              console.log("📊 Resultado del parseo de Gemini:", geminiParseResult);
+              
+              validatedResult = sanitizeAndParseAIResponse(geminiParseResult);
+              
+              if (validatedResult) {
+                console.log("✅ Gemini entendió la transacción:", validatedResult);
+              } else {
+                console.log("⚠️ Gemini no entendió, usando NLP local como fallback");
+                validatedResult = parseLocalTransaction(transcribedText);
+              }
+            } catch (error) {
+              console.error("❌ Error en Gemini, usando NLP local:", error);
+              validatedResult = parseLocalTransaction(transcribedText);
+            }
+            
+            if (validatedResult) {
+              addMessage('ai', `🎤 Por voz: Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
+            } else {
+              console.log("❌ No se pudo extraer ninguna transacción del texto:", transcribedText);
+              addMessage('ai', `No entendí bien lo que dijiste. ¿Podrías repetirlo de forma más clara? Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
+            }
+            
+          } catch (error) {
+            console.error("🔥 Error crítico en procesamiento de voz:", error);
+            sendFriendlyHelpMessage();
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        if (audioContext.current) {
+          audioContext.current.close().catch(() => {});
+          audioContext.current = null;
+        }
+      };
       
-      if (validatedResult) {
-        addMessage('ai', `🎤 Por voz: Detecté un ${validatedResult.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(validatedResult.amount)} en ${validatedResult.category}. ¿Deseas registrarlo?`, validatedResult);
-      } else {
-        console.log("❌ No se pudo extraer ninguna transacción del texto:", transcribedText);
-        addMessage('ai', `No entendí bien lo que dijiste. ¿Podrías repetirlo de forma más clara? Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
       }
+      audioContext.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
       
-    } catch (error) {
-      console.error("🔥 Error crítico en procesamiento de voz:", error);
-      sendFriendlyHelpMessage();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  if (streamRef.current) {
-    streamRef.current.getTracks().forEach(track => track.stop());
-    streamRef.current = null;
-  }
-  if (audioContext.current) {
-    audioContext.current.close().catch(() => {});
-    audioContext.current = null;
-  }
-};
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      let lastSoundTime = Date.now();
+      let hasHeardSpeech = false;
+      let noiseFloor = 25; 
+      const SILENCE_DURATION = 1000; 
+      const SPEECH_ONSET_RATIO = 1.6; 
+      const ABSOLUTE_MIN_SPEECH = 30; 
+      const MIN_MAINTAIN_LEVEL = 25; 
+      
+      const checkSilence = () => {
+        if (!mediaRecorder.current || mediaRecorder.current.state !== 'recording') return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        
+        if (average < noiseFloor) {
+          noiseFloor = noiseFloor * 0.99 + average * 0.01;
+        }
+        
+        const isSpeech = average > ABSOLUTE_MIN_SPEECH && average > noiseFloor * SPEECH_ONSET_RATIO;
+        const isMaintaining = average > MIN_MAINTAIN_LEVEL && average > noiseFloor * 1.2;
+        
+        if (isSpeech) {
+          hasHeardSpeech = true;
+          lastSoundTime = Date.now();
+        } else if (isMaintaining) {
+          lastSoundTime = Date.now();
+        }
+        
+        if (hasHeardSpeech && Date.now() - lastSoundTime > SILENCE_DURATION) {
+          stopRecording();
+          return;
+        }
+        
+        silenceTimer.current = requestAnimationFrame(checkSilence);
+      };
+      
+      mediaRecorder.current.start();
+      silenceTimer.current = requestAnimationFrame(checkSilence);
+    } catch (err) {
       console.error("Mic error", err);
       setIsRecording(false);
       isRecordingRef.current = false;
