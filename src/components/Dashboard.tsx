@@ -684,10 +684,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       <AnimatePresence>
         {isProfileSettingsOpen && (
           <ProfileSettingsModal
-            user={user}
-            onClose={() => setIsProfileSettingsOpen(false)}
-            onUpdate={onUpdateProfile}
-          />
+  isOpen={isProfileSettingsOpen}
+  onClose={() => setIsProfileSettingsOpen(false)}
+  user={user}
+  onUpdateProfile={onUpdateProfile}
+/>
         )}
       </AnimatePresence>
     </motion.div>
