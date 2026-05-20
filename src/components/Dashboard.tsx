@@ -339,7 +339,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            {/* ✅ Adaptador seguro inyectado aquí para corregir la desconfiguración de la edad */}
             <FreedomSimulator 
               user={{
                 ...user,
