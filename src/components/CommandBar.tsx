@@ -310,14 +310,31 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
   };
 
-  // Función para normalizar transacciones y evitar que se muestre JSON en los mensajes
+  // ==================== FUNCIÓN CLAVE: NORMALIZACIÓN ROBUSTA ====================
   const normalizeTransaction = (tx: any) => {
     if (!tx) return null;
+    
+    // Extraer description como string plano
     let description = tx.description;
     if (typeof description !== 'string') {
-      description = description?.description || JSON.stringify(description);
+      // Si es objeto, buscar campos comunes de texto
+      if (description && typeof description === 'object') {
+        description = description.descripcion || description.concepto || description.text || description.message || '';
+      }
+      // Si sigue sin ser string, convertir a JSON pero solo si es necesario
+      if (typeof description !== 'string') {
+        description = JSON.stringify(description);
+      }
     }
-    if (description.length > 60) description = description.substring(0, 57) + '...';
+    
+    // Limpiar la descripción: eliminar caracteres raros y limitar longitud
+    description = description.replace(/[{}"\\]/g, '').substring(0, 60);
+    
+    // Si después de todo queda vacío, crear una descripción por defecto
+    if (!description || description.length === 0) {
+      description = tx.type === 'expense' ? `Gasto en ${tx.category || 'Otros'}` : `Ingreso por ${tx.category || 'Otros'}`;
+    }
+    
     return {
       ...tx,
       description: description,
@@ -396,22 +413,35 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      const result = await addTransaction(tx);
+      // 🔥 Normalizar la transacción antes de cualquier operación
+      const normalizedTx = normalizeTransaction(tx);
+      const result = await addTransaction(normalizedTx);
+      
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
-      // Asegurar que description sea string para mostrarlo
-      const descripcion = typeof tx.description === 'string' ? tx.description : (tx.description?.description || JSON.stringify(tx.description));
-      addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${descripcion}" por ${formatCurrency(tx.amount)}.`);
+      
+      // Mostrar mensaje con descripción limpia
+      addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
+      
+      // Sanitizar alertas (pueden venir como objetos)
       if (result?.alerts && result.alerts.length > 0) {
-        result.alerts.forEach((alert: any) => { addMessage('ai', alert); });
+        result.alerts.forEach((alert: any) => {
+          const alertText = typeof alert === 'string' ? alert : JSON.stringify(alert);
+          addMessage('ai', alertText);
+        });
       }
-      if (tx.type === 'expense' && tx.description) {
-        const desc = tx.description.toLowerCase();
+      
+      // Detección de suscripciones
+      if (normalizedTx.type === 'expense' && normalizedTx.description) {
+        const desc = normalizedTx.description.toLowerCase();
         const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
         const isPotentialSub = subscriptionKeywords.some(keyword => desc.includes(keyword));
         if (isPotentialSub) {
-          setTimeout(() => { addMessage('ai', `🔍 Noté que "${tx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como un gasto recurrente para rastrearlo automáticamente en tu Dashboard?`, tx, true); }, 800);
+          setTimeout(() => {
+            addMessage('ai', `🔍 Noté que "${normalizedTx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como un gasto recurrente para rastrearlo automáticamente en tu Dashboard?`, normalizedTx, true);
+          }, 800);
         }
       }
+      
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
       if (newCount % 3 === 0) {
@@ -428,8 +458,10 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const handleMarkAsRecurring = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      const updatedTx = { ...tx, isRecurring: true };
+      const normalizedTx = normalizeTransaction(tx);
+      const updatedTx = { ...normalizedTx, isRecurring: true };
       await addTransaction(updatedTx);
+      
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
       addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
     } catch (error: any) {
