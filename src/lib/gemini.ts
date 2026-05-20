@@ -128,34 +128,151 @@ export const generateVoiceReport = async (
   return parsed.text || content;
 };
 
-// ─── Insights financieros ─────────────────────────────────────────────────────
+// ==================== FUNCIÓN CORREGIDA DE INSIGHTS FINANCIEROS ====================
 export const getFinancialInsights = async (
   transactions: any[],
   goals: any[]
 ): Promise<string> => {
-  const currency = getCurrentCurrency();
-  const summary = transactions
-    .slice(0, 50)
-    .map(t => `${t.type === 'expense' ? 'Gasto' : 'Ingreso'}: ${t.description} (${t.category}) ${currency.symbol}${t.amount}`)
-    .join('\n');
+  // 1. Filtrar transacciones eliminadas (si tienen campo deleted = true)
+  const activeTransactions = transactions.filter(t => !t.deleted);
+  
+  if (activeTransactions.length === 0) {
+    return "No hay movimientos activos para analizar. Registra algunos gastos e ingresos para obtener consejos personalizados.";
+  }
 
-  const goalsSummary = goals.length > 0
-    ? goals.map(g => `Presupuesto ${g.name}: ${currency.symbol}${g.currentAmount}/${currency.symbol}${g.targetAmount}`).join('\n')
-    : 'No definidos';
+  // 2. Determinar período actual (mes en curso)
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  const content = await groqChat([
-    {
-      role: 'system',
-      content: `Eres un experto asesor financiero. El usuario usa ${currency.name} (${currency.code}). Responde en español con formato Markdown. Responde en JSON con el campo: { "text": "..." }`
-    },
-    {
-      role: 'user',
-      content: `Analiza estos movimientos:\n${summary}\n\nPresupuestos:\n${goalsSummary}\n\nDa: 1) Evaluación de hábitos (2 líneas). 2) Tres Insights Pro. 3) Predicción de fin de mes. Tono profesional.`
+  const periodTransactions = activeTransactions.filter(t => {
+    const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+    return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+  });
+
+  if (periodTransactions.length === 0) {
+    return "Aún no hay movimientos en el mes actual. Una vez registres ingresos y gastos, podré darte un análisis detallado.";
+  }
+
+  // 3. Calcular ingreso total del período
+  const totalIncome = periodTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  if (totalIncome === 0) {
+    return "No se registraron ingresos en el mes actual. El análisis financiero requiere al menos un ingreso para evaluar tus gastos.";
+  }
+
+  // 4. Agrupar gastos por categoría
+  const expensesByCategory: Record<string, number> = {};
+  periodTransactions
+    .filter(t => t.type === 'expense')
+    .forEach(t => {
+      const cat = t.category || 'Otros';
+      expensesByCategory[cat] = (expensesByCategory[cat] || 0) + t.amount;
+    });
+
+  // 5. Umbrales saludables (% sobre ingreso total)
+  const THRESHOLDS: Record<string, { min?: number; max: number; isFixed?: boolean }> = {
+    Vivienda: { min: 0.25, max: 0.35, isFixed: true },
+    Comida: { min: 0.10, max: 0.20 },
+    Transporte: { min: 0.05, max: 0.15 },
+    Servicios: { min: 0.05, max: 0.10 },
+    Suscripciones: { max: 0.05 },
+    Entretenimiento: { max: 0.10 },
+    Salud: { max: 0.10 },
+    Educación: { max: 0.15 },
+    Ropa: { max: 0.08 },
+    Otros: { max: 0.10 },
+    // Ingresos (no aplican límites)
+    Salario: { max: 1.0 },
+    Ventas: { max: 1.0 },
+    Honorarios: { max: 1.0 }
+  };
+
+  let totalExpenses = 0;
+  let fixedExpenses = 0;
+  const warnings: string[] = [];
+  const positives: string[] = [];
+
+  for (const [cat, amount] of Object.entries(expensesByCategory)) {
+    totalExpenses += amount;
+    const percent = (amount / totalIncome) * 100;
+    const threshold = THRESHOLDS[cat] || THRESHOLDS.Otros;
+
+    if (threshold.isFixed) {
+      fixedExpenses += amount;
     }
-  ]);
 
-  const parsed = JSON.parse(content);
-  return parsed.text || content;
+    if (threshold.min !== undefined && percent < threshold.min * 100) {
+      // gasto por debajo del mínimo (muy bien, no se añade advertencia)
+    } else if (percent > threshold.max * 100) {
+      warnings.push(`- **${cat}**: ${formatCurrency(amount)} (${percent.toFixed(1)}% del ingreso). El rango saludable es hasta ${(threshold.max * 100).toFixed(0)}%. Revisa si puedes reducir este rubro.`);
+    } else {
+      positives.push(`- **${cat}**: Está dentro del rango saludable (${percent.toFixed(1)}%). ¡Bien controlado!`);
+    }
+  }
+
+  // 6. Análisis de ahorro
+  const savings = totalIncome - totalExpenses;
+  const savingsPercent = (savings / totalIncome) * 100;
+  if (savingsPercent < 10) {
+    warnings.push(`- **Ahorro**: Solo estás ahorrando ${formatCurrency(savings)} (${savingsPercent.toFixed(1)}% del ingreso). Idealmente deberías ahorrar al menos el 10% mensual.`);
+  } else if (savingsPercent >= 20) {
+    positives.push(`- **Ahorro**: Destinas ${formatCurrency(savings)} (${savingsPercent.toFixed(1)}% del ingreso). ¡Excelente hábito! Sigue así para alcanzar tus metas.`);
+  } else {
+    positives.push(`- **Ahorro**: ${formatCurrency(savings)} (${savingsPercent.toFixed(1)}% del ingreso). Es un buen comienzo, intenta aumentarlo gradualmente.`);
+  }
+
+  // 7. Gastos fijos (vivienda + servicios) no deben superar 50%
+  const fixedPercent = (fixedExpenses / totalIncome) * 100;
+  if (fixedPercent > 50) {
+    warnings.push(`- **Gastos fijos** (vivienda + servicios) representan ${fixedPercent.toFixed(1)}% de tus ingresos. Lo recomendable es que no superen el 50%. Considera renegociar o buscar alternativas más económicas.`);
+  }
+
+  // 8. Comparación con presupuesto (metas)
+  const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear);
+  if (currentGoal) {
+    const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
+    if (totalExpenses > currentGoal.targetAmount) {
+      warnings.push(`- **Presupuesto mensual**: Has superado tu presupuesto de ${formatCurrency(currentGoal.targetAmount)} en un ${goalPercent.toFixed(0)}%. Revisa los gastos no esenciales.`);
+    } else if (goalPercent > 80) {
+      positives.push(`- **Presupuesto**: Has usado el ${goalPercent.toFixed(0)}% de tu presupuesto mensual. ¡Vas bien! Solo controla los gastos de fin de mes.`);
+    } else {
+      positives.push(`- **Presupuesto**: Estás dentro del presupuesto establecido (${goalPercent.toFixed(0)}% utilizado). Buen trabajo.`);
+    }
+  }
+
+  // 9. Construir respuesta en Markdown
+  const currency = getCurrentCurrency();
+  const formatCurrencyLocal = (value: number) => `${currency.symbol}${value.toLocaleString('es-CO')}`;
+  // reemplazar el uso de formatCurrency (si no está definida en el ámbito)
+  function formatCurrency(amount: number): string {
+    return `${currency.symbol}${amount.toLocaleString('es-CO')}`;
+  }
+
+  let markdown = `## Análisis del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
+  markdown += `**Ingreso total:** ${formatCurrency(totalIncome)}\n`;
+  markdown += `**Gasto total:** ${formatCurrency(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(1)}% del ingreso)\n`;
+  markdown += `**Ahorro neto:** ${formatCurrency(savings)} (${savingsPercent.toFixed(1)}%)\n\n`;
+
+  if (warnings.length > 0) {
+    markdown += `### ⚠️ Puntos de atención\n${warnings.join('\n')}\n\n`;
+  }
+  if (positives.length > 0) {
+    markdown += `### ✅ Aspectos positivos\n${positives.join('\n')}\n\n`;
+  }
+
+  // Consejo final personalizado
+  if (savings > 0 && savingsPercent >= 15) {
+    markdown += `🎉 **¡Vas por muy buen camino!** Destinas una parte importante al ahorro. Considera invertir el excedente o crear un fondo de emergencia.`;
+  } else if (savings <= 0) {
+    markdown += `📉 **Alerta:** Estás gastando más de lo que ganas. Prioriza reducir gastos en las categorías señaladas y crea un presupuesto realista.`;
+  } else {
+    markdown += `💡 **Sugerencia:** Sigue monitoreando tus gastos. Pequeños ajustes en entretenimiento o comidas fuera pueden mejorar tu ahorro significativamente.`;
+  }
+
+  return markdown;
 };
 
 // ─── Detectar tipo de transacción ─────────────────────────────────────────────
