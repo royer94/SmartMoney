@@ -141,7 +141,7 @@ const parseMoneyValue = (text: string): number | null => {
 const extractAmount = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
   
-  // 1. Patrón simple: número + slang (sin importar el verbo)
+  // 1. Patrón simple: número + slang
   const slangMatch = normalized.match(/(\d+(?:[\\.,]\d+)?)\s*(lucas|palos|varos|pavos|guita|kilos|euros|pesos)/i);
   if (slangMatch) {
     let amount = parseFloat(slangMatch[1].replace(',', '.'));
@@ -154,7 +154,7 @@ const extractAmount = (text: string): number | null => {
     }
   }
   
-  // 2. Patrones originales (con verbos) - buscan dígitos
+  // 2. Patrones con dígitos
   const patterns = [
     /(?:gast[ée]|pag[ué]|compr[ée]|invert[ée]|perd[ée]|clavaron|fund[íi]|rompieron|ching[ué]|me\s+fui)\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
     /(?:recib[íi]|gan[ée]|cay[óo]|factur[ée]|vend[íi]|cobr[ée]|ingres[óo])\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
@@ -162,7 +162,6 @@ const extractAmount = (text: string): number | null => {
     /(?:me\s+)?(?:cay[óo]|lleg[óo])\s+(?:la\s+)?(?:n[óo]mina|plata)\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)/i,
     /(?:vend[íi]|factur[ée])\s+(?:una\s+)?(?:compu|carro|moto|casa)\s+(?:en\s+)?(\d+(?:[\\.,]\d+)?)/i
   ];
-  
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
@@ -171,7 +170,7 @@ const extractAmount = (text: string): number | null => {
     }
   }
   
-  // 3. Si no hay dígitos, convertir palabras a número
+  // 3. Palabras a número
   const palabrasNum = palabrasANumero(text);
   if (palabrasNum && palabrasNum > 0) return palabrasNum;
   
@@ -513,6 +512,39 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     }
   };
 
+  // Detección de compatibilidad Web Speech API
+  const isSpeechRecognitionSupported = () => {
+    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+  };
+
+  // Fallback a Web Speech API cuando Groq falla por rate limit u otro error
+  const fallbackToWebSpeech = () => {
+    if (!isSpeechRecognitionSupported()) {
+      addMessage('ai', '❌ Tu navegador no soporta entrada de voz. Por favor, escribe tu mensaje.');
+      return;
+    }
+    addMessage('ai', '📊 El servicio de voz está sobrecargado. Cambiando a modo de respaldo...');
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    
+    recognition.start();
+    addMessage('user', '🎤 Escuchando (modo respaldo)...');
+    
+    recognition.onresult = (event: any) => {
+      const speechToText = event.results[0][0].transcript;
+      addMessage('user', `🎤 Dijiste: "${speechToText}"`);
+      processInput(speechToText);
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error('Web Speech API error:', event.error);
+      addMessage('ai', 'No se pudo reconocer tu voz. Intenta escribiendo el mensaje.');
+    };
+  };
+
   const startRecording = async () => {
     setIsRecording(true);
     isRecordingRef.current = true;
@@ -533,14 +565,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Procesando tu voz...');
           setIsLoading(true);
           try {
-            console.log("🎙️ Enviando audio a API para transcripción...");
+            console.log("🎙️ Enviando audio a Groq para transcripción...");
             const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
             let transcribedText = '';
             if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
             else if (transcriptionResult && typeof transcriptionResult === 'object') {
               transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || transcriptionResult.response || '';
             }
-            console.log("✅ Texto transcrito:", transcribedText);
+            console.log("✅ Texto transcrito (Groq):", transcribedText);
             if (!transcribedText) throw new Error("No se obtuvo transcripción");
             
             let finalTx = null;
@@ -567,9 +599,15 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             } else {
               addMessage('ai', `No entendí bien lo que dijiste. ¿Podrías repetirlo de forma más clara? Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error("🔥 Error en procesamiento de voz:", error);
-            sendFriendlyHelpMessage();
+            // Si el error es por rate limit (429) o cualquier otro, usamos Web Speech API como fallback
+            if (error.message?.includes('429') || error.message?.includes('Rate limit') || error.message?.includes('Too Many Requests')) {
+              addMessage('ai', '📊 Límite de uso alcanzado en el servicio principal. Activando modo de respaldo...');
+              fallbackToWebSpeech();
+            } else {
+              sendFriendlyHelpMessage();
+            }
           } finally {
             setIsLoading(false);
           }
