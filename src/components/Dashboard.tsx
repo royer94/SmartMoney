@@ -32,6 +32,9 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 
+// Helper para filtrar transacciones no eliminadas (si existe campo deleted)
+const notDeleted = (t: Transaction) => (t as any).deleted !== true;
+
 function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
   return (
     <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
@@ -103,7 +106,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         target: '', 
         month: new Date().getMonth() + 1, 
         year: new Date().getFullYear() 
-  });
+      });
     } catch (e: any) {
       alert(e.message || "Error al crear presupuesto");
     }
@@ -118,9 +121,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     }
   };
 
+  // ==================== FUNCIONES DE FILTRADO CON ELIMINADOS ====================
   const getFilteredTransactions = (type: 'income' | 'expense', filter: 'total' | 'today' | 'week') => {
     return transactions.filter(t => {
       if (t.type !== type) return false;
+      if (!notDeleted(t)) return false; // excluir eliminados
       if (filter === 'total') return true;
       const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
       const now = new Date();
@@ -140,6 +145,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   const getPeriodTotal = (type: 'income' | 'expense', month: number, year: number) => {
     return transactions
       .filter(t => {
+        if (!notDeleted(t)) return false;
         const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
         return t.type === type && tDate.getMonth() === month && tDate.getFullYear() === year;
       })
@@ -152,9 +158,13 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-  const thisMonthExpenses = getPeriodTotal('expense', currentMonth, currentYear);
+  // Totales del mes actual (para las tarjetas principales)
+  const currentMonthExpenses = getPeriodTotal('expense', currentMonth, currentYear);
+  const currentMonthIncome = getPeriodTotal('income', currentMonth, currentYear);
+  const currentMonthBalance = currentMonthIncome - currentMonthExpenses;
+
+  // Totales del mes anterior para tendencias
   const lastMonthExpenses = getPeriodTotal('expense', lastMonth, lastMonthYear);
-  const thisMonthIncome = getPeriodTotal('income', currentMonth, currentYear);
   const lastMonthIncome = getPeriodTotal('income', lastMonth, lastMonthYear);
 
   const calculateTrend = (current: number, previous: number) => {
@@ -163,8 +173,8 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     return `${change > 0 ? '+' : ''}${Math.round(change)}%`;
   };
 
-  const expenseTrend = calculateTrend(thisMonthExpenses, lastMonthExpenses);
-  const incomeTrend = calculateTrend(thisMonthIncome, lastMonthIncome);
+  const expenseTrend = calculateTrend(currentMonthExpenses, lastMonthExpenses);
+  const incomeTrend = calculateTrend(currentMonthIncome, lastMonthIncome);
 
   const getFilteredForReport = () => {
     let filtered: Transaction[] = [];
@@ -173,6 +183,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
     if (reportType === 'monthly') {
       filtered = transactions.filter(t => {
+        if (!notDeleted(t)) return false;
         const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
         return d.getMonth() === reportPeriod.month && d.getFullYear() === reportPeriod.year;
       });
@@ -180,6 +191,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       periodLabel = `Mensual (${MONTHS[reportPeriod.month]} ${reportPeriod.year})`;
     } else if (reportType === 'quarterly') {
       filtered = transactions.filter(t => {
+        if (!notDeleted(t)) return false;
         const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
         return Math.floor(d.getMonth() / 3) === reportPeriod.quarter && d.getFullYear() === reportPeriod.year;
       });
@@ -187,6 +199,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       periodLabel = `Trimestral (Q${reportPeriod.quarter + 1} ${reportPeriod.year})`;
     } else if (reportType === 'annual') {
       filtered = transactions.filter(t => {
+        if (!notDeleted(t)) return false;
         const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
         return d.getFullYear() === reportPeriod.year;
       });
@@ -207,12 +220,12 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     exportTransactionsToCSV(filtered, periodLabel);
   };
 
-  const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const balance = totalIncome - totalExpenses;
-
+  // NOTA: Ya no se usan totales de todos los tiempos. Usamos currentMonthExpenses/Income/Balance.
+  
+  // Categorías del mes actual (para el gráfico de distribución)
   const categoryTotals = React.useMemo(() => {
     const currentMonthExpensesList = transactions.filter(t => {
+      if (!notDeleted(t)) return false;
       const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
       return t.type === 'expense' && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
     });
@@ -232,6 +245,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+  // Historial (últimos 6 meses) también excluye eliminados
   const historyData = React.useMemo(() => {
     const data = [];
     for (let i = 5; i >= 0; i--) {
@@ -329,8 +343,8 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
           >
             <FreedomSimulator 
               user={user} 
-              balance={balance} 
-              actualMonthlySavings={thisMonthIncome - thisMonthExpenses} 
+              balance={currentMonthBalance} 
+              actualMonthlySavings={currentMonthIncome - currentMonthExpenses} 
               onUpgrade={onUpgrade}
             />
           </motion.div>
@@ -356,15 +370,15 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 if (!user.isPro) { alert("Los detalles de gastos son una función Pro."); return; }
                 setShowExpenseDetails(true);
               }} className="cursor-pointer">
-                <StatCard label="Total Gastos" amount={totalExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
+                <StatCard label="Total Gastos (este mes)" amount={currentMonthExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
               </div>
               <div onClick={() => {
                 if (!user.isPro) { alert("Los detalles de ingresos son una función Pro."); return; }
                 setShowIncomeDetails(true);
               }} className="cursor-pointer">
-                <StatCard label="Total Ingresos" amount={totalIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
+                <StatCard label="Total Ingresos (este mes)" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
               </div>
-              <StatCard label="Balance Neto" amount={balance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={balance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
+              <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -540,7 +554,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                   ))}
                 </div>
                 <div className="p-6 bg-slate-50 rounded-3xl text-center border border-slate-100 transition-colors">
-                  <p className="text-sm text-slate-500 mb-1">{expenseFilter === 'today' ? 'Gastos de Hoy' : expenseFilter === 'week' ? 'Gastos de la Semana' : 'Gastos Totales'}</p>
+                  <p className="text-sm text-slate-500 mb-1">{expenseFilter === 'today' ? 'Gastos de Hoy' : expenseFilter === 'week' ? 'Gastos de la Semana' : 'Gastos Totales (todos los tiempos)'}</p>
                   <p className="text-3xl font-bold text-slate-900">{formatCurrency(getFilteredExpenses(expenseFilter).reduce((acc, t) => acc + t.amount, 0))}</p>
                 </div>
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
@@ -577,7 +591,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                   ))}
                 </div>
                 <div className="p-6 bg-slate-50 rounded-3xl text-center border border-slate-100 transition-colors">
-                  <p className="text-sm text-slate-500 mb-1">{incomeFilter === 'today' ? 'Ingresos de Hoy' : incomeFilter === 'week' ? 'Ingresos de la Semana' : 'Ingresos Totales'}</p>
+                  <p className="text-sm text-slate-500 mb-1">{incomeFilter === 'today' ? 'Ingresos de Hoy' : incomeFilter === 'week' ? 'Ingresos de la Semana' : 'Ingresos Totales (todos los tiempos)'}</p>
                   <p className="text-3xl font-bold text-slate-900">{formatCurrency(getFilteredIncomes(incomeFilter).reduce((acc, t) => acc + t.amount, 0))}</p>
                 </div>
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
