@@ -162,6 +162,7 @@ export const getFinancialInsights = async (
       } catch { d = new Date(); }
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
+    
     if (period.length === 0) {
       return "Aún no hay movimientos en el mes actual. Registra ingresos y gastos para obtener análisis.";
     }
@@ -196,14 +197,14 @@ export const getFinancialInsights = async (
       Otros: { max: 0.10 },
     };
 
-    // 5. Clasificar: exceso ESTRICTO (percent > th.max)
+    // 5. Clasificar: exceso ESTRICTO (percent > th.max * 100)
     const excesses: { cat: string; percent: number; amount: number; max: number }[] = [];
     const underControl: string[] = [];
 
     for (const [cat, amount] of Object.entries(expensesByCat)) {
       const percent = (amount / totalIncome) * 100;
       const th = thresholds[cat] || thresholds.Otros;
-      if (percent > th.max) {
+      if (percent > th.max * 100) {
         excesses.push({ cat, percent, amount, max: th.max * 100 });
       } else {
         underControl.push(cat);
@@ -212,14 +213,14 @@ export const getFinancialInsights = async (
 
     // 6. Construir el mensaje
     let markdown = `## Resumen del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
-    markdown += `📊 **Ingresos:** ${fmt(totalIncome)}   |   💸 **Gastos:** ${fmt(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(0)}%)\n`;
-    markdown += `💰 **Ahorro:** ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
+    markdown += `📊 Ingresos: ${fmt(totalIncome)} | 💸 Gastos: ${fmt(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(0)}%)\n`;
+    markdown += `💰 Ahorro: ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
 
     if (excesses.length === 0) {
       // Todo bien: solo felicitación y consejo general
       markdown += `### ✅ ¡Excelente gestión financiera!\n`;
       markdown += `Todas tus categorías de gasto están dentro de los rangos saludables. Sigue así.\n\n`;
-      markdown += `🎉 **Sigue así** – mantén el control y considera invertir tu excedente.\n`;
+      markdown += `🎉 Sigue así – mantén el control y considera invertir tu excedente.\n`;
     } else {
       // Hay excesos: mostrarlos y dar un tip
       markdown += `### ⚠️ Puntos a mejorar\n`;
@@ -230,11 +231,11 @@ export const getFinancialInsights = async (
 
       // Mencionar que el resto de categorías están bien (agrupadas)
       if (underControl.length > 0) {
-        markdown += `✅ **Categorías bien controladas:** ${underControl.join(', ')}.\n\n`;
+        markdown += `✅ Categorías bien controladas: ${underControl.join(', ')}.\n\n`;
       }
 
-      // Tip práctico para la categoría con mayor desviación
-      const worst = excesses.reduce((a, b) => (a.percent > b.percent ? a : b));
+      // Tip práctico para la categoría con mayor desviación de exceso
+      const worst = excesses.reduce((a, b) => ( (a.percent - a.max) > (b.percent - b.max) ? a : b ));
       let tip = "";
       switch (worst.cat) {
         case "Vivienda": tip = "revisar si puedes renegociar el arriendo o hipoteca, o buscar opciones más económicas.";
@@ -259,9 +260,9 @@ export const getFinancialInsights = async (
     if (currentGoal && currentGoal.targetAmount > 0) {
       const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
       if (totalExpenses > currentGoal.targetAmount) {
-        markdown += `\n📉 **Presupuesto:** Superaste tu meta de ${fmt(currentGoal.targetAmount)} (${goalPercent.toFixed(0)}%). Intenta ajustar los gastos excedentes.`;
+        markdown += `\n📉 Presupuesto: Superaste tu meta de ${fmt(currentGoal.targetAmount)} (${goalPercent.toFixed(0)}%). Intenta ajustar los gastos excedentes.`;
       } else {
-        markdown += `\n📊 **Presupuesto:** Usaste ${goalPercent.toFixed(0)}% de tu presupuesto de ${fmt(currentGoal.targetAmount)}. ¡Bien!`;
+        markdown += `\n📊 Presupuesto: Usaste ${goalPercent.toFixed(0)}% de tu presupuesto de ${fmt(currentGoal.targetAmount)}. ¡Bien!`;
       }
     }
 
