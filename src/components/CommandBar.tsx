@@ -212,6 +212,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'hamburguesa', 'comida rápida', 'mecato', 'golosinas', 'antojos', 'lonche',
     'bocadillo', 'tentempié', 'delivery', 'domicilio', 'rappi', 'pedidosya'
   ],
+  'Mascotas': [
+  'perro', 'perros', 'gato', 'gatos', 'mascota', 'veterinaria', 
+  'peluqueria canina', 'alimento para perro', 'croquetas', 'arena',
+  'collar', 'correa', 'juguete para perro', 'baño de mascotas'
+],
   'Transporte': [
     'transporte', 'uber', 'taxi', 'bus', 'gasolina', 'carro', 'moto', 'peaje',
     'pasaje', 'mío', 'transmilenio', 'metro', 'combustible', 'parqueadero',
