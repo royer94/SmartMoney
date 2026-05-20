@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { signInWithGoogle, auth, db } from './lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { CommandBar } from './components/CommandBar';
 import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
@@ -88,29 +88,46 @@ export default function App() {
     }
   };
 
-  // ✅ Función corregida para actualizar el perfil en Firestore y en el estado local
+  // ✅ Función definitiva para actualizar el perfil (usa setDoc con merge)
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
-    if (!user || !user.uid) throw new Error('Usuario no autenticado');
-    
+    if (!user || !user.uid) {
+      console.error('❌ Usuario sin uid:', user);
+      throw new Error('Usuario no autenticado');
+    }
+
     try {
-      // Actualizar en Firestore (el campo en la BD se llama 'birthdate' en minúscula)
+      console.log('📝 Guardando perfil para uid:', user.uid);
+      console.log('📦 Datos:', updatedData);
+
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        name: updatedData.name,
-        birthdate: updatedData.birthDate  // usar 'birthdate' como está en BD
-      });
-      
-      // Opcional: actualizar displayName en Firebase Authentication
-      if (auth.currentUser) {
-        await auth.currentUser.updateProfile({ displayName: updatedData.name });
+      const dataToSave: any = {
+        name: updatedData.name.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      if (updatedData.birthDate && updatedData.birthDate.trim() !== '') {
+        dataToSave.birthdate = updatedData.birthDate;
       }
-      
-      // El hook useFinance escucha cambios en Firestore (onSnapshot),
-      // por lo que el estado 'user' se actualizará automáticamente.
-      console.log('Perfil actualizado correctamente en Firestore');
-    } catch (error) {
-      console.error('Error al actualizar perfil:', error);
-      throw new Error('No se pudo guardar la información del perfil en la base de datos.');
+
+      // Usamos setDoc con merge: true para crear el documento si no existe
+      await setDoc(userRef, dataToSave, { merge: true });
+      console.log('✅ Firestore actualizado correctamente');
+
+      // Actualizar displayName en Firebase Authentication
+      if (auth.currentUser) {
+        await auth.currentUser.updateProfile({ displayName: updatedData.name.trim() });
+        console.log('✅ Auth profile actualizado');
+      }
+
+    } catch (error: any) {
+      console.error('🔥 Error detallado al guardar perfil:', error);
+      // Lanzar mensaje amigable según el código de error
+      if (error.code === 'permission-denied') {
+        throw new Error('Permiso denegado. Verifica las reglas de Firestore.');
+      } else if (error.code === 'unavailable') {
+        throw new Error('Firestore no está disponible. Revisa tu conexión a internet.');
+      } else {
+        throw new Error(`Error al guardar: ${error.message}`);
+      }
     }
   };
 
@@ -144,9 +161,6 @@ export default function App() {
   }
 
   // 4. App principal
-  const displayName = user.name || user.email.split('@')[0];
-
-  // Adaptamos el objeto user para que tenga 'birthDate' (mayúscula D) como espera el modal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
