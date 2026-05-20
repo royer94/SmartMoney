@@ -586,32 +586,16 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           setIsLoading(true);
           try {
             console.log("🎙️ Enviando audio a Groq para transcripción...");
-            const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
-            let transcribedText = '';
-            if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
-            else if (transcriptionResult && typeof transcriptionResult === 'object') {
-              transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || transcriptionResult.response || '';
-            }
-            console.log("✅ Texto transcrito (Groq):", transcribedText);
-            if (!transcribedText) throw new Error("No se obtuvo transcripción");
-            
-            let finalTx = null;
-            const localResult = parseLocalTransaction(transcribedText);
-            const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
-            
-            if (isLocalConfident) {
-              console.log("⚡ NLP local sobre voz con alta confianza.");
-              finalTx = localResult;
-            } else {
-              console.log("☁️ Usando IA para analizar la transcripción...");
-              try {
-                const geminiParseResult = await parseTransaction(transcribedText);
-                finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
-              } catch (apiError) {
-                console.error("❌ Error en API de texto, usando solo NLP local:", apiError);
-                finalTx = localResult;
-              }
-            }
+            const audioResult = await parseTransaction({ mimeType, data: base64Audio });
+console.log("✅ Resultado de audio (Groq):", audioResult);
+
+// parseTransaction con audio devuelve directamente la transacción parseada
+let finalTx = sanitizeAndParseAIResponse(audioResult);
+
+// Si no se pudo parsear, intentar NLP local con el texto si viene como string
+if (!finalTx && typeof audioResult === 'string' && audioResult.trim()) {
+  finalTx = parseLocalTransaction(audioResult);
+}
             
             if (finalTx && finalTx.amount > 0) {
               const normalizedTx = normalizeTransaction(finalTx);
