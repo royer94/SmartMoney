@@ -35,6 +35,19 @@ import { ProfileSettingsModal } from './ProfileSettingsModal';
 // Helper para filtrar transacciones no eliminadas (si existe campo deleted)
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
+// ✅ Función para formateo compacto (K / M) en el gráfico
+const compactCurrency = (value: number): string => {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    return `${millions.toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (value >= 1_000) {
+    const thousands = value / 1_000;
+    return `${thousands.toFixed(0)}K`;
+  }
+  return formatCurrency(value);
+};
+
 function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
   return (
     <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
@@ -409,7 +422,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 </div>
                 <div className="h-80 mt-4">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 50, left: 20, bottom: 5 }}>
+                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 60, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} width={90} />
@@ -418,7 +431,14 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                         {chartData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
-                        <LabelList dataKey="amount" position="right" formatter={(value: number) => formatHidable(value)} style={{ fill: '#475569', fontSize: 10, fontWeight: '600' }} offset={10} />
+                        {/* ✅ Formato compacto (K/M) en las etiquetas del gráfico */}
+                        <LabelList 
+                          dataKey="amount" 
+                          position="right" 
+                          formatter={(value: number) => privacyMode ? '••••' : compactCurrency(value)} 
+                          style={{ fill: '#475569', fontSize: 10, fontWeight: '600' }} 
+                          offset={10} 
+                        />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -684,11 +704,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       <AnimatePresence>
         {isProfileSettingsOpen && (
           <ProfileSettingsModal
-  isOpen={isProfileSettingsOpen}
-  onClose={() => setIsProfileSettingsOpen(false)}
-  user={user}
-  onUpdateProfile={onUpdateProfile}
-/>
+            isOpen={isProfileSettingsOpen}
+            onClose={() => setIsProfileSettingsOpen(false)}
+            user={user}
+            onUpdateProfile={onUpdateProfile}
+          />
         )}
       </AnimatePresence>
     </motion.div>
