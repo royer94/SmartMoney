@@ -128,13 +128,13 @@ export const generateVoiceReport = async (
   return parsed.text || content;
 };
 
-// ==================== INSIGHTS FINANCIEROS (VERSIÓN DEFINITIVA – SOLO EXCESOS) ====================
+// ==================== INSIGHTS FINANCIEROS (VERSIÓN DEFINITIVA: SOLO EXCESOS ESTRICTOS) ====================
 export const getFinancialInsights = async (
   transactions: any[],
   goals: any[]
 ): Promise<string> => {
   try {
-    console.log('[getFinancialInsights] Análisis enfocado en excesos');
+    console.log('[getFinancialInsights] Análisis enfocado en excesos (solo > límite)');
 
     // 1. Moneda y formateo
     let currencySymbol = '$';
@@ -181,7 +181,7 @@ export const getFinancialInsights = async (
     const savings = totalIncome - totalExpenses;
     const savingsPercent = (savings / totalIncome) * 100;
 
-    // 4. Umbrales saludables (% del ingreso)
+    // 4. Umbrales saludables (% del ingreso) – valores máximos tolerables
     const thresholds: Record<string, { max: number; min?: number }> = {
       Vivienda: { min: 0.25, max: 0.35 },
       Comida: { min: 0.10, max: 0.20 },
@@ -196,48 +196,50 @@ export const getFinancialInsights = async (
       Otros: { max: 0.10 },
     };
 
-    // 5. Clasificar: fuera de límite vs dentro
-    const outOfLimit: { cat: string; percent: number; amount: number; max: number }[] = [];
-    const withinLimit: string[] = [];
+    // 5. Clasificar: exceso ESTRICTO (percent > th.max)
+    const excesses: { cat: string; percent: number; amount: number; max: number }[] = [];
+    const underControl: string[] = [];
 
     for (const [cat, amount] of Object.entries(expensesByCat)) {
       const percent = (amount / totalIncome) * 100;
       const th = thresholds[cat] || thresholds.Otros;
       if (percent > th.max) {
-        outOfLimit.push({ cat, percent, amount, max: th.max * 100 });
+        excesses.push({ cat, percent, amount, max: th.max * 100 });
       } else {
-        withinLimit.push(cat);
+        underControl.push(cat);
       }
     }
 
-    // 6. Construir el mensaje: solo mostramos excesos, el resto se agrupa
+    // 6. Construir el mensaje
     let markdown = `## Resumen del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
     markdown += `📊 **Ingresos:** ${fmt(totalIncome)}   |   💸 **Gastos:** ${fmt(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(0)}%)\n`;
     markdown += `💰 **Ahorro:** ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
 
-    if (outOfLimit.length > 0) {
+    if (excesses.length === 0) {
+      // Todo bien: solo felicitación y consejo general
+      markdown += `### ✅ ¡Excelente gestión financiera!\n`;
+      markdown += `Todas tus categorías de gasto están dentro de los rangos saludables. Sigue así.\n\n`;
+      markdown += `🎉 **Sigue así** – mantén el control y considera invertir tu excedente.\n`;
+    } else {
+      // Hay excesos: mostrarlos y dar un tip
       markdown += `### ⚠️ Puntos a mejorar\n`;
-      for (const item of outOfLimit) {
-        markdown += `- **${item.cat}**: ${fmt(item.amount)} (${item.percent.toFixed(0)}% del ingreso). El límite saludable es ≤ ${item.max.toFixed(0)}%.\n`;
+      for (const exc of excesses) {
+        markdown += `- **${exc.cat}**: ${fmt(exc.amount)} (${exc.percent.toFixed(0)}% del ingreso). El límite saludable es ≤ ${exc.max.toFixed(0)}%.\n`;
       }
       markdown += `\n`;
 
-      // Mencionar que el resto de categorías están bien
-      if (withinLimit.length > 0) {
-        markdown += `✅ **Categorías bien controladas:** ${withinLimit.join(', ')}.\n\n`;
+      // Mencionar que el resto de categorías están bien (agrupadas)
+      if (underControl.length > 0) {
+        markdown += `✅ **Categorías bien controladas:** ${underControl.join(', ')}.\n\n`;
       }
-    } else {
-      // Todas dentro del límite → solo felicitación
-      markdown += `### ✅ ¡Excelente gestión financiera!\n`;
-      markdown += `Todas tus categorías de gasto están dentro de los rangos saludables. Sigue así.\n\n`;
-    }
 
-    // 7. Consejo práctico (solo si hay excesos)
-    if (outOfLimit.length > 0) {
-      const worst = outOfLimit.reduce((a, b) => (a.percent > b.percent ? a : b));
+      // Tip práctico para la categoría con mayor desviación
+      const worst = excesses.reduce((a, b) => (a.percent > b.percent ? a : b));
       let tip = "";
       switch (worst.cat) {
-        case "Comida": tip = "revisar comidas fuera de casa y planificar menús semanales.";
+        case "Vivienda": tip = "revisar si puedes renegociar el arriendo o hipoteca, o buscar opciones más económicas.";
+          break;
+        case "Comida": tip = "planificar menús semanales, evitar comidas fuera de casa y reducir gastos en supermercado.";
           break;
         case "Entretenimiento": tip = "sustituir salidas costosas por alternativas gratuitas o de bajo costo.";
           break;
@@ -250,12 +252,9 @@ export const getFinancialInsights = async (
         default: tip = "revisar tus hábitos y buscar formas de reducir este gasto.";
       }
       markdown += `💡 **Tip para ${worst.cat}:** ${tip}\n`;
-    } else {
-      // Consejo general de ahorro
-      markdown += `🎉 **Sigue así** – mantén el control y considera invertir tu excedente.\n`;
     }
 
-    // 8. Información del presupuesto (si existe meta para el mes)
+    // 7. Información del presupuesto (si existe meta para el mes)
     const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear);
     if (currentGoal && currentGoal.targetAmount > 0) {
       const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
