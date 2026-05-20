@@ -277,9 +277,14 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
               Hola, {user.name || user.email.split('@')[0]}
             </h2>
+            {/* ✅ Corrección de propagación aplicada aquí para evitar interferencias de renderizado */}
             <button
-              onClick={() => setIsProfileSettingsOpen(true)}
-              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsProfileSettingsOpen(true);
+              }}
+              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-all z-20"
               title="Editar Perfil"
             >
               <Settings className="w-4 h-4" />
@@ -614,17 +619,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Profile Settings Modal */}
-      <AnimatePresence>
-        {isProfileSettingsOpen && (
-          <ProfileSettingsModal
-            user={user}
-            onClose={() => setIsProfileSettingsOpen(false)}
-            onUpdate={onUpdateProfile}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Report Customizer Modal */}
       <AnimatePresence>
         {showReportModal && (
@@ -683,6 +677,17 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* ✅ Colocado al final absoluto del archivo, garantizando la persistencia en el DOM sin importar pestañas activas */}
+      <AnimatePresence>
+        {isProfileSettingsOpen && (
+          <ProfileSettingsModal
+            user={user}
+            onClose={() => setIsProfileSettingsOpen(false)}
+            onUpdate={onUpdateProfile}
+          />
         )}
       </AnimatePresence>
     </motion.div>
