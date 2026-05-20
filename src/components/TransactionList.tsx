@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
-import { Trash2, ShoppingBag, Coffee, Car, Home, Heart, CreditCard, Utensils, RefreshCcw } from 'lucide-react';
+import { Trash2, ShoppingBag, Coffee, Car, Home, Heart, CreditCard, Utensils, RefreshCcw, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const CATEGORY_ICONS: any = {
@@ -15,11 +15,21 @@ const CATEGORY_ICONS: any = {
 };
 
 export function TransactionList({ transactions, onDelete, onToggleRecurring }: { transactions: Transaction[], onDelete: any, onToggleRecurring?: any, key?: string }) {
-  const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
+  // 1. Separamos los filtros en dos estados diferentes
+  const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
+  // 2. Obtenemos solo las categorías que existen en los movimientos actuales
+  const availableCategories = useMemo(() => {
+    const categories = new Set(transactions.map(t => t.category));
+    return Array.from(categories).sort();
+  }, [transactions]);
+
+  // 3. Aplicamos ambos filtros simultáneamente
   const filteredTransactions = transactions.filter(t => {
-    if (filter === 'all') return true;
-    return t.type === filter;
+    const matchType = typeFilter === 'all' || t.type === typeFilter;
+    const matchCategory = categoryFilter === 'all' || t.category === categoryFilter;
+    return matchType && matchCategory;
   });
 
   return (
@@ -30,34 +40,53 @@ export function TransactionList({ transactions, onDelete, onToggleRecurring }: {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight text-slate-900">Movimientos Recientes</h2>
-        <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl w-fit transition-colors">
-          <button 
-            onClick={() => setFilter('all')}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all",
-              filter === 'all' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Todos
-          </button>
-          <button 
-            onClick={() => setFilter('expense')}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all",
-              filter === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Gastos
-          </button>
-          <button 
-            onClick={() => setFilter('income')}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all",
-              filter === 'income' ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Ingresos
-          </button>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Nuevo Dropdown de Categorías */}
+          <div className="relative flex items-center bg-slate-100 rounded-2xl px-3 py-1 transition-colors hover:bg-slate-200">
+            <Filter className="w-4 h-4 text-slate-500 mr-2" />
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-600 focus:outline-none appearance-none pr-6 cursor-pointer py-1"
+            >
+              <option value="all">Todas las categorías</option>
+              {availableCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Botones de Tipo de Movimiento Originales */}
+          <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl w-fit transition-colors">
+            <button 
+              onClick={() => setTypeFilter('all')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                typeFilter === 'all' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setTypeFilter('expense')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                typeFilter === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Gastos
+            </button>
+            <button 
+              onClick={() => setTypeFilter('income')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                typeFilter === 'income' ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Ingresos
+            </button>
+          </div>
         </div>
       </div>
 
@@ -120,7 +149,7 @@ export function TransactionList({ transactions, onDelete, onToggleRecurring }: {
             );
           }) : (
             <div className="text-center py-20 bg-white border-2 border-dashed border-slate-100 rounded-3xl transition-colors">
-              <p className="text-slate-400 font-medium">No se encontraron movimientos.</p>
+              <p className="text-slate-400 font-medium">No se encontraron movimientos con esos filtros.</p>
             </div>
           )}
         </AnimatePresence>
