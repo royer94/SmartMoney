@@ -310,37 +310,40 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
   };
 
-  // ==================== FUNCIÓN CLAVE: NORMALIZACIÓN ROBUSTA ====================
+  // ==================== NORMALIZACIÓN ROBUSTA (CORREGIDA) ====================
   const normalizeTransaction = (tx: any) => {
     if (!tx) return null;
     
-    // Extraer description como string plano
-    let description = tx.description;
-    if (typeof description !== 'string') {
-      // Si es objeto, buscar campos comunes de texto
-      if (description && typeof description === 'object') {
-        description = description.descripcion || description.concepto || description.text || description.message || '';
-      }
-      // Si sigue sin ser string, convertir a JSON pero solo si es necesario
-      if (typeof description !== 'string') {
-        description = JSON.stringify(description);
-      }
+    let description = '';
+    
+    // 1. Extracción segura del texto (evitamos JSON.stringify)
+    if (typeof tx.description === 'string') {
+      description = tx.description;
+    } else if (tx.description && typeof tx.description === 'object') {
+      // Buscar la primera propiedad que parezca la descripción
+      description = tx.description.descripcion || 
+                    tx.description.concepto || 
+                    tx.description.text || 
+                    tx.description.message || 
+                    '';
     }
     
-    // Limpiar la descripción: eliminar caracteres raros y limitar longitud
-    description = description.replace(/[{}"\\]/g, '').substring(0, 60);
+    // 2. Limpieza estricta: eliminar caracteres que parezcan JSON
+    if (typeof description !== 'string') description = '';
+    description = description.replace(/[{}[\]"'\\]/g, '').trim().substring(0, 60);
     
-    // Si después de todo queda vacío, crear una descripción por defecto
-    if (!description || description.length === 0) {
-      description = tx.type === 'expense' ? `Gasto en ${tx.category || 'Otros'}` : `Ingreso por ${tx.category || 'Otros'}`;
+    // 3. Fallback semántico
+    const category = typeof tx.category === 'string' ? tx.category : 'Otros';
+    if (!description) {
+      description = tx.type === 'expense' ? `Gasto en ${category}` : `Ingreso por ${category}`;
     }
     
     return {
       ...tx,
-      description: description,
-      amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount),
+      description,
+      amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount) || 0,
       type: tx.type === 'income' ? 'income' : 'expense',
-      category: typeof tx.category === 'string' ? tx.category : 'Otros',
+      category,
     };
   };
 
@@ -370,41 +373,47 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     return false;
   };
 
+  // ==================== PROCESAMIENTO DE TEXTO (PRIORIDAD LOCAL) ====================
   const processInput = async (text: string) => {
     if (!text.trim()) return;
     addMessage('user', text);
     setInput('');
     const wasCommand = await handleCommand(text);
     if (wasCommand) return;
+    
     setIsLoading(true);
     try {
-      let validatedResult = null;
-      try {
-        const rawResult = await parseTransaction(text);
-        validatedResult = sanitizeAndParseAIResponse(rawResult);
-        if (!validatedResult) {
-          console.log("Gemini no devolvió datos válidos, usando NLP local como fallback");
-          validatedResult = parseLocalTransaction(text);
+      let finalTx = null;
+      
+      // 1. Intentar NLP local primero (ahorra tokens)
+      const localResult = parseLocalTransaction(text);
+      const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
+      
+      if (isLocalConfident) {
+        console.log("⚡ NLP local con alta confianza. Saltando llamada a API.");
+        finalTx = localResult;
+      } else {
+        // 2. Fallback a API solo si es necesario
+        console.log("☁️ NLP local insuficiente, llamando a IA...");
+        try {
+          const rawResult = await parseTransaction(text);
+          finalTx = sanitizeAndParseAIResponse(rawResult);
+          if (!finalTx && localResult) finalTx = localResult;
+        } catch (apiError) {
+          console.error("❌ Error en API (posible rate limit), usando NLP local:", apiError);
+          finalTx = localResult;
         }
-      } catch (geminiError) {
-        console.error("❌ Gemini error, usando fallback local:", geminiError);
-        validatedResult = parseLocalTransaction(text);
       }
-      if (validatedResult) {
-        const normalizedTx = normalizeTransaction(validatedResult);
-        addMessage('ai', `Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
+      
+      if (finalTx && finalTx.amount > 0) {
+        const normalizedTx = normalizeTransaction(finalTx);
+        addMessage('ai', `Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
       } else {
         sendFriendlyHelpMessage();
       }
     } catch (error) {
-      console.error("Error al procesar texto:", error);
-      const localResult = parseLocalTransaction(text);
-      if (localResult) {
-        const normalizedTx = normalizeTransaction(localResult);
-        addMessage('ai', `Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
-      } else {
-        sendFriendlyHelpMessage();
-      }
+      console.error("Error en processInput:", error);
+      sendFriendlyHelpMessage();
     } finally {
       setIsLoading(false);
     }
@@ -413,16 +422,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      // 🔥 Normalizar la transacción antes de cualquier operación
       const normalizedTx = normalizeTransaction(tx);
       const result = await addTransaction(normalizedTx);
       
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
       
-      // Mostrar mensaje con descripción limpia
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
       
-      // Sanitizar alertas (pueden venir como objetos)
       if (result?.alerts && result.alerts.length > 0) {
         result.alerts.forEach((alert: any) => {
           const alertText = typeof alert === 'string' ? alert : JSON.stringify(alert);
@@ -430,7 +436,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         });
       }
       
-      // Detección de suscripciones
       if (normalizedTx.type === 'expense' && normalizedTx.description) {
         const desc = normalizedTx.description.toLowerCase();
         const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
@@ -461,7 +466,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const normalizedTx = normalizeTransaction(tx);
       const updatedTx = { ...normalizedTx, isRecurring: true };
       await addTransaction(updatedTx);
-      
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
       addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
     } catch (error: any) {
@@ -491,42 +495,38 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Procesando tu voz...');
           setIsLoading(true);
           try {
-            console.log("🎙️ Enviando audio a Gemini...");
+            console.log("🎙️ Enviando audio a API para transcripción...");
             const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
-            console.log("📝 Resultado de transcripción:", transcriptionResult);
             let transcribedText = '';
             if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
             else if (transcriptionResult && typeof transcriptionResult === 'object') {
-              transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || transcriptionResult.response || JSON.stringify(transcriptionResult);
+              transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || transcriptionResult.response || '';
             }
             console.log("✅ Texto transcrito:", transcribedText);
-            if (!transcribedText || transcribedText.length === 0) {
-              console.error("No se pudo transcribir el audio");
-              sendFriendlyHelpMessage();
-              setIsLoading(false);
-              return;
-            }
-            let validatedResult = null;
-            try {
-              console.log("🤖 Enviando texto a Gemini para análisis:", transcribedText);
+            if (!transcribedText) throw new Error("No se obtuvo transcripción");
+            
+            // Priorizar NLP local sobre el texto transcrito
+            let finalTx = null;
+            const localResult = parseLocalTransaction(transcribedText);
+            const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
+            
+            if (isLocalConfident) {
+              console.log("⚡ NLP local sobre voz con alta confianza.");
+              finalTx = localResult;
+            } else {
+              console.log("☁️ Usando IA para analizar la transcripción...");
               const geminiParseResult = await parseTransaction(transcribedText);
-              console.log("📊 Resultado del parseo de Gemini:", geminiParseResult);
-              validatedResult = sanitizeAndParseAIResponse(geminiParseResult);
-              if (validatedResult) console.log("✅ Gemini entendió la transacción:", validatedResult);
-              else { console.log("⚠️ Gemini no entendió, usando NLP local como fallback"); validatedResult = parseLocalTransaction(transcribedText); }
-            } catch (error) {
-              console.error("❌ Error en Gemini, usando NLP local:", error);
-              validatedResult = parseLocalTransaction(transcribedText);
+              finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
             }
-            if (validatedResult) {
-              const normalizedTx = normalizeTransaction(validatedResult);
+            
+            if (finalTx && finalTx.amount > 0) {
+              const normalizedTx = normalizeTransaction(finalTx);
               addMessage('ai', `🎤 Por voz: Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
             } else {
-              console.log("❌ No se pudo extraer ninguna transacción del texto:", transcribedText);
               addMessage('ai', `No entendí bien lo que dijiste. ¿Podrías repetirlo de forma más clara? Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
             }
           } catch (error) {
-            console.error("🔥 Error crítico en procesamiento de voz:", error);
+            console.error("🔥 Error en procesamiento de voz:", error);
             sendFriendlyHelpMessage();
           } finally {
             setIsLoading(false);
