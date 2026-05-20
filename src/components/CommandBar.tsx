@@ -645,7 +645,8 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         m.id === msgId ? { ...m, isConfirmed: true } : m
       ));
       
-      addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${tx.description}" por ${formatCurrency(tx.amount)}.`);
+      const descripcion = typeof tx.description === 'string' ? tx.description : (tx.description?.description || JSON.stringify(tx.description));
+addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${descripcion}" por ${formatCurrency(tx.amount)}.`);
       
       if (result?.alerts && result.alerts.length > 0) {
         result.alerts.forEach(alert => {
