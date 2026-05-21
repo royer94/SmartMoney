@@ -242,6 +242,14 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ]
 };
 
+// Helper para detectar si un texto es de supermercado (para sobreescribir categoría)
+const isSupermercadoText = (text: string): boolean => {
+  if (!text) return false;
+  const normalized = normalizeForNlp(text);
+  const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
+  return supermercadoKeywords.some(keyword => normalized.includes(keyword));
+};
+
 const parseLocalTransaction = (text: string) => {
   if (!text || typeof text !== 'string') return null;
   const originalText = text;
@@ -526,15 +534,19 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             console.log("📦 transcriptionResult:", transcriptionResult);
             
             let finalTx = null;
+            let transcribedText = '';
             
             // Caso 1: El resultado ya es un objeto de transacción (type, amount, category, description)
             if (transcriptionResult && typeof transcriptionResult === 'object' && transcriptionResult.amount && transcriptionResult.type) {
               console.log("✅ Resultado directo de IA (objeto transacción)");
               finalTx = transcriptionResult;
+              // Intentar extraer el texto original si está disponible (podría no estarlo)
+              transcribedText = finalTx.description || '';
             } 
             // Caso 2: Es un string, intentar extraer texto y luego parsear
             else if (typeof transcriptionResult === 'string' && transcriptionResult.trim()) {
               console.log("📝 Texto transcrito:", transcriptionResult);
+              transcribedText = transcriptionResult;
               const localResult = parseLocalTransaction(transcriptionResult);
               const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
               if (isLocalConfident) {
@@ -550,6 +562,12 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               }
             } else {
               throw new Error('No se pudo obtener una transacción válida del audio');
+            }
+            
+            // ✅ FORZAR CATEGORÍA SUPERMERCADO si el texto o descripción contiene palabras clave
+            if (finalTx && (isSupermercadoText(transcribedText) || isSupermercadoText(finalTx.description))) {
+              console.log("🛒 Detectado supermercado, forzando categoría a 'Supermercado'");
+              finalTx.category = 'Supermercado';
             }
             
             console.log("🔍 Resultado finalTx:", finalTx);
