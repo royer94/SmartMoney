@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Mic, BrainCircuit, TrendingUp, Shield, 
-  Zap, ChevronDown, Star, Check, X
+  Zap, ChevronDown, Star, Check, X,
+  Smartphone, ShieldCheck, Download, HelpCircle
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -12,6 +13,52 @@ interface LandingPageProps {
 
 export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [showPwaSteps, setShowPwaSteps] = useState(false);
+  const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
+
+  useEffect(() => {
+    // Detectar plataforma del usuario para personalizar la guía de instalación
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(userAgent)) {
+      setPlatform('ios');
+    } else if (/android/.test(userAgent)) {
+      setPlatform('android');
+    }
+
+    // Capturar el evento nativo de instalación de la PWA (Chrome / Android / Edge)
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handlePwaInstall = async () => {
+    if (platform === 'ios') {
+      setShowPwaSteps(true);
+      return;
+    }
+
+    if (!deferredPrompt) {
+      setShowPwaSteps(true);
+      return;
+    }
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
 
   const features = [
     {
@@ -46,8 +93,8 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
       a: 'Sí. Tus datos se almacenan en Firebase con cifrado de nivel bancario. Nunca compartimos tu información con terceros.'
     },
     {
-      q: '¿Funciona en mi celular sin instalar nada?',
-      a: 'SmartMone¥ es una PWA — funciona en cualquier navegador. Puedes agregarla a tu pantalla de inicio para una experiencia nativa.'
+      q: '¿Cómo instalo la aplicación en mi celular o computadora?',
+      a: 'SmartMone¥ es una PWA (Progressive Web App). No requiere ir a la App Store o Play Store. Solo dale click al botón "Instalar App" en esta página o selecciona "Añadir a la pantalla de inicio" desde el menú de tu navegador para usarla de forma nativa a pantalla completa.'
     },
     {
       q: '¿Puedo cancelar el plan Pro en cualquier momento?',
@@ -72,13 +119,22 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
           <img src="/SM_icon.png" alt="SmartMone¥" className="w-8 h-8 rounded-xl" />
           <span className="font-black text-xl tracking-tight">$martMone¥<span className="text-blue-400 italic">AI</span></span>
         </div>
-        <button
-          onClick={onLogin}
-          disabled={isLoggingIn}
-          className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all active:scale-95"
-        >
-          {isLoggingIn ? 'Cargando...' : 'Iniciar sesión'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handlePwaInstall}
+            className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-medium text-xs transition-all active:scale-95"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-400" />
+            Instalar App
+          </button>
+          <button
+            onClick={onLogin}
+            disabled={isLoggingIn}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all active:scale-95"
+          >
+            {isLoggingIn ? 'Cargando...' : 'Iniciar sesión'}
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
@@ -108,14 +164,14 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
           </h1>
 
           <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Registra gastos por voz, recibe asesoría financiera personalizada y proyecta tu libertad financiera — todo en una app que entiende tu idioma.
+            Registra gastos por voz al instante instalando la app directa en tu pantalla de inicio. Olvídate de las tiendas de aplicaciones tradicionales y la fricción del navegador.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
               onClick={onLogin}
               disabled={isLoggingIn}
-              className="flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-blue-600/30 transition-all active:scale-95"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-blue-600/30 transition-all active:scale-95"
             >
               {isLoggingIn ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -124,10 +180,14 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
               )}
               {isLoggingIn ? 'Cargando...' : 'Empezar gratis con Google'}
             </button>
-            <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
-              <Check className="w-4 h-4 text-emerald-400" />
-              Sin tarjeta de crédito
-            </div>
+            
+            <button
+              onClick={handlePwaInstall}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-bold text-base transition-all active:scale-95 text-slate-200"
+            >
+              <Download className="w-5 h-5 text-blue-400" />
+              {platform === 'ios' ? 'Cómo instalar en iPhone' : 'Instalar App Oficial'}
+            </button>
           </div>
 
           <div className="flex items-center justify-center gap-6 mt-8 text-sm text-slate-500">
@@ -136,7 +196,7 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
               <span className="ml-1">4.9/5</span>
             </div>
             <span>•</span>
-            <span>Disponible en Latinoamérica</span>
+            <span>Acceso Instantáneo PWA</span>
             <span>•</span>
             <span>100% en español</span>
           </div>
@@ -196,8 +256,131 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
         </div>
       </section>
 
+      {/* NUEVA SECCIÓN: Optimizada Prioridad de Instalación PWA */}
+      <section className="py-20 px-6 bg-gradient-to-b from-white/[0.01] to-white/[0.03] border-y border-white/5 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+              <Zap className="w-3.5 h-3.5" /> Experiencia Fluida e Inmersiva
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-tight">
+              Instala <span className="text-blue-400">$martMone¥</span> y úsala como una App nativa
+            </h2>
+            <p className="text-slate-400 leading-relaxed">
+              No busques en tiendas ni gastes espacio en almacenamiento pesado. Añade la aplicación a tu celular en 3 segundos de manera oficial y dile adiós a las pestañas del navegador.
+            </p>
+
+            <div className="space-y-4 pt-2">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl mt-0.5">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-200">Grabación por voz sin interrupciones</h4>
+                  <p className="text-sm text-slate-400">Abre la app desde tu pantalla de inicio y registra tus movimientos de inmediato al hablar, sin esperas de recarga.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl mt-0.5">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-200">Pantalla completa dedicada</h4>
+                  <p className="text-sm text-slate-400">Oculta las barras del navegador web para tener una experiencia completamente inmersiva, limpia y libre de zooms accidentales.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl mt-0.5">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-200">Liviana y siempre actualizada</h4>
+                  <p className="text-sm text-slate-400">Ocupa menos de 2MB de memoria y se actualiza sola automáticamente en segundo plano de forma segura.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 pt-4">
+              <button
+                onClick={handlePwaInstall}
+                className="px-6 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center gap-3 group"
+              >
+                <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+                {platform === 'ios' ? 'Ver pasos para iPhone' : 'Instalar en un toque'}
+              </button>
+              <button 
+                onClick={() => setShowPwaSteps(!showPwaSteps)}
+                className="px-5 py-4 bg-white/5 text-slate-300 font-medium rounded-2xl hover:bg-white/10 transition-colors flex items-center gap-2 text-sm border border-white/10"
+              >
+                <HelpCircle className="w-4 h-4" /> ¿Cómo funciona?
+              </button>
+            </div>
+          </div>
+
+          {/* Animación Guía Desplegable PWA */}
+          <div className="flex flex-col justify-center">
+            <AnimatePresence mode="wait">
+              {showPwaSteps ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-4"
+                >
+                  <h3 className="font-bold text-base text-slate-200">Pasos según tu sistema:</h3>
+                  <div className="space-y-3 text-xs">
+                    <div className="p-3 bg-[#0a0f1e] rounded-xl border border-white/5">
+                      <span className="text-blue-400 font-bold block mb-1"> iOS / iPhone (Safari)</span>
+                      Presiona el botón de <span className="text-blue-400 font-bold">Compartir ↑</span> abajo en tu navegador y selecciona <span className="text-white font-medium">"Añadir a la pantalla de inicio"</span>.
+                    </div>
+                    <div className="p-3 bg-[#0a0f1e] rounded-xl border border-white/5">
+                      <span className="text-emerald-400 font-bold block mb-1">🤖 Android (Chrome)</span>
+                      Toca el botón "Instalar en un toque" o pulsa los 3 puntos superiores de tu navegador y elige <span className="text-white font-medium">"Instalar aplicación"</span>.
+                    </div>
+                    <div className="p-3 bg-[#0a0f1e] rounded-xl border border-white/5">
+                      <span className="text-purple-400 font-bold block mb-1">💻 Escritorio (Chrome/Edge)</span>
+                      Haz clic en el ícono de descarga que aparece en la parte derecha superior de tu <span className="text-white font-medium">barra de direcciones URL</span>.
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="relative w-[260px] h-[480px] bg-slate-950 rounded-[36px] border-[8px] border-slate-800 shadow-2xl overflow-hidden mx-auto"
+                >
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-b-xl z-30" />
+                  <div className="absolute inset-0 bg-slate-900 p-4 pt-8 flex flex-col justify-between text-center">
+                    <div className="space-y-3 mt-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-xl mx-auto flex items-center justify-center font-black text-xl shadow-lg">
+                        $M
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-100">$martMone¥</h3>
+                        <p className="text-[10px] text-slate-500">Asistente Financiero Pro</p>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-2 mb-2 animate-pulse">
+                      <p className="text-[10px] text-slate-300 font-medium">¿Añadir a la pantalla de inicio?</p>
+                      <div className="flex gap-2 justify-center">
+                        <div className="px-2 py-1 bg-white/10 text-[9px] font-bold rounded-lg text-slate-400">Cancelar</div>
+                        <div className="px-2 py-1 bg-blue-600 text-[9px] font-bold rounded-lg text-white">Instalar</div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </section>
+
       {/* Screenshots showcase */}
-      <section className="py-24 px-6 bg-white/[0.02] border-y border-white/5">
+      <section className="py-24 px-6 bg-white/[0.02]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-4">
@@ -328,7 +511,7 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
                 <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
               </button>
               {openFaq === i && (
-                <div className="px-6 pb-6 text-slate-400 leading-relaxed border-t border-white/5 pt-4">
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed border-t border-white/5 pt-4 whitespace-pre-line">
                   {faq.a}
                 </div>
               )}
@@ -346,21 +529,23 @@ export function LandingPage({ onLogin, isLoggingIn }: LandingPageProps) {
             <span className="text-blue-400">hoy mismo</span>
           </h2>
           <p className="text-slate-400 text-lg mb-10">
-            Únete a miles de personas que ya gestionan sus finanzas de forma inteligente.
+            Únete a miles de personas que ya gestionan sus finanzas instalando su app con un solo click.
           </p>
-          <button
-            onClick={onLogin}
-            disabled={isLoggingIn}
-            className="flex items-center justify-center gap-3 px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-600/30 transition-all active:scale-95 mx-auto"
-          >
-            {isLoggingIn ? (
-              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <img src="https://www.google.com/favicon.ico" className="w-6 h-6 bg-white rounded-full p-0.5" alt="G" />
-            )}
-            {isLoggingIn ? 'Cargando...' : 'Empezar gratis ahora'}
-          </button>
-          <p className="text-slate-500 text-sm mt-4">Sin tarjeta de crédito · Cancela cuando quieras</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
+            <button
+              onClick={onLogin}
+              disabled={isLoggingIn}
+              className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-lg shadow-2xl shadow-blue-600/30 transition-all active:scale-95"
+            >
+              {isLoggingIn ? (
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <img src="https://www.google.com/favicon.ico" className="w-6 h-6 bg-white rounded-full p-0.5" alt="G" />
+              )}
+              {isLoggingIn ? 'Cargando...' : 'Empezar gratis ahora'}
+            </button>
+          </div>
+          <p className="text-slate-500 text-sm mt-4">Sin tarjeta de crédito · Instálala como PWA</p>
         </div>
       </section>
 
