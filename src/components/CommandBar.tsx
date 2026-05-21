@@ -526,6 +526,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
             else if (transcriptionResult && typeof transcriptionResult === 'object') transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || '';
             if (!transcribedText) throw new Error('No se obtuvo transcripción');
+            console.log("📝 Texto transcrito:", transcribedText);
             let finalTx = null;
             const localResult = parseLocalTransaction(transcribedText);
             const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
@@ -536,6 +537,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                 finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
               } catch (apiError) { finalTx = localResult; }
             }
+            console.log("🔍 Resultado parseLocalTransaction:", localResult);
             if (finalTx && finalTx.amount > 0) {
               const normalizedTx = normalizeTransaction(finalTx);
               addMessage('ai', `🎤 Por voz: Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
