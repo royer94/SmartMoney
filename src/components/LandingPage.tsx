@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Smartphone, Zap, ShieldCheck, Download, WifiOff } from 'lucide-react';
 
-export default function LandingPage({ onLogin }: { onLogin: () => void }) {
+export function LandingPage({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-blue-600/30">
       
