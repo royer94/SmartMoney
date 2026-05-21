@@ -525,34 +525,31 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
             console.log("📦 transcriptionResult:", transcriptionResult);
             
-            let transcribedText = '';
-            if (typeof transcriptionResult === 'string') {
-              transcribedText = transcriptionResult;
-            } else if (transcriptionResult && typeof transcriptionResult === 'object') {
-              // Puede venir como { text: "..." } o { transcription: "..." }
-              transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || '';
-            }
-            
-            console.log("📝 Texto transcrito:", transcribedText);
-            
-            if (!transcribedText || transcribedText.trim().length === 0) {
-              throw new Error('La transcripción está vacía');
-            }
-            
             let finalTx = null;
-            const localResult = parseLocalTransaction(transcribedText);
-            const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
             
-            if (isLocalConfident) {
-              finalTx = localResult;
-            } else {
-              try {
-                const geminiParseResult = await parseTransaction(transcribedText);
-                finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
-              } catch (apiError) {
-                console.error("Error llamando a IA para texto:", apiError);
+            // Caso 1: El resultado ya es un objeto de transacción (type, amount, category, description)
+            if (transcriptionResult && typeof transcriptionResult === 'object' && transcriptionResult.amount && transcriptionResult.type) {
+              console.log("✅ Resultado directo de IA (objeto transacción)");
+              finalTx = transcriptionResult;
+            } 
+            // Caso 2: Es un string, intentar extraer texto y luego parsear
+            else if (typeof transcriptionResult === 'string' && transcriptionResult.trim()) {
+              console.log("📝 Texto transcrito:", transcriptionResult);
+              const localResult = parseLocalTransaction(transcriptionResult);
+              const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
+              if (isLocalConfident) {
                 finalTx = localResult;
+              } else {
+                try {
+                  const geminiParseResult = await parseTransaction(transcriptionResult);
+                  finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
+                } catch (apiError) {
+                  console.error("Error llamando a IA para texto:", apiError);
+                  finalTx = localResult;
+                }
               }
+            } else {
+              throw new Error('No se pudo obtener una transacción válida del audio');
             }
             
             console.log("🔍 Resultado finalTx:", finalTx);
