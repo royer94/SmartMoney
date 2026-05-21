@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye, FileSpreadsheet, FileText } from 'lucide-react';
+import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye, FileSpreadsheet, FileText, BrainCircuit } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -104,11 +104,157 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
-      {/* --- NUEVA SECCIÓN: REPORTES INTELIGENTES (reportes.jpeg) --- */}
+      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS (ORDEN REESTRUCTURADO) --- */}
+      <section className="max-w-[90rem] mx-auto px-4 py-12 relative border-t border-slate-900/60">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
+            <Eye className="w-3.5 h-3.5 text-blue-400" />
+            <span>Interfaz de la Aplicación</span>
+          </div>
+          <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-white break-words">
+            Tu centro financiero, visualmente impecable
+          </h2>
+          <p className="text-sm md:text-base text-slate-400 mt-2 max-w-2xl mx-auto">
+            Explora las herramientas diseñadas para simplificar tus decisiones financieras cotidianas.
+          </p>
+        </div>
+
+        {/* Grilla responsiva adaptada a 5 columnas simétricas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 justify-items-center">
+          
+          {/* 1. Panel de Control */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/dashboard.jpeg" 
+                alt="Panel de Control de $martMone¥" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-1">1. Panel de Control</h3>
+            <p className="text-slate-400 text-xs px-1 leading-relaxed">
+              Un vistazo claro a tu patrimonio neto, balances actuales y últimas transacciones en tiempo real.
+            </p>
+          </motion.div>
+
+          {/* 2. Historial Inteligente */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/movimientos.jpeg" 
+                alt="Historial de Movimientos Inteligente" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-1">2. Historial Inteligente</h3>
+            <p className="text-slate-400 text-xs px-1 leading-relaxed">
+              Revisa, edita o marca tus gastos fijos como recurrentes para mantener tus cuentas bajo control absoluto.
+            </p>
+          </motion.div>
+
+          {/* 3. Análisis de Gastos */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/dist_gastos.jpeg" 
+                alt="Distribución y Análisis de Gastos" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-1">3. Análisis de Gastos</h3>
+            <p className="text-slate-400 text-xs px-1 leading-relaxed">
+              Gráficos inteligentes que clasifican automáticamente tus consumos en categorías de forma inmediata.
+            </p>
+          </motion.div>
+
+          {/* 4. Análisis Inteligente (NUEVA SECCIÓN ADICIONADA) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/analisisIA.jpeg" 
+                alt="Módulo de Análisis Inteligente con IA" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-1 flex items-center gap-1 justify-center">
+              <BrainCircuit className="w-3.5 h-3.5 text-blue-400" />
+              4. Análisis Inteligente
+            </h3>
+            <p className="text-slate-400 text-xs px-1 leading-relaxed">
+              Asesoría algorítmica predictiva que detecta fugas de dinero y te da recomendaciones clave.
+            </p>
+          </motion.div>
+
+          {/* 5. Simulador de Libertad */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/libertad.jpeg" 
+                alt="Simulador de Libertad Financiera Avanzado" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-1">5. Simulador de Libertad</h3>
+            <p className="text-slate-400 text-xs px-1 leading-relaxed">
+              Proyecta tus metas a largo plazo y calcula con precisión cuántos meses de tranquilidad tienes asegurados.
+            </p>
+          </motion.div>
+
+        </div>
+      </section>
+
+      {/* RELLENO ESPACIO INTERMEDIO */}
+      <div className="w-full max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center relative z-10">
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onLogin}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-4 rounded-2xl shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 transition-all text-base"
+        >
+          <GoogleIcon />
+          <span>Empezar Gratis con Google</span>
+        </motion.button>
+      </div>
+
+      {/* --- SECCIÓN: REPORTES INTELIGENTES (reportes.jpeg) --- */}
       <section className="max-w-6xl mx-auto px-4 py-16 relative z-10 border-t border-slate-900/60">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Contenido Técnico y Descriptivo */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -148,7 +294,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             </div>
           </motion.div>
 
-          {/* Visualización del Screenshot de Reportes */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -168,128 +313,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
         </div>
       </section>
-
-      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS --- */}
-      <section className="max-w-7xl mx-auto px-4 py-12 relative border-t border-slate-900/60">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
-            <Eye className="w-3.5 h-3.5 text-blue-400" />
-            <span>Interfaz de la Aplicación</span>
-          </div>
-          <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-white break-words">
-            Tu centro financiero, visualmente impecable
-          </h2>
-          <p className="text-sm md:text-base text-slate-400 mt-2 max-w-2xl mx-auto">
-            Explora las herramientas diseñadas para simplificar tus decisiones financieras cotidianas.
-          </p>
-        </div>
-
-        {/* Grilla responsiva de 4 columnas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
-          
-          {/* Tarjeta 1: Dashboard */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            whileHover={{ y: -6 }}
-            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
-          >
-            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
-              <img 
-                src="/screenshots/dashboard.jpeg" 
-                alt="Dashboard Inteligente de $martMone¥" 
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-            <h3 className="text-white font-semibold text-base mb-1">Panel de Control</h3>
-            <p className="text-slate-400 text-xs px-1 leading-relaxed">
-              Un vistazo claro a tu patrimonio neto, balances actuales y últimas transacciones en tiempo real.
-            </p>
-          </motion.div>
-
-          {/* Tarjeta 2: Distribución de Gastos */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            whileHover={{ y: -6 }}
-            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
-          >
-            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
-              <img 
-                src="/screenshots/dist_gastos.jpeg" 
-                alt="Distribución de Gastos" 
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-            <h3 className="text-white font-semibold text-base mb-1">Análisis de Gastos</h3>
-            <p className="text-slate-400 text-xs px-1 leading-relaxed">
-              Gráficos inteligentes que clasifican automáticamente tus consumos en categorías claras.
-            </p>
-          </motion.div>
-
-          {/* Tarjeta 3: Libertad Financiera */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            whileHover={{ y: -6 }}
-            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
-          >
-            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
-              <img 
-                src="/screenshots/libertad.jpeg" 
-                alt="Simulador de Libertad Financiera" 
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-            <h3 className="text-white font-semibold text-base mb-1">Simulador de Libertad</h3>
-            <p className="text-slate-400 text-xs px-1 leading-relaxed">
-              Proyecta tus metas a largo plazo y calcula con precisión cuántos meses de tranquilidad tienes asegurados.
-            </p>
-          </motion.div>
-
-          {/* Tarjeta 4: Historial de Movimientos */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            whileHover={{ y: -6 }}
-            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
-          >
-            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
-              <img 
-                src="/screenshots/movimientos.jpeg" 
-                alt="Historial de Movimientos" 
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-            <h3 className="text-white font-semibold text-base mb-1">Historial Inteligente</h3>
-            <p className="text-slate-400 text-xs px-1 leading-relaxed">
-              Revisa, edita o marca tus gastos fijos como recurrentes para mantener tus cuentas bajo control absoluto.
-            </p>
-          </motion.div>
-
-        </div>
-      </section>
-
-      {/* RELLENO ESPACIO INTERMEDIO */}
-      <div className="w-full max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center relative z-10">
-        <motion.button 
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onLogin}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-4 rounded-2xl shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 transition-all text-base"
-        >
-          <GoogleIcon />
-          <span>Empezar Gratis con Google</span>
-        </motion.button>
-      </div>
 
       {/* --- SECCIÓN PWA --- */}
       <section className="border-t border-slate-900 bg-gradient-to-b from-[#030712] to-[#050b18] py-16 px-4">
