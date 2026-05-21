@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Smartphone, Zap, ShieldCheck, Download, WifiOff, PieChart, TrendingUp, DollarSign, ArrowRight, Star } from 'lucide-react';
+import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -71,86 +71,88 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN DEMOSTRACIÓN DINÁMICA DE FUNCIONALIDADES (SCREENSHOTS / MOCKUPS) --- */}
-      <section className="max-w-6xl mx-auto px-4 py-16 relative">
+      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS (MOCKUPS REALES DE LA APP) --- */}
+      <section className="max-w-7xl mx-auto px-4 py-16 relative">
         <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-200 break-words">
-            Diseñado para darte el control absoluto
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
+            <Eye className="w-3.5 h-3.5 text-blue-400" />
+            <span>Interfaz de Usuario</span>
+          </div>
+          <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-white break-words">
+            Tu centro financiero, visualmente impecable
           </h2>
-          <p className="text-sm md:text-base text-slate-400 mt-2">Una experiencia visual, intuitiva y automatizada.</p>
+          <p className="text-sm md:text-base text-slate-400 mt-2 max-w-2xl mx-auto">
+            Explora las herramientas diseñadas para simplificar tus decisiones financieras cotidianas.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Grilla de imágenes responsiva e inmune a desbordamientos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
           
-          {/* Mockup 1: Análisis de Gastos Dinámico */}
+          {/* Tarjeta de Pantallazo 1 */}
           <motion.div 
-            whileHover={{ y: -5 }}
-            className="p-6 rounded-3xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between min-h-[320px]"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center max-w-sm w-full transition-all"
           >
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400">
-                  <PieChart className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white">Análisis Inteligente de Gastos</h3>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6 break-words">
-                Categorización automática al instante. Visualiza exactamente a dónde va cada moneda mediante gráficos de distribución limpios.
-              </p>
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/dashboard.png" 
+                alt="Dashboard Inteligente de $martMone¥" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
             </div>
-
-            {/* Simulación Visual de un Gráfico de dona de la App */}
-            <div className="w-full bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-around gap-2 mt-auto">
-              <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-8 border-blue-500 border-t-cyan-400 border-r-indigo-500 animate-spin-slow">
-                <div className="absolute text-[10px] font-bold text-slate-300">100%</div>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span> Supermercado (45%)
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span> Servicios fijos (35%)
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Entretenimiento (20%)
-                </div>
-              </div>
-            </div>
+            <h3 className="text-white font-semibold text-lg mb-1">Panel de Control General</h3>
+            <p className="text-slate-400 text-xs px-2">
+              Un vistazo claro a tu patrimonio neto, balances actuales y últimas transacciones automatizadas.
+            </p>
           </motion.div>
 
-          {/* Mockup 2: Simulador de Libertad Financiera */}
+          {/* Tarjeta de Pantallazo 2 */}
           <motion.div 
-            whileHover={{ y: -5 }}
-            className="p-6 rounded-3xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between min-h-[320px]"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center max-w-sm w-full transition-all"
           >
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white">Simulador de Libertad Financiera</h3>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6 break-words">
-                Calcula tu índice de libertad real. Proyecta tu crecimiento patrimonial a largo plazo basándote en tus hábitos actuales de ahorro.
-              </p>
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/analytics.png" 
+                alt="Gráficos de Distribución de Gastos" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
             </div>
+            <h3 className="text-white font-semibold text-lg mb-1">Distribución de Gastos</h3>
+            <p className="text-slate-400 text-xs px-2">
+              Gráficos interactivos de dona y barras que categorizan tus consumos de forma inteligente al instante.
+            </p>
+          </motion.div>
 
-            {/* Simulación Visual de Gráfico de Proyección de Crecimiento */}
-            <div className="w-full bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 mt-auto">
-              <div className="flex justify-between items-center text-xs text-slate-400 mb-2 border-b border-slate-800 pb-1">
-                <span>Tu Proyección Patrimonial</span>
-                <span className="text-emerald-400 font-bold flex items-center gap-0.5"><DollarSign className="w-3 h-3" /> Libre</span>
-              </div>
-              <div className="h-16 flex items-end gap-2 pt-2 px-2">
-                <div className="w-full bg-blue-600/30 h-[20%] rounded-t-sm" />
-                <div className="w-full bg-blue-600/40 h-[35%] rounded-t-sm" />
-                <div className="w-full bg-blue-600/60 h-[50%] rounded-t-sm" />
-                <div className="w-full bg-cyan-500/70 h-[68%] rounded-t-sm" />
-                <div className="w-full bg-cyan-500 h-[95%] rounded-t-sm relative">
-                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] text-cyan-300 font-bold">Meta</span>
-                </div>
-              </div>
+          {/* Tarjeta de Pantallazo 3 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center max-w-sm w-full transition-all md:col-span-2 lg:col-span-1"
+          >
+            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
+              <img 
+                src="/screenshots/simulator.png" 
+                alt="Simulador de Libertad Financiera" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
             </div>
+            <h3 className="text-white font-semibold text-lg mb-1">Simulador de Libertad</h3>
+            <p className="text-slate-400 text-xs px-2">
+              Proyecta tu crecimiento financiero a largo plazo y calcula cuántos meses de tranquilidad tienes asegurados.
+            </p>
           </motion.div>
 
         </div>
@@ -160,9 +162,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
       <section className="border-t border-slate-900 bg-gradient-to-b from-[#030712] to-[#050b18] py-20 px-4">
         <div className="max-w-5xl mx-auto">
           
-          {/* Contenedor Principal tipo Tarjeta Premium */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-8 md:p-12 backdrop-blur-md">
-            {/* Efecto de luz de fondo */}
             <div className="absolute -right-20 -top-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -180,7 +180,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                 </p>
               </div>
 
-              {/* Bloque Derecho: Ventajas de tenerlo instalado */}
+              {/* Bloque Derecho: Ventajas */}
               <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Ventaja 1 */}
@@ -235,7 +235,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
         </div>
       </section>
 
-      {/* FOOTER SIMPLE */}
+      {/* FOOTER */}
       <footer className="text-center py-8 border-t border-slate-950 text-xs text-slate-600 max-w-7xl mx-auto px-4">
         <p>&copy; {new Date().getFullYear()} $martMone¥ AI. Todos los derechos reservados.</p>
       </footer>
