@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye } from 'lucide-react';
+import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye, FileSpreadsheet, FileText } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -84,7 +84,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
-      {/* --- NUEVA SECCIÓN: ASISTENTE DE VOZ (usuario_voz2.jpg) --- */}
+      {/* --- SECCIÓN: ASISTENTE DE VOZ (usuario_voz2.jpg) --- */}
       <section className="max-w-5xl mx-auto px-4 py-12 relative z-10">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
@@ -93,7 +93,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           transition={{ duration: 0.6 }}
           className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-2 md:p-4 backdrop-blur-md shadow-2xl flex justify-center"
         >
-          {/* Luz de fondo sutil para enfocar la imagen */}
           <div className="absolute inset-0 bg-blue-500/5 pointer-events-none blur-xl rounded-3xl" />
           
           <img 
@@ -105,8 +104,73 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
+      {/* --- NUEVA SECCIÓN: REPORTES INTELIGENTES (reportes.jpeg) --- */}
+      <section className="max-w-6xl mx-auto px-4 py-16 relative z-10 border-t border-slate-900/60">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          {/* Contenido Técnico y Descriptivo */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="lg:col-span-5 space-y-6"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+              Auditoría y Control
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight break-words">
+              Reportes detallados listos para exportar
+            </h2>
+            <p className="text-slate-400 text-sm md:text-base leading-relaxed break-words">
+              Lleva tu contabilidad al siguiente nivel analítico. Genera resúmenes avanzados e historiales consolidados estructurados perfectamente para conciliaciones o análisis externos.
+            </p>
+
+            <div className="space-y-4 pt-2">
+              <div className="flex gap-4 items-start">
+                <div className="p-2 rounded-xl bg-red-500/10 text-red-400 shrink-0 border border-red-500/10">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-0.5">Exportación PDF de Alta Fidelidad</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed">Estados financieros limpios, gráficos vectoriales integrados y listos para imprimir o presentar.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 items-start">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0 border border-emerald-500/10">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-0.5">Formatos CSV y Excel Compatibles</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed">Descarga matrices de datos crudos perfectamente tabuladas con tus transacciones para manipular en hojas de cálculo.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Visualización del Screenshot de Reportes */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="lg:col-span-7 relative flex justify-center"
+          >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-2 backdrop-blur-sm shadow-xl w-full max-w-2xl">
+              <img 
+                src="/screenshots/reportes.jpeg" 
+                alt="Panel de Generación de Reportes Avanzados en PDF y CSV" 
+                className="w-full h-auto rounded-xl object-cover border border-slate-900/50"
+                loading="lazy"
+              />
+            </div>
+          </motion.div>
+
+        </div>
+      </section>
+
       {/* --- SECCIÓN GALERÍA DE PANTALLAZOS --- */}
-      <section className="max-w-7xl mx-auto px-4 py-12 relative">
+      <section className="max-w-7xl mx-auto px-4 py-12 relative border-t border-slate-900/60">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
             <Eye className="w-3.5 h-3.5 text-blue-400" />
