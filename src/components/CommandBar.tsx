@@ -63,13 +63,9 @@ const normalizeForNlp = (text: string): string => {
     .trim();
 };
 
-// Convertir palabras numéricas a número (ej. "veinte mil" → 20000)
 const palabrasANumero = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
-  // Reemplazar "y" por espacio para manejar "treinta y dos"
-  let processed = normalized.replace(/\by\b/g, ' ');
-  const palabras = processed.split(/\s+/);
-  
+  const palabras = normalized.split(/\s+/);
   const numeros: Record<string, number> = {
     'cero': 0, 'un': 1, 'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4,
     'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
@@ -81,40 +77,27 @@ const palabrasANumero = (text: string): number | null => {
     'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
     'mil': 1000, 'millón': 1000000, 'millones': 1000000
   };
-  
   let total = 0;
   let current = 0;
-  
   for (let i = 0; i < palabras.length; i++) {
     const w = palabras[i];
     if (numeros[w] !== undefined) {
-      if (w === 'mil') {
-        // "mil" multiplica lo acumulado o 1
-        total += (current === 0 ? 1 : current) * 1000;
-        current = 0;
-      } else if (w === 'millón' || w === 'millones') {
-        total += (current === 0 ? 1 : current) * 1000000;
+      if (w === 'mil' || w === 'millón' || w === 'millones') {
+        total += (current || 1) * numeros[w];
         current = 0;
       } else {
-        // Es un número simple (unidades, decenas, centenas)
-        if (numeros[w] >= 100) {
-          // Centenas: multiplican lo siguiente
-          total += numeros[w];
-        } else {
-          current += numeros[w];
-        }
+        current += numeros[w];
       }
-    } else {
-      // Si encontramos algo que no es número, reiniciamos current (por si hay palabras sueltas)
-      // pero no reiniciamos total
-      if (current > 0 && !w.match(/\d/)) {
-        total += current;
-        current = 0;
-      }
+    } else if (w === 'y' && i+1 < palabras.length && numeros[palabras[i+1]] && current >= 30) {
+      const next = numeros[palabras[i+1]];
+      if (next && next < 10) current += next;
+      i++;
+    } else if (current > 0 && (w === 'mil' || w === 'millones')) {
+      total += current * numeros[w];
+      current = 0;
     }
   }
   total += current;
-  
   return total > 0 ? total : null;
 };
 
@@ -155,8 +138,6 @@ const parseMoneyValue = (text: string): number | null => {
 
 const extractAmount = (text: string): number | null => {
   const normalized = normalizeForNlp(text);
-  
-  // 1. Patrón simple: número + slang
   const slangMatch = normalized.match(/(\d+(?:[\\.,]\d+)?)\s*(lucas|palos|varos|pavos|guita|kilos|euros|pesos)/i);
   if (slangMatch) {
     let amount = parseFloat(slangMatch[1].replace(',', '.'));
@@ -168,8 +149,6 @@ const extractAmount = (text: string): number | null => {
       return amount;
     }
   }
-  
-  // 2. Patrones con dígitos
   const patterns = [
     /(?:gast[ée]|pag[ué]|compr[ée]|invert[ée]|perd[ée]|clavaron|fund[íi]|rompieron|ching[ué]|me\s+fui)\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
     /(?:recib[íi]|gan[ée]|cay[óo]|factur[ée]|vend[íi]|cobr[ée]|ingres[óo])\s+(?:de\s+)?(\d+(?:[\\.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
@@ -184,11 +163,8 @@ const extractAmount = (text: string): number | null => {
       if (!isNaN(amount)) return amount;
     }
   }
-  
-  // 3. Palabras a número
   const palabrasNum = palabrasANumero(text);
   if (palabrasNum && palabrasNum > 0) return palabrasNum;
-  
   return parseMoneyValue(text);
 };
 
@@ -205,18 +181,17 @@ const INCOME_PHRASES = [
 ];
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'Supermercado': [
+    'mercado', 'supermercado', 'carulla', 'éxito', 'jumbo', 'd1', 'ara', 
+    'mercar', 'tienda', 'abarrotes', 'despensa', 'cesta', 'víveres', 'super',
+    'makro', 'alkosto', 'olimpica', 'la 14', 'metro', 'superama', 'soriana'
+  ],
   'Comida': [
     'comida', 'almuerzo', 'cena', 'desayuno', 'restaurante', 'café', 'cafe',
-    'mercado', 'supermercado', 'pan', 'leche', 'carne', 'fruta', 'verdura',
-    'mercar', 'tienda', 'gaseosa', 'agua', 'corrientazo', 'empanada', 'pizza',
-    'hamburguesa', 'comida rápida', 'mecato', 'golosinas', 'antojos', 'lonche',
-    'bocadillo', 'tentempié', 'delivery', 'domicilio', 'rappi', 'pedidosya'
+    'corrientazo', 'empanada', 'pizza', 'hamburguesa', 'comida rápida',
+    'delivery', 'domicilio', 'rappi', 'pedidosya', 'menú', 'parrilla', 'asado',
+    'picada', 'fritos', 'perro caliente', 'taco', 'sushi', 'comida china'
   ],
-  'Mascotas': [
-  'perro', 'perros', 'gato', 'gatos', 'mascota', 'veterinaria', 
-  'peluqueria canina', 'alimento para perro', 'croquetas', 'arena',
-  'collar', 'correa', 'juguete para perro', 'baño de mascotas'
-],
   'Transporte': [
     'transporte', 'uber', 'taxi', 'bus', 'gasolina', 'carro', 'moto', 'peaje',
     'pasaje', 'mío', 'transmilenio', 'metro', 'combustible', 'parqueadero',
@@ -256,6 +231,14 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'ropa', 'zapato', 'tenis', 'camisa', 'pantalón', 'pantalon', 'chaqueta',
     'vestido', 'tienda', 'centro comercial', 'moda', 'jeans', 'blusa',
     'suéter', 'bufanda', 'gorra', 'sombrero', 'cartera', 'bolso', 'accesorios'
+  ],
+  'Mascotas': [
+    'perro', 'perros', 'gato', 'gatos', 'mascota', 'veterinaria', 
+    'peluqueria canina', 'alimento para perro', 'croquetas', 'arena',
+    'collar', 'correa', 'juguete para perro', 'baño de mascotas'
+  ],
+  'Otros': [
+    'otros', 'varios', 'general', 'gasto', 'compra'
   ]
 };
 
@@ -276,21 +259,39 @@ const parseLocalTransaction = (text: string) => {
     if (incomeContext && !expenseContext) type = 'income';
     else if (expenseContext && !incomeContext) type = 'expense';
   }
+  
+  // --- PRIORIDAD ESPECIAL: Si hay palabra de supermercado, asignar directamente ---
+  const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
+  const isSupermercado = supermercadoKeywords.some(keyword => normalized.includes(keyword));
+  
   let category = 'Otros';
   let maxMatches = 0;
-  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    let matches = 0;
-    for (const keyword of keywords) {
-      if (normalized.includes(keyword)) matches++;
+  
+  if (isSupermercado) {
+    category = 'Supermercado';
+  } else {
+    // Evaluar el resto de categorías (excluyendo Supermercado para no duplicar)
+    for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (cat === 'Supermercado') continue;
+      let matches = 0;
+      for (const keyword of keywords) {
+        if (normalized.includes(keyword)) matches++;
+      }
+      if (matches > maxMatches) {
+        maxMatches = matches;
+        category = cat;
+      }
     }
-    if (matches > maxMatches) { maxMatches = matches; category = cat; }
   }
+  
+  // Ajustes para ingresos (sobrescribe categoría si es salario, ventas, etc.)
   if (type === 'income') {
     if (normalized.includes('salario') || normalized.includes('nomina') || normalized.includes('nómina') || normalized.includes('sueldo')) category = 'Salario';
     else if (normalized.includes('venta') || normalized.includes('vendí') || normalized.includes('vendió') || normalized.includes('facturé')) category = 'Ventas';
     else if (normalized.includes('comisión') || normalized.includes('honorarios')) category = 'Honorarios';
     else if (normalized.includes('transferencia') || normalized.includes('abono')) category = 'Transferencias';
   }
+  
   let description = originalText;
   const wordsToRemove = [
     'gaste en', 'gasté en', 'pague', 'pagué', 'compre', 'compré', 
@@ -319,18 +320,15 @@ const parseLocalTransaction = (text: string) => {
 
 const sanitizeAndParseAIResponse = (result: any) => {
   if (!result) return null;
-  console.log("🔍 sanitizeAndParseAIResponse recibió:", result);
   let data = result;
   if (typeof result === 'string') {
     if (!result.trim().startsWith('{') && !result.trim().startsWith('[')) {
-      console.log("📝 Es texto plano, no JSON:", result);
       return parseLocalTransaction(result);
     }
     try {
       const cleanJson = result.replace(/```json|```/g, '').trim();
       data = JSON.parse(cleanJson);
     } catch (e) {
-      console.error("Error al parsear JSON, intentando NLP local:", e);
       return parseLocalTransaction(result);
     }
   }
@@ -342,10 +340,7 @@ const sanitizeAndParseAIResponse = (result: any) => {
   else if (type === 'gasto' || type === 'expense') type = 'expense';
   else type = 'expense';
   const category = data.category || data.categoría || data.categoria || data.Category || 'Otros';
-  if (isNaN(amount) || amount <= 0) {
-    console.log("Monto inválido, intentando NLP local");
-    return parseLocalTransaction(JSON.stringify(data));
-  }
+  if (isNaN(amount) || amount <= 0) return parseLocalTransaction(JSON.stringify(data));
   return { amount, description, type, category };
 };
 
@@ -393,24 +388,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const normalizeTransaction = (tx: any) => {
     if (!tx) return null;
     let description = '';
-    if (typeof tx.description === 'string') {
-      description = tx.description;
-    } else if (tx.description && typeof tx.description === 'object') {
-      description = tx.description.descripcion || tx.description.concepto || tx.description.text || tx.description.message || '';
-    }
+    if (typeof tx.description === 'string') description = tx.description;
+    else if (tx.description && typeof tx.description === 'object') description = tx.description.descripcion || tx.description.concepto || tx.description.text || tx.description.message || '';
     if (typeof description !== 'string') description = '';
     description = description.replace(/[{}[\]"'\\]/g, '').trim().substring(0, 60);
     const category = typeof tx.category === 'string' ? tx.category : 'Otros';
-    if (!description) {
-      description = tx.type === 'expense' ? `Gasto en ${category}` : `Ingreso por ${category}`;
-    }
-    return {
-      ...tx,
-      description,
-      amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount) || 0,
-      type: tx.type === 'income' ? 'income' : 'expense',
-      category,
-    };
+    if (!description) description = tx.type === 'expense' ? `Gasto en ${category}` : `Ingreso por ${category}`;
+    return { ...tx, description, amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount) || 0, type: tx.type === 'income' ? 'income' : 'expense', category };
   };
 
   const handleCommand = async (cmd: string) => {
@@ -420,14 +404,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const action = parts[0];
       const now = new Date();
       switch (action) {
-        case '/hoy': { const hoy = transactions.filter(t => { const d = t.timestamp.toDate(); return d.getDate() === now.getDate() && d.getMonth() === now.getMonth(); }); const totalHoy = hoy.reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0); addMessage('ai', `Hoy has gastado ${formatCurrency(totalHoy)} en ${hoy.length} movimientos.`); break; }
-        case '/semana': { const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7); const semana = transactions.filter(t => t.timestamp.toDate() >= weekAgo); const exp = semana.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `En los últimos 7 días has gastado ${formatCurrency(exp)}.`); break; }
-        case '/mes': { const mes = transactions.filter(t => t.timestamp.toDate().getMonth() === now.getMonth()); const exp = mes.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `Este mes llevas gastados ${formatCurrency(exp)}.`); break; }
+        case '/hoy': { const hoy = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d.getDate() === now.getDate() && d.getMonth() === now.getMonth(); }); const totalHoy = hoy.reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0); addMessage('ai', `Hoy has gastado ${formatCurrency(totalHoy)} en ${hoy.length} movimientos.`); break; }
+        case '/semana': { const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7); const semana = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d >= weekAgo; }); const exp = semana.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `En los últimos 7 días has gastado ${formatCurrency(exp)}.`); break; }
+        case '/mes': { const mes = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d.getMonth() === now.getMonth(); }); const exp = mes.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `Este mes llevas gastados ${formatCurrency(exp)}.`); break; }
         case '/balance': { if (!user.isPro) { addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.", { isUpgrade: true }); break; } const exp = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); const inc = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `Balance General:\nTotal Ingresos: ${formatCurrency(inc)}\nTotal Gastos: ${formatCurrency(exp)}\nNeto: ${formatCurrency(inc - exp)}`); break; }
         case '/top': { const top = [...transactions].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5); addMessage('ai', `Tus mayores gastos:\n${top.map(t => `- ${t.description}: ${formatCurrency(t.amount)}`).join('\n')}`); break; }
         case '/meta': { if (!user.isPro) { addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.", { isUpgrade: true }); break; } if (parts.length < 3) { addMessage('ai', "Uso correcto: /meta [nombre] [monto]. Ej: /meta Carro 50000000"); } else { const amount = parseFloat(parts[parts.length - 1]); const name = parts.slice(1, -1).join(' '); if (isNaN(amount)) { addMessage('ai', "Monto inválido. Ej: /meta Carro 50000000"); break; } addMessage('ai', `¿Confirmas crear la meta "${name}" por ${formatCurrency(amount)}?`, { isGoal: true, name, targetAmount: amount }); } break; }
         case '/pro': addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y elimina el límite de 20 registros mensuales.`, { isUpgrade: true }); break;
-        case '/ayuda': addMessage('ai', `Comandos disponibles:\n${COMMANDS.filter(c => c.name !== 'pro').map(c => `${c.usage}: ${c.description}`).join('\n')}\nNota: El plan gratuito está limitado a 20 registros por mes.`); break;
+        case '/ayuda': addMessage('ai', `Comandos disponibles:\n${COMMANDS.map(c => `${c.usage}: ${c.description}`).join('\n')}\nNota: El plan gratuito está limitado a 20 registros por mes.`); break;
         case '/start': addMessage('ai', `¡Hola ${user.name || user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". El plan gratuito permite hasta 20 registros mensuales.`); break;
         case '/libertad': addMessage('ai', "He habilitado el Simulador de Libertad Financiera en tu Dashboard. Puedes acceder desde la pestaña superior."); break;
         case '/suscripciones': { const recurring = transactions.filter(t => t.isRecurring); const total = recurring.reduce((acc, t) => acc + t.amount, 0); if (recurring.length === 0) { addMessage('ai', "No tienes suscripciones activas marcadas. Ve a tu lista de movimientos y marca tus gastos fijos (como Spotify o Gym) como recurrentes."); } else { addMessage('ai', `Tienes ${recurring.length} suscripciones que suman ${formatCurrency(total)}/mes.\n${recurring.map(r => `• ${r.description}: ${formatCurrency(r.amount)}`).join('\n')}`); } break; }
@@ -445,28 +429,22 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setInput('');
     const wasCommand = await handleCommand(text);
     if (wasCommand) return;
-    
     setIsLoading(true);
     try {
       let finalTx = null;
       const localResult = parseLocalTransaction(text);
       const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
-      
       if (isLocalConfident) {
-        console.log("⚡ NLP local con alta confianza. Saltando llamada a API.");
         finalTx = localResult;
       } else {
-        console.log("☁️ NLP local insuficiente, llamando a IA...");
         try {
           const rawResult = await parseTransaction(text);
           finalTx = sanitizeAndParseAIResponse(rawResult);
           if (!finalTx && localResult) finalTx = localResult;
         } catch (apiError) {
-          console.error("❌ Error en API (posible rate limit), usando NLP local:", apiError);
           finalTx = localResult;
         }
       }
-      
       if (finalTx && finalTx.amount > 0) {
         const normalizedTx = normalizeTransaction(finalTx);
         addMessage('ai', `Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
@@ -474,7 +452,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         sendFriendlyHelpMessage();
       }
     } catch (error) {
-      console.error("Error en processInput:", error);
       sendFriendlyHelpMessage();
     } finally {
       setIsLoading(false);
@@ -488,27 +465,19 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const result = await addTransaction(normalizedTx);
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
-      if (result?.alerts && result.alerts.length > 0) {
-        result.alerts.forEach((alert: any) => {
-          const alertText = typeof alert === 'string' ? alert : JSON.stringify(alert);
-          addMessage('ai', alertText);
-        });
-      }
+      if (result?.alerts?.length) result.alerts.forEach((alert: any) => addMessage('ai', alert));
       if (normalizedTx.type === 'expense' && normalizedTx.description) {
         const desc = normalizedTx.description.toLowerCase();
-        const subscriptionKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
-        const isPotentialSub = subscriptionKeywords.some(keyword => desc.includes(keyword));
-        if (isPotentialSub) {
-          setTimeout(() => {
-            addMessage('ai', `🔍 Noté que "${normalizedTx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como un gasto recurrente para rastrearlo automáticamente en tu Dashboard?`, normalizedTx, true);
-          }, 800);
+        const subKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
+        if (subKeywords.some(k => desc.includes(k))) {
+          setTimeout(() => addMessage('ai', `🔍 Noté que "${normalizedTx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como recurrente?`, normalizedTx, true), 800);
         }
       }
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
       sessionStorage.setItem('reg_count', newCount.toString());
       if (newCount % 3 === 0) {
         const randomTip = FINANCE_TIPS[Math.floor(Math.random() * FINANCE_TIPS.length)];
-        setTimeout(() => { addMessage('ai', `💡 Tip $martMone¥: ${randomTip}`); }, 1200);
+        setTimeout(() => addMessage('ai', `💡 Tip $martMone¥: ${randomTip}`), 1200);
       }
     } catch (error: any) {
       addMessage('ai', `❌ Error: ${error.message}`);
@@ -524,52 +493,19 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const updatedTx = { ...normalizedTx, isRecurring: true };
       await addTransaction(updatedTx);
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
-      addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente. Ahora aparecerá en tu sección de suscripciones activas del Dashboard.`);
+      addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente.`);
     } catch (error: any) {
-      addMessage('ai', `❌ No pude actualizar el estado de la suscripción: ${error.message}`);
+      addMessage('ai', `❌ Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Detección de compatibilidad Web Speech API
-  const isSpeechRecognitionSupported = () => {
-    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
-  };
-
-  // Fallback a Web Speech API cuando Groq falla por rate limit u otro error
-  const fallbackToWebSpeech = () => {
-    if (!isSpeechRecognitionSupported()) {
-      addMessage('ai', '❌ Tu navegador no soporta entrada de voz. Por favor, escribe tu mensaje.');
-      return;
-    }
-    addMessage('ai', '📊 El servicio de voz está sobrecargado. Cambiando a modo de respaldo...');
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    
-    recognition.start();
-    addMessage('user', '🎤 Escuchando (modo respaldo)...');
-    
-    recognition.onresult = (event: any) => {
-      const speechToText = event.results[0][0].transcript;
-      addMessage('user', `🎤 Dijiste: "${speechToText}"`);
-      processInput(speechToText);
-    };
-    
-    recognition.onerror = (event: any) => {
-      console.error('Web Speech API error:', event.error);
-      addMessage('ai', 'No se pudo reconocer tu voz. Intenta escribiendo el mensaje.');
-    };
   };
 
   const startRecording = async () => {
     setIsRecording(true);
     isRecordingRef.current = true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: 1, sampleRate: 48000 } });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: 48000 } });
       streamRef.current = stream;
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/aac';
       mediaRecorder.current = new MediaRecorder(stream, { mimeType });
@@ -585,33 +521,29 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Procesando tu voz...');
           setIsLoading(true);
           try {
-            console.log("🎙️ Enviando audio a Groq para transcripción...");
-            const audioResult = await parseTransaction({ mimeType, data: base64Audio });
-console.log("✅ Resultado de audio (Groq):", audioResult);
-
-// parseTransaction con audio devuelve directamente la transacción parseada
-let finalTx = sanitizeAndParseAIResponse(audioResult);
-
-// Si no se pudo parsear, intentar NLP local con el texto si viene como string
-if (!finalTx && typeof audioResult === 'string' && audioResult.trim()) {
-  finalTx = parseLocalTransaction(audioResult);
-}
-            
+            const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
+            let transcribedText = '';
+            if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
+            else if (transcriptionResult && typeof transcriptionResult === 'object') transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || '';
+            if (!transcribedText) throw new Error('No se obtuvo transcripción');
+            let finalTx = null;
+            const localResult = parseLocalTransaction(transcribedText);
+            const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
+            if (isLocalConfident) finalTx = localResult;
+            else {
+              try {
+                const geminiParseResult = await parseTransaction(transcribedText);
+                finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
+              } catch (apiError) { finalTx = localResult; }
+            }
             if (finalTx && finalTx.amount > 0) {
               const normalizedTx = normalizeTransaction(finalTx);
               addMessage('ai', `🎤 Por voz: Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
             } else {
-              addMessage('ai', `No entendí bien lo que dijiste. ¿Podrías repetirlo de forma más clara? Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
+              addMessage('ai', `No entendí bien lo que dijiste. Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
             }
-          } catch (error: any) {
-            console.error("🔥 Error en procesamiento de voz:", error);
-            // Si el error es por rate limit (429) o cualquier otro, usamos Web Speech API como fallback
-            if (error.message?.includes('429') || error.message?.includes('Rate limit') || error.message?.includes('Too Many Requests')) {
-              addMessage('ai', '📊 Límite de uso alcanzado en el servicio principal. Activando modo de respaldo...');
-              fallbackToWebSpeech();
-            } else {
-              sendFriendlyHelpMessage();
-            }
+          } catch (error) {
+            sendFriendlyHelpMessage();
           } finally {
             setIsLoading(false);
           }
@@ -652,7 +584,6 @@ if (!finalTx && typeof audioResult === 'string' && audioResult.trim()) {
       mediaRecorder.current.start();
       silenceTimer.current = requestAnimationFrame(checkSilence);
     } catch (err) {
-      console.error("Mic error", err);
       setIsRecording(false);
       isRecordingRef.current = false;
       addMessage('ai', "No se pudo acceder al micrófono. Por favor, verifica los permisos.");
@@ -686,7 +617,7 @@ if (!finalTx && typeof audioResult === 'string' && audioResult.trim()) {
                     </>
                   ) : (
                     <>
-                      <button onClick={async () => { if (msg.transaction.isGoal) { try { await addGoal({ name: msg.transaction.name, targetAmount: msg.transaction.targetAmount, month: new Date().getMonth() + 1, year: new Date().getFullYear() }); setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m)); } catch (e) { addMessage('ai', "Error creando la meta."); } } else { confirmTransaction(msg.id, msg.transaction); } }} className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50">Confirmar</button>
+                      <button onClick={() => { if (msg.transaction.isGoal) { addGoal(msg.transaction.name, msg.transaction.targetAmount); setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m)); } else { confirmTransaction(msg.id, msg.transaction); } }} className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50">Confirmar</button>
                       <button onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))} className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors">Ignorar</button>
                     </>
                   )}
