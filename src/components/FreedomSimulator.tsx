@@ -54,7 +54,6 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   });
 
   // --- EFECTOS PARA GUARDAR AUTOMÁTICAMENTE LOS CAMBIOS ---
-  
   useEffect(() => {
     localStorage.setItem(`fs_savings_${user.id}`, currentSavings.toString());
   }, [currentSavings, user.id]);
@@ -90,7 +89,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
     }
   }, [balance, user.id]);
 
-  // ✅ NUEVO EFECTO: Sincroniza la edad con la fecha de nacimiento cuando cambie
+  // ✅ Sincroniza la edad con la fecha de nacimiento cuando cambie
   useEffect(() => {
     if (user.birthdate) {
       const birth = new Date(user.birthdate + 'T00:00:00');
@@ -102,37 +101,78 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
         setCurrentAge(age);
       }
     }
-  }, [user.birthdate]); // Se ejecuta cada vez que cambia la fecha de nacimiento
+  }, [user.birthdate]);
 
-  // --- CÁLCULOS LÓGICOS MATEMÁTICOS ---
-  
+  // --- CÁLCULOS FINANCIEROS CORREGIDOS ---
   const nominalReturn = returnRate / 100;
   const expectedInflation = inflationRate / 100;
   
-  // Ecuación de Fisher
+  // 1. Tasa real anual (Ecuación de Fisher)
   const annualRealReturn = ((1 + nominalReturn) / (1 + expectedInflation)) - 1;
-  const targetNetWorth = monthlyExpenses * 12 * 25; 
+  
+  // 2. Tasa real mensual (raíz doceava, composición geométrica exacta)
+  const monthlyRate = annualRealReturn <= -1 ? -1 : Math.pow(1 + annualRealReturn, 1/12) - 1;
+  
+  // 3. Patrimonio meta (regla del 4%: gasto anual × 25)
+  const targetNetWorth = monthlyExpenses * 12 * 25;
+  
+  // 4. Ahorro mensual efectivo (si usa balance real de la app o meta manual)
+  const effectiveMonthlySavings = useActualBalance ? actualMonthlySavings : monthlySavingsGoal;
+  const monthlyContribution = Math.max(0, effectiveMonthlySavings);
+  
+  // 5. Filtro de viabilidad: si no ahorra y la tasa real es ≤ 0, imposible alcanzar la meta
+  const isImpossible = (monthlyContribution === 0 && annualRealReturn <= 0);
   
   let months = 0;
   let simulatedBalance = currentSavings;
-  const monthlyRate = annualRealReturn / 12;
-
-  const effectiveMonthlySavings = useActualBalance ? actualMonthlySavings : monthlySavingsGoal;
+  const MAX_MONTHS = 1200;   // 100 años (límite de seguridad)
+  
+  // 6. Simulación mes a mes (solo si es viable)
+  if (!isImpossible) {
+    while (simulatedBalance < targetNetWorth && months < MAX_MONTHS && monthlyContribution >= 0) {
+      simulatedBalance = simulatedBalance * (1 + monthlyRate) + monthlyContribution;
+      months++;
+      // Si la tasa real es negativa y el aporte mensual es 0, el saldo nunca crecerá
+      if (monthlyContribution === 0 && simulatedBalance < targetNetWorth && monthlyRate <= 0) break;
+    }
+  }
+  
+  // 7. Si se llegó al límite sin alcanzar la meta, indicamos infinito (erosión insuperable)
+  const isUnreachable = (months >= MAX_MONTHS && simulatedBalance < targetNetWorth);
+  const finalMonths = isUnreachable ? Infinity : months;
+  
+  // 8. Cálculo de años y meses (solo si es alcanzable)
+  const yearsToGoal = (isImpossible || isUnreachable) ? Infinity : Math.floor(finalMonths / 12);
+  const remainingMonths = (isImpossible || isUnreachable) ? 0 : finalMonths % 12;
+  const retirementAge = (isImpossible || isUnreachable) ? Infinity : currentAge + yearsToGoal;
+  
+  // 9. Progreso del ahorro (barra visual)
   const savingsProgress = Math.min(100, Math.max(0, (actualMonthlySavings / monthlySavingsGoal) * 100));
   const isMeetingGoal = actualMonthlySavings >= monthlySavingsGoal;
   const diff = actualMonthlySavings - monthlySavingsGoal;
-
-  const monthlyContribution = Math.max(0, effectiveMonthlySavings);
-
-  while (simulatedBalance < targetNetWorth && months < 600 && monthlyContribution >= 0) { 
-    simulatedBalance = simulatedBalance * (1 + monthlyRate) + monthlyContribution;
-    months++;
-    if (monthlyContribution === 0 && simulatedBalance < targetNetWorth && monthlyRate <= 0) break;
+  
+  // 10. Determinar el texto a mostrar en el panel derecho
+  let displayAge: string | number = '';
+  let displayYearsMessage = '';
+  let statusMessage = '';
+  
+  if (isImpossible) {
+    displayAge = '∞';
+    displayYearsMessage = 'Inalcanzable';
+    statusMessage = 'No ahorras y la rentabilidad real es nula o negativa. Aumenta tu ahorro mensual.';
+  } else if (isUnreachable) {
+    displayAge = '∞';
+    displayYearsMessage = '> 100 años';
+    statusMessage = 'La inflación erosiona tus ahorros. Incrementa tu aporte mensual o mejora la rentabilidad.';
+  } else {
+    displayAge = retirementAge;
+    displayYearsMessage = `En ${yearsToGoal} años y ${remainingMonths} meses`;
+    statusMessage = monthlyContribution > 0 ? '🚀 Plan de Inversión Activo' : '📉 Necesitas Capacidad de Ahorro';
   }
-
-  const yearsToGoal = Math.floor(months / 12);
-  const retirementAge = currentAge + yearsToGoal;
-
+  
+  // Helper para formatear moneda (ya existe formatCurrency, pero la usamos directamente)
+  const formatLocal = (value: number) => formatCurrency(value);
+  
   return (
     <div className="relative">
       {!user.isPro && (
@@ -167,7 +207,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
               <h3 className="font-bold text-2xl text-slate-900 tracking-tight">Tu Camino a la Libertad</h3>
             </div>
             <p className="text-slate-500 leading-relaxed text-sm">
-              La <span className="font-bold text-emerald-600">Libertad Financiera</span> ocurre cuando tus inversiones generan rendimientos suficientes para cubrir tus gastos mensuales de <span className="font-bold text-slate-900">{formatCurrency(monthlyExpenses)}</span> sin que tengas que trabajar.
+              La <span className="font-bold text-emerald-600">Libertad Financiera</span> ocurre cuando tus inversiones generan rendimientos suficientes para cubrir tus gastos mensuales de <span className="font-bold text-slate-900">{formatLocal(monthlyExpenses)}</span> sin que tengas que trabajar.
             </p>
           </div>
 
@@ -193,7 +233,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                    <div className="flex justify-between text-[11px] font-bold">
                      <span className="text-slate-400 uppercase">Capacidad vs Meta Mensual</span>
                      <span className={cn(isMeetingGoal ? "text-emerald-600" : "text-amber-600")}>
-                       {formatCurrency(actualMonthlySavings)} / {formatCurrency(monthlySavingsGoal)}
+                       {formatLocal(actualMonthlySavings)} / {formatLocal(monthlySavingsGoal)}
                      </span>
                    </div>
                    <div className="h-3 bg-slate-200 rounded-full overflow-hidden flex">
@@ -210,8 +250,8 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                      {actualMonthlySavings < 0 
                        ? "⚠️ Tus gastos actuales superan tus ingresos. Para proyectar libertad, necesitas un balance positivo."
                        : isMeetingGoal 
-                         ? `🎉 ¡Genial! Estás ahorrando ${formatCurrency(diff)} más de tu meta, acelerando tu retiro.`
-                         : `Te faltan ${formatCurrency(Math.abs(diff))} este mes para alcanzar tu meta de ahorro mensual.`}
+                         ? `🎉 ¡Genial! Estás ahorrando ${formatLocal(diff)} más de tu meta, acelerando tu retiro.`
+                         : `Te faltan ${formatLocal(Math.abs(diff))} este mes para alcanzar tu meta de ahorro mensual.`}
                    </p>
                  </div>
               </div>
@@ -263,7 +303,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500 transition-colors"
                   />
                   <div className="flex justify-between items-center text-[10px] text-slate-400">
-                    <span>Balance App: {formatCurrency(balance)}</span>
+                    <span>Balance App: {formatLocal(balance)}</span>
                     <button 
                       onClick={() => setCurrentSavings(balance)}
                       className="text-emerald-600 font-bold hover:underline"
@@ -401,31 +441,25 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full -mr-16 -mt-16" />
               
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Patrimonio Meta (Libertad)</p>
-              <p className="text-3xl font-black text-white mb-8 tracking-tight">{formatCurrency(targetNetWorth)}</p>
+              <p className="text-3xl font-black text-white mb-8 tracking-tight">{formatLocal(targetNetWorth)}</p>
               
               <div className="w-16 h-1 bg-slate-800 mb-8" />
 
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Serás Libre a los</p>
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-7xl font-black text-emerald-400 tracking-tighter">
-                  {monthlyContribution <= 0 && simulatedBalance < targetNetWorth ? "∞" : retirementAge}
+                  {displayAge}
                 </span>
                 <span className="text-xl font-bold text-slate-500 uppercase">años</span>
               </div>
               
-              {monthlyContribution <= 0 && simulatedBalance < targetNetWorth ? (
-                <p className="text-sm text-amber-500 font-medium">
-                  Incrementa tu ahorro para ver una fecha
-                </p>
-              ) : (
-                <p className="text-sm text-slate-400 font-medium">
-                  En {yearsToGoal} años (aprox.)
-                </p>
-              )}
+              <p className="text-sm text-slate-400 font-medium">
+                {displayYearsMessage}
+              </p>
 
               <div className="mt-10 p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
                 <p className="text-[10px] text-emerald-400 leading-relaxed font-bold uppercase tracking-tight">
-                  {monthlyContribution > 0 ? '🚀 Plan de Inversión Activo' : '📉 Necesitas Capacidad de Ahorro'}
+                  {statusMessage}
                 </p>
               </div>
             </div>
@@ -434,7 +468,6 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
         {/* Bloque inferior de consejos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* NUEVO: Explicación Rigurosa de la Ecuación de Fisher */}
           <div className="glass p-6 rounded-3xl bg-emerald-50/60 border-emerald-100 flex flex-col justify-between transition-colors">
             <div className="flex gap-4 mb-4">
               <div className="p-3 bg-white rounded-2xl text-emerald-600 shadow-sm shrink-0 h-fit transition-colors">
@@ -443,21 +476,19 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
               <div className="space-y-2">
                 <h4 className="font-bold text-slate-900 text-sm">¿Cómo calculamos tu Tasa Real?</h4>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Para proyectar tu retiro con total certeza, no basta con restar la inflación del rendimiento (<span className="font-semibold">{returnRate}% - {inflationRate}% ≠ {(returnRate - inflationRate).toFixed(1)}%</span>). La inflación también erosiona los intereses que vas ganando mes a mes.
+                  No basta con restar la inflación del rendimiento (<span className="font-semibold">{returnRate}% - {inflationRate}% ≠ {(returnRate - inflationRate).toFixed(1)}%</span>). Aplicamos la <strong>Ecuación de Fisher</strong> y la raíz doceava para mes exacto.
                 </p>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Por eso aplicamos la <strong>Ecuación de Fisher</strong>, el estándar matemático en altas finanzas:
+                  Tasa Real Mensual = (1 + Tasa Real Anual)^{1/12} - 1, garantizando precisión compuesta.
                 </p>
               </div>
             </div>
-            
-            {/* Contenedor de la Fórmula Estilizada */}
             <div className="bg-white/80 border border-emerald-200/60 rounded-2xl p-3 text-center shadow-inner font-mono text-xs text-slate-700 space-y-1">
               <div className="font-bold text-emerald-700">
-                Tasa Real = [ (1 + Nominal) / (1 + Inflación) ] - 1
+                Tasa Real Anual = [ (1 + Nominal) / (1 + Inflación) ] - 1
               </div>
               <div className="text-[10px] text-slate-400">
-                En tu caso: [ (1 + {(returnRate/100).toFixed(3)}) / (1 + {(inflationRate/100).toFixed(3)}) ] - 1 = <span className="font-bold text-emerald-600">{(annualRealReturn * 100).toFixed(2)}%</span>
+                = {(annualRealReturn * 100).toFixed(2)}% E.A.
               </div>
             </div>
           </div>
