@@ -521,23 +521,42 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Procesando tu voz...');
           setIsLoading(true);
           try {
+            console.log("🎙️ Enviando audio a Groq...");
             const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
+            console.log("📦 transcriptionResult:", transcriptionResult);
+            
             let transcribedText = '';
-            if (typeof transcriptionResult === 'string') transcribedText = transcriptionResult;
-            else if (transcriptionResult && typeof transcriptionResult === 'object') transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || '';
-            if (!transcribedText) throw new Error('No se obtuvo transcripción');
+            if (typeof transcriptionResult === 'string') {
+              transcribedText = transcriptionResult;
+            } else if (transcriptionResult && typeof transcriptionResult === 'object') {
+              // Puede venir como { text: "..." } o { transcription: "..." }
+              transcribedText = transcriptionResult.text || transcriptionResult.transcription || transcriptionResult.message || '';
+            }
+            
             console.log("📝 Texto transcrito:", transcribedText);
+            
+            if (!transcribedText || transcribedText.trim().length === 0) {
+              throw new Error('La transcripción está vacía');
+            }
+            
             let finalTx = null;
             const localResult = parseLocalTransaction(transcribedText);
             const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
-            if (isLocalConfident) finalTx = localResult;
-            else {
+            
+            if (isLocalConfident) {
+              finalTx = localResult;
+            } else {
               try {
                 const geminiParseResult = await parseTransaction(transcribedText);
                 finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
-              } catch (apiError) { finalTx = localResult; }
+              } catch (apiError) {
+                console.error("Error llamando a IA para texto:", apiError);
+                finalTx = localResult;
+              }
             }
-            console.log("🔍 Resultado parseLocalTransaction:", localResult);
+            
+            console.log("🔍 Resultado finalTx:", finalTx);
+            
             if (finalTx && finalTx.amount > 0) {
               const normalizedTx = normalizeTransaction(finalTx);
               addMessage('ai', `🎤 Por voz: Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
@@ -545,6 +564,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               addMessage('ai', `No entendí bien lo que dijiste. Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
             }
           } catch (error) {
+            console.error("🔥 Error en procesamiento de voz:", error);
             sendFriendlyHelpMessage();
           } finally {
             setIsLoading(false);
@@ -586,6 +606,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       mediaRecorder.current.start();
       silenceTimer.current = requestAnimationFrame(checkSilence);
     } catch (err) {
+      console.error("Error accediendo al micrófono:", err);
       setIsRecording(false);
       isRecordingRef.current = false;
       addMessage('ai', "No se pudo acceder al micrófono. Por favor, verifica los permisos.");
