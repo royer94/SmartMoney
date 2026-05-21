@@ -248,11 +248,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   }, [transactions, currentMonth, currentYear]);
 
   const chartData = React.useMemo(() => {
-    return Object.keys(categoryTotals).map(cat => ({
-      name: cat,
-      amount: categoryTotals[cat]
-    })).sort((a, b) => b.amount - a.amount).slice(0, 10);
-  }, [categoryTotals]);
+  return Object.keys(categoryTotals).map(cat => ({
+    name: cat,
+    amount: categoryTotals[cat]
+  })).sort((a, b) => b.amount - a.amount);
+}, [categoryTotals]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
