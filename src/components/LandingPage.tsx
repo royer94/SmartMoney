@@ -17,15 +17,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-blue-600/30 font-sans">
       
-      {/* NAVBAR SUPERIOR - RELLENO DEL ESPACIO BLANCO SUPERIOR */}
+      {/* NAVBAR SUPERIOR */}
       <header className="w-full border-b border-slate-900 bg-[#030712]/80 backdrop-blur-md fixed top-0 left-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          {/* Marca con la Y de Yen */}
           <div className="text-xl md:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300 select-none">
             $martMone<span className="text-blue-400">¥</span> <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 ml-1">AI</span>
           </div>
           
-          {/* Botón de Inicio de sesión rápido */}
           <button 
             onClick={onLogin}
             className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-all transform active:scale-95 shadow-md shadow-blue-600/10"
@@ -35,12 +33,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
       </header>
 
-      {/* HERO SECTION - DISTANCIA MÁXIMA AJUSTADA POR EL NAVBAR */}
+      {/* HERO SECTION */}
       <section className="relative max-w-7xl mx-auto px-4 pt-32 pb-12 flex flex-col items-center text-center">
-        {/* Efecto de luz difusa en el fondo del Hero */}
         <div className="absolute top-12 left-1/2 -translate-x-1/2 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Badge de IA */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,7 +46,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <span>Inteligencia Artificial + Finanzas Personales</span>
         </motion.div>
 
-        {/* Título Principal */}
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -60,7 +55,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           Tu dinero, <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">más inteligente</span> que nunca
         </motion.h1>
 
-        {/* Subtítulo */}
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -70,7 +64,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           Registra gastos por voz, recibe asesoría financiera personalizada y proyecta tu libertad financiera — todo en una app que entiende tu idioma.
         </motion.p>
 
-        {/* Botón Principal de Entrada */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -91,7 +84,28 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS (.JPEG CONECTADOS) --- */}
+      {/* --- NUEVA SECCIÓN: ASISTENTE DE VOZ (usuario_voz2.jpg) --- */}
+      <section className="max-w-5xl mx-auto px-4 py-12 relative z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-2 md:p-4 backdrop-blur-md shadow-2xl flex justify-center"
+        >
+          {/* Luz de fondo sutil para enfocar la imagen */}
+          <div className="absolute inset-0 bg-blue-500/5 pointer-events-none blur-xl rounded-3xl" />
+          
+          <img 
+            src="/screenshots/usuario_voz2.jpg" 
+            alt="Interfaz del Asistente de Voz Financiero" 
+            className="w-full h-auto max-w-4xl rounded-2xl object-cover border border-slate-900/80 shadow-inner"
+            loading="eager"
+          />
+        </motion.div>
+      </section>
+
+      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS --- */}
       <section className="max-w-7xl mx-auto px-4 py-12 relative">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
@@ -175,7 +189,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             </p>
           </motion.div>
 
-          {/* Tarjeta 4: Historial de Movimientos (Historial Inteligente) */}
+          {/* Tarjeta 4: Historial de Movimientos */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -200,7 +214,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
       </section>
 
-      {/* RELLENO ESPACIO INTERMEDIO - BOTÓN DE ACCIÓN ENTRE HISTORIAL E INSTALABLE */}
+      {/* RELLENO ESPACIO INTERMEDIO */}
       <div className="w-full max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center relative z-10">
         <motion.button 
           whileHover={{ scale: 1.02 }}
@@ -213,16 +227,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.button>
       </div>
 
-      {/* --- SECCIÓN PWA: INSTALABLE Y VENTAJAS CLAVE --- */}
+      {/* --- SECCIÓN PWA --- */}
       <section className="border-t border-slate-900 bg-gradient-to-b from-[#030712] to-[#050b18] py-16 px-4">
         <div className="max-w-5xl mx-auto">
-          
           <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-8 md:p-12 backdrop-blur-md">
             <div className="absolute -right-20 -top-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              
-              {/* Bloque Izquierdo */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
                   Multiplataforma
@@ -235,10 +246,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 </p>
               </div>
 
-              {/* Bloque Derecho: Ventajas */}
               <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* Ventaja 1 */}
                 <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
                   <div className="p-2.5 rounded-xl bg-blue-600/10 text-blue-400 shrink-0">
                     <Smartphone className="w-5 h-5" />
@@ -249,7 +257,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   </div>
                 </div>
 
-                {/* Ventaja 2 */}
                 <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
                   <div className="p-2.5 rounded-xl bg-cyan-600/10 text-cyan-400 shrink-0">
                     <Download className="w-5 h-5" />
@@ -260,7 +267,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   </div>
                 </div>
 
-                {/* Ventaja 3 */}
                 <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
                   <div className="p-2.5 rounded-xl bg-indigo-600/10 text-indigo-400 shrink-0">
                     <WifiOff className="w-5 h-5" />
@@ -271,7 +277,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                   </div>
                 </div>
 
-                {/* Ventaja 4 */}
                 <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
                   <div className="p-2.5 rounded-xl bg-emerald-600/10 text-emerald-400 shrink-0">
                     <ShieldCheck className="w-5 h-5" />
@@ -281,7 +286,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                     <p className="text-slate-400 text-xs leading-relaxed">Las mejoras del núcleo de IA y parches visuales se instalan en segundo plano automáticamente sin descargas manuales.</p>
                   </div>
                 </div>
-
               </div>
 
             </div>
@@ -289,7 +293,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
       </section>
 
-      {/* RELLENO ESPACIO INFERIOR - BOTÓN DE ACCIÓN FINAL PRE-FOOTER */}
+      {/* RELLENO ESPACIO INFERIOR */}
       <div className="w-full max-w-7xl mx-auto px-4 pt-4 pb-12 flex flex-col items-center justify-center relative z-10">
         <motion.button 
           whileHover={{ scale: 1.02 }}
@@ -311,5 +315,4 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   );
 }
 
-// Doble exportación para blindar por completo el compilador de Vite en Vercel
 export default LandingPage;
