@@ -453,9 +453,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                         <div className="flex items-center gap-2">
                           <span className="text-slate-500">{Math.round(((goal.currentAmount || 0) / goal.targetAmount) * 100)}%</span>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => recalculateGoal?.(goal.id!)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Recalcular presupuesto">
-                              <RefreshCw className="w-3.5 h-3.5" />
-                            </button>
                             <AnimatePresence mode="wait">
                               {goalToDelete === goal.id ? (
                                 <motion.div key="confirm" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex items-center gap-1 bg-red-50 rounded-lg p-1 border border-red-100">
