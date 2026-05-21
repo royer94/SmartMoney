@@ -6,7 +6,8 @@ interface LandingPageProps {
   onLogin: () => void;
 }
 
-export default function LandingPage({ onLogin }: LandingPageProps) {
+// Exportación nombrada para satisfacer el "import { LandingPage }" de tu App.tsx
+export function LandingPage({ onLogin }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-blue-600/30 font-sans">
       
@@ -265,3 +266,6 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
     </div>
   );
 }
+
+// Exportación por defecto añadida como soporte extra en caso de fallos de Rollup/Vite
+export default LandingPage;
