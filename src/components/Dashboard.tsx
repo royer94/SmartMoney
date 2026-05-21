@@ -248,11 +248,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   }, [transactions, currentMonth, currentYear]);
 
   const chartData = React.useMemo(() => {
-  return Object.keys(categoryTotals).map(cat => ({
-    name: cat,
-    amount: categoryTotals[cat]
-  })).sort((a, b) => b.amount - a.amount);
-}, [categoryTotals]);
+    return Object.keys(categoryTotals).map(cat => ({
+      name: cat,
+      amount: categoryTotals[cat]
+    })).sort((a, b) => b.amount - a.amount);
+  }, [categoryTotals]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -290,7 +290,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
               Hola, {user.name || user.email.split('@')[0]}
             </h2>
-            {/* ✅ Corrección de propagación aplicada aquí para evitar interferencias de renderizado */}
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -431,7 +430,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                         {chartData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
-                        {/* ✅ Formato compacto (K/M) en las etiquetas del gráfico */}
                         <LabelList 
                           dataKey="amount" 
                           position="right" 
@@ -700,7 +698,78 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* ✅ Colocado al final absoluto del archivo, garantizando la persistencia en el DOM sin importar pestañas activas */}
+      {/* ✅ Goal Form Modal (AÑADIDO) */}
+      <AnimatePresence>
+        {showGoalForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass max-w-sm w-full p-8 rounded-[2.5rem]"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold">Crear Presupuesto</h3>
+                <button
+                  onClick={() => setShowGoalForm(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+              <form onSubmit={handleAddGoal} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">
+                    Monto Límite Objetivo
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="$ 0.00"
+                    value={newGoal.target}
+                    onChange={(e) => setNewGoal({ ...newGoal, target: e.target.value })}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Mes</label>
+                    <select
+                      value={newGoal.month}
+                      onChange={(e) => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700"
+                    >
+                      {MONTHS.map((m, idx) => (
+                        <option key={m} value={idx + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Año</label>
+                    <select
+                      value={newGoal.year}
+                      onChange={(e) => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700"
+                    >
+                      {YEARS.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold mt-4 shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
+                >
+                  Establecer Presupuesto
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ✅ Perfil Modal */}
       <AnimatePresence>
         {isProfileSettingsOpen && (
           <ProfileSettingsModal
