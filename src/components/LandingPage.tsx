@@ -1,49 +1,56 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Smartphone, Zap, ShieldCheck, Download, WifiOff } from 'lucide-react';
+import { Smartphone, Zap, ShieldCheck, Download, WifiOff, PieChart, TrendingUp, DollarSign, ArrowRight, Star } from 'lucide-react';
+
+interface LandingPageProps {
+  onLogin: () => void;
+}
 
 export function LandingPage({ onLogin }: { onLogin: () => void }) {
   return (
-    <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-blue-600/30">
+    <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-blue-600/30 font-sans">
       
-      {/* HERO SECTION - CORREGIDO PARA EVITAR DESBORDAMIENTO */}
-      <section className="relative max-w-7xl mx-auto px-4 pt-24 pb-16 flex flex-col items-center text-center">
-        {/* Badge Inteligencia Artificial */}
+      {/* HERO SECTION - PROTEGIDO CONTRA DESBORDAMIENTO */}
+      <section className="relative max-w-7xl mx-auto px-4 pt-24 pb-12 flex flex-col items-center text-center">
+        {/* Efecto de luz difusa en el fondo del Hero */}
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Badge de IA */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-950/40 border border-blue-800/30 text-blue-400 text-xs md:text-sm font-medium mb-8 backdrop-blur-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-950/40 border border-blue-800/30 text-blue-400 text-xs md:text-sm font-medium mb-8 backdrop-blur-sm relative z-10"
         >
           <Zap className="w-3.5 h-3.5 text-blue-400" />
           <span>Inteligencia Artificial + Finanzas Personales</span>
         </motion.div>
 
-        {/* TÍTULO PRINCIPAL - Solución al overflow con break-words y tamaños responsivos */}
+        {/* Título Principal */}
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white via-slate-200 to-slate-400 max-w-4xl mx-auto leading-[1.15] break-words px-2"
+          className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white via-slate-200 to-slate-400 max-w-4xl mx-auto leading-[1.15] break-words px-2 relative z-10"
         >
           Tu dinero, <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">más inteligente</span> que nunca
         </motion.h1>
 
-        {/* SUBTÍTULO PRINCIPAL - Controlado con max-w y break-words */}
+        {/* Subtítulo */}
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed break-words px-4"
+          className="mt-6 text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed break-words px-4 relative z-10"
         >
           Registra gastos por voz, recibe asesoría financiera personalizada y proyecta tu libertad financiera — todo en una app que entiende tu idioma.
         </motion.p>
 
-        {/* BOTÓN DE ACCIÓN PRINCIPAL */}
+        {/* Botón Principal */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="mt-10 w-full sm:w-auto px-4"
+          className="mt-10 w-full sm:w-auto px-4 relative z-10"
         >
           <button 
             onClick={onLogin}
@@ -64,7 +71,92 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
         </motion.div>
       </section>
 
-      {/* --- NUEVA SECCIÓN PWA: INSTALABLE Y VENTAJAS --- */}
+      {/* --- SECCIÓN DEMOSTRACIÓN DINÁMICA DE FUNCIONALIDADES (SCREENSHOTS / MOCKUPS) --- */}
+      <section className="max-w-6xl mx-auto px-4 py-16 relative">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-200 break-words">
+            Diseñado para darte el control absoluto
+          </h2>
+          <p className="text-sm md:text-base text-slate-400 mt-2">Una experiencia visual, intuitiva y automatizada.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Mockup 1: Análisis de Gastos Dinámico */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="p-6 rounded-3xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between min-h-[320px]"
+          >
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400">
+                  <PieChart className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Análisis Inteligente de Gastos</h3>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6 break-words">
+                Categorización automática al instante. Visualiza exactamente a dónde va cada moneda mediante gráficos de distribución limpios.
+              </p>
+            </div>
+
+            {/* Simulación Visual de un Gráfico de dona de la App */}
+            <div className="w-full bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-around gap-2 mt-auto">
+              <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-8 border-blue-500 border-t-cyan-400 border-r-indigo-500 animate-spin-slow">
+                <div className="absolute text-[10px] font-bold text-slate-300">100%</div>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span> Supermercado (45%)
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span> Servicios fijos (35%)
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Entretenimiento (20%)
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Mockup 2: Simulador de Libertad Financiera */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="p-6 rounded-3xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between min-h-[320px]"
+          >
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Simulador de Libertad Financiera</h3>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6 break-words">
+                Calcula tu índice de libertad real. Proyecta tu crecimiento patrimonial a largo plazo basándote en tus hábitos actuales de ahorro.
+              </p>
+            </div>
+
+            {/* Simulación Visual de Gráfico de Proyección de Crecimiento */}
+            <div className="w-full bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 mt-auto">
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-2 border-b border-slate-800 pb-1">
+                <span>Tu Proyección Patrimonial</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-0.5"><DollarSign className="w-3 h-3" /> Libre</span>
+              </div>
+              <div className="h-16 flex items-end gap-2 pt-2 px-2">
+                <div className="w-full bg-blue-600/30 h-[20%] rounded-t-sm" />
+                <div className="w-full bg-blue-600/40 h-[35%] rounded-t-sm" />
+                <div className="w-full bg-blue-600/60 h-[50%] rounded-t-sm" />
+                <div className="w-full bg-cyan-500/70 h-[68%] rounded-t-sm" />
+                <div className="w-full bg-cyan-500 h-[95%] rounded-t-sm relative">
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] text-cyan-300 font-bold">Meta</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+        </div>
+      </section>
+
+      {/* --- SECCIÓN PWA: INSTALABLE Y VENTAJAS CLAVE (REQUERIMIENTO STRICTO) --- */}
       <section className="border-t border-slate-900 bg-gradient-to-b from-[#030712] to-[#050b18] py-20 px-4">
         <div className="max-w-5xl mx-auto">
           
@@ -75,7 +167,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               
-              {/* Bloque Izquierdo: Mensaje de Disponibilidad Multiplataforma */}
+              {/* Bloque Izquierdo */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
                   Multiplataforma
@@ -84,11 +176,11 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                   Instálalo en cualquier dispositivo
                 </h2>
                 <p className="text-slate-400 text-sm md:text-base leading-relaxed break-words">
-                  Disfruta de la experiencia nativa completa de **$martMone¥ AI** sin pasar por las tiendas de aplicaciones. Compatible con iOS, Android, macOS y Windows.
+                  Disfruta de la experiencia nativa completa de **$martMone¥ AI** sin pasar por las tiendas de aplicaciones tradicionales. Es 100% compatible con iOS, Android, macOS y Windows.
                 </p>
               </div>
 
-              {/* Bloque Derecho: Ventajas Clave */}
+              {/* Bloque Derecho: Ventajas de tenerlo instalado */}
               <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Ventaja 1 */}
@@ -97,8 +189,8 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-white text-sm font-semibold mb-1">Acceso Directo</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Icono exclusivo en tu pantalla de inicio para ingresar en un solo toque, sin usar el navegador.</p>
+                    <h3 className="text-white text-sm font-semibold mb-1">Acceso en un Toque</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed">Añade un acceso directo e ícono exclusivo en tu pantalla de inicio para entrar directo sin usar el navegador.</p>
                   </div>
                 </div>
 
@@ -108,8 +200,8 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                     <Download className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-white text-sm font-semibold mb-1">Ligera y Eficiente</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Ocupa menos de 2MB de almacenamiento interno, optimizando el rendimiento de tu teléfono.</p>
+                    <h3 className="text-white text-sm font-semibold mb-1">Ultra Ligera</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed">Consume menos de 2MB de almacenamiento del sistema, optimizando drásticamente la batería y recursos.</p>
                   </div>
                 </div>
 
@@ -120,7 +212,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                   </div>
                   <div>
                     <h3 className="text-white text-sm font-semibold mb-1">Modo Offline</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Consulta tus balances esenciales y gráficos clave incluso si te quedas temporalmente sin datos o Wi-Fi.</p>
+                    <p className="text-slate-400 text-xs leading-relaxed">Permite consultar tus últimos movimientos, balances esenciales y gráficos clave aun si estás sin cobertura de datos.</p>
                   </div>
                 </div>
 
@@ -130,8 +222,8 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-white text-sm font-semibold mb-1">Actualizaciones Seguras</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Mejoras de seguridad y nuevas herramientas de IA aplicadas al instante de fondo, sin descargas manuales.</p>
+                    <h3 className="text-white text-sm font-semibold mb-1">Actualización Instantánea</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed">Las mejoras del núcleo de IA y parches visuales se instalan en segundo plano automáticamente sin descargas manuales.</p>
                   </div>
                 </div>
 
@@ -142,6 +234,11 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
 
         </div>
       </section>
+
+      {/* FOOTER SIMPLE */}
+      <footer className="text-center py-8 border-t border-slate-950 text-xs text-slate-600 max-w-7xl mx-auto px-4">
+        <p>&copy; {new Date().getFullYear()} $martMone¥ AI. Todos los derechos reservados.</p>
+      </footer>
 
     </div>
   );
