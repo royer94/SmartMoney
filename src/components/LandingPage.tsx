@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Smartphone, Zap, ShieldCheck, Download, WifiOff, Eye, FileSpreadsheet, FileText, BrainCircuit } from 'lucide-react';
+import { Smartphone, Zap, ShieldCheck, Download, Eye, FileSpreadsheet, FileText, BrainCircuit } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -21,7 +21,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       <header className="w-full border-b border-slate-900 bg-[#030712]/80 backdrop-blur-md fixed top-0 left-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="text-xl md:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300 select-none">
-            $martMone<span className="text-blue-400">¥</span> <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 ml-1">AI</span>
+            $martMone<span className="text-white">¥</span> <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 ml-1">AI</span>
           </div>
           
           <button 
@@ -84,7 +84,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN: ASISTENTE DE VOZ (usuario_voz2.jpg) --- */}
+      {/* --- SECCIÓN: ASISTENTE DE VOZ --- */}
       <section className="max-w-5xl mx-auto px-4 py-12 relative z-10">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
@@ -94,7 +94,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-2 md:p-4 backdrop-blur-md shadow-2xl flex justify-center"
         >
           <div className="absolute inset-0 bg-blue-500/5 pointer-events-none blur-xl rounded-3xl" />
-          
           <img 
             src="/screenshots/usuario_voz2.jpg" 
             alt="Interfaz del Asistente de Voz Financiero" 
@@ -104,7 +103,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS (ORDEN REESTRUCTURADO) --- */}
+      {/* --- SECCIÓN GALERÍA DE PANTALLAZOS --- */}
       <section className="max-w-[90rem] mx-auto px-4 py-12 relative border-t border-slate-900/60">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-medium mb-3">
@@ -119,7 +118,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           </p>
         </div>
 
-        {/* Grilla responsiva adaptada a 5 columnas simétricas */}
+        {/* Grilla responsiva adaptada a 5 columnas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 justify-items-center">
           
           {/* 1. Panel de Control */}
@@ -133,7 +132,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
               <img 
                 src="/screenshots/dashboard.jpeg" 
-                alt="Panel de Control de $martMone¥" 
+                alt="Panel de Control" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
@@ -155,7 +154,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
               <img 
                 src="/screenshots/movimientos.jpeg" 
-                alt="Historial de Movimientos Inteligente" 
+                alt="Historial de Movimientos" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
@@ -177,7 +176,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
               <img 
                 src="/screenshots/dist_gastos.jpeg" 
-                alt="Distribución y Análisis de Gastos" 
+                alt="Distribución de Gastos" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
@@ -188,7 +187,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             </p>
           </motion.div>
 
-          {/* 4. Análisis Inteligente (NUEVA SECCIÓN ADICIONADA) */}
+          {/* 4. Análisis Inteligente */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -199,7 +198,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
               <img 
                 src="/screenshots/analisisIA.jpeg" 
-                alt="Módulo de Análisis Inteligente con IA" 
+                alt="Análisis IA" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
@@ -224,7 +223,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 relative mb-4">
               <img 
                 src="/screenshots/libertad.jpeg" 
-                alt="Simulador de Libertad Financiera Avanzado" 
+                alt="Simulador de Libertad" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
               />
@@ -251,7 +250,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.button>
       </div>
 
-      {/* --- SECCIÓN: REPORTES INTELIGENTES (reportes.jpeg) --- */}
+      {/* --- SECCIÓN: REPORTES INTELIGENTES --- */}
       <section className="max-w-6xl mx-auto px-4 py-16 relative z-10 border-t border-slate-900/60">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
@@ -304,7 +303,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-2 backdrop-blur-sm shadow-xl w-full max-w-2xl">
               <img 
                 src="/screenshots/reportes.jpeg" 
-                alt="Panel de Generación de Reportes Avanzados en PDF y CSV" 
+                alt="Reportes" 
                 className="w-full h-auto rounded-xl object-cover border border-slate-900/50"
                 loading="lazy"
               />
@@ -314,7 +313,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </div>
       </section>
 
-      {/* --- SECCIÓN PWA --- */}
+      {/* --- SECCIÓN PWA (Instálalo en cualquier dispositivo, sin el ítem offline) --- */}
       <section className="border-t border-slate-900 bg-gradient-to-b from-[#030712] to-[#050b18] py-16 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-8 md:p-12 backdrop-blur-md">
@@ -355,16 +354,6 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 </div>
 
                 <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
-                  <div className="p-2.5 rounded-xl bg-indigo-600/10 text-indigo-400 shrink-0">
-                    <WifiOff className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-white text-sm font-semibold mb-1">Modo Offline</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Permite consultar tus últimos movimientos, balances esenciales y gráficos clave aun si estás sin cobertura de datos.</p>
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur-sm flex gap-4 items-start">
                   <div className="p-2.5 rounded-xl bg-emerald-600/10 text-emerald-400 shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
@@ -373,6 +362,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                     <p className="text-slate-400 text-xs leading-relaxed">Las mejoras del núcleo de IA y parches visuales se instalan en segundo plano automáticamente sin descargas manuales.</p>
                   </div>
                 </div>
+
+                {/* El bloque de "Modo offline" ha sido eliminado */}
               </div>
 
             </div>
