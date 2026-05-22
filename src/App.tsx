@@ -8,7 +8,7 @@ import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
 import { ProBanner } from './components/ProBanner';
 import { Guide } from './components/Guide';
-import { PWAPrompt } from './components/PWAPrompt';
+// PWAPrompt eliminado por redundancia
 import { AdminPanel } from './components/AdminPanel';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { HelpModal } from './components/HelpModal';
@@ -18,7 +18,7 @@ import { LandingPage } from './components/LandingPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
-import { InstallPWA } from './components/InstallPWA'; // ✅ Importación del componente
+import { InstallPWA } from './components/InstallPWA';
 import { 
   Plus, Settings, LogOut, Home, List, 
   MessageSquare, DollarSign, Shield, HelpCircle
@@ -90,6 +90,7 @@ export default function App() {
     }
   };
 
+  // ✅ Función de actualización de perfil (correcta)
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
     if (!user || !user.uid) {
       console.error('❌ Usuario sin uid:', user);
@@ -129,6 +130,7 @@ export default function App() {
     }
   };
 
+  // 1. Pantalla de carga
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
@@ -139,20 +141,25 @@ export default function App() {
     );
   }
 
+  // 2. Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
+  // 3. Onboarding si es nuevo usuario
   if (!user.onboardingDone) {
     return (
       <OnboardingModal
         userId={user.uid}
         email={user.email}
-        onComplete={(name, birthdate) => {}}
+        onComplete={(name, birthdate) => {
+          // useFinance actualizará el perfil via onSnapshot automáticamente
+        }}
       />
     );
   }
 
+  // 4. App principal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
@@ -362,7 +369,6 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <PWAPrompt />
         {user && <SubscriptionNotifier user={user} />}
         
         {/* ✅ Componente de instalación PWA (Android e iOS) */}
