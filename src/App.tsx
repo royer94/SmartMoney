@@ -141,7 +141,7 @@ export default function App() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
         <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
-          <img src="/SmartMoney_logo.png" alt="SmartMone¥ AI" className="w-80 md:w-96 lg:w-[28rem] max-w-[85vw]" />
+          <img src="/SmartMoney_logo.webp" alt="SmartMone¥ AI" className="w-80 md:w-96 lg:w-[28rem] max-w-[85vw]" />
         </motion.div>
       </div>
     );
