@@ -4,7 +4,7 @@ import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
-// Componentes pesados con exportación nombrada
+// Componentes pesados con exportación nombrada (se importan correctamente)
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const TransactionList = lazy(() => import('./components/TransactionList').then(module => ({ default: module.TransactionList })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(module => ({ default: module.AdminPanel })));
@@ -12,6 +12,7 @@ const HelpModal = lazy(() => import('./components/HelpModal').then(module => ({ 
 const SubscriptionModal = lazy(() => import('./components/SubscriptionModal').then(module => ({ default: module.SubscriptionModal })));
 const Guide = lazy(() => import('./components/Guide').then(module => ({ default: module.Guide })));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(module => ({ default: module.OnboardingModal })));
+// Componentes ligeros o siempre necesarios
 import { ProBanner } from './components/ProBanner';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { Logo } from './components/Logo';
@@ -28,16 +29,12 @@ import { cn } from './lib/utils';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
+// Componente fallback para Suspense
 const LoaderFallback = () => (
   <div className="p-10 text-center flex justify-center">
     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
-
-export default function App() {
-  // ... (todo el código del componente permanece idéntico al anterior, solo cambian los imports lazy)
-  // (no es necesario repetir todo el código, pero el archivo completo ya lo tienes arriba)
-}
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
@@ -100,7 +97,6 @@ export default function App() {
     }
   };
 
-  // ✅ Función de actualización de perfil (correcta)
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
     if (!user || !user.uid) {
       console.error('❌ Usuario sin uid:', user);
@@ -140,7 +136,7 @@ export default function App() {
     }
   };
 
-  // 1. Pantalla de carga
+  // Pantalla de carga
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
@@ -151,12 +147,12 @@ export default function App() {
     );
   }
 
-  // 2. Landing si no hay usuario
+  // Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // 3. Onboarding si es nuevo usuario (ahora lazy)
+  // Onboarding si es nuevo usuario
   if (!user.onboardingDone) {
     return (
       <Suspense fallback={<LoaderFallback />}>
@@ -171,7 +167,7 @@ export default function App() {
     );
   }
 
-  // 4. App principal
+  // App principal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
@@ -282,6 +278,7 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   className="glass p-10 rounded-[2.5rem] space-y-8"
                 >
+                  {/* El contenido de ajustes no es pesado, se mantiene normal */}
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
                     <div className={cn(
@@ -399,7 +396,7 @@ export default function App() {
 
         {user && <SubscriptionNotifier user={user} />}
         
-        {/* ✅ Componente de instalación PWA (Android e iOS) */}
+        {/* Componente de instalación PWA */}
         <InstallPWA />
       </div>
     </CurrencyProvider>
