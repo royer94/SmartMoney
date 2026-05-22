@@ -1,21 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
-import { Dashboard } from './components/Dashboard';
-import { TransactionList } from './components/TransactionList';
+// Componentes pesados se cargan bajo demanda
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const TransactionList = lazy(() => import('./components/TransactionList'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const HelpModal = lazy(() => import('./components/HelpModal'));
+const SubscriptionModal = lazy(() => import('./components/SubscriptionModal'));
+const Guide = lazy(() => import('./components/Guide'));
+const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
+// Componentes ligeros o siempre necesarios
 import { ProBanner } from './components/ProBanner';
-import { Guide } from './components/Guide';
-// PWAPrompt eliminado por redundancia
-import { AdminPanel } from './components/AdminPanel';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
-import { HelpModal } from './components/HelpModal';
-import { SubscriptionModal } from './components/SubscriptionModal';
 import { Logo } from './components/Logo';
 import { LandingPage } from './components/LandingPage';
-import { OnboardingModal } from './components/OnboardingModal';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { InstallPWA } from './components/InstallPWA';
@@ -28,6 +29,13 @@ import { cn } from './lib/utils';
 import { FREE_LIMIT } from './types';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
+
+// Componente fallback para Suspense
+const LoaderFallback = () => (
+  <div className="p-10 text-center flex justify-center">
+    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
@@ -146,16 +154,18 @@ export default function App() {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // 3. Onboarding si es nuevo usuario
+  // 3. Onboarding si es nuevo usuario (ahora lazy)
   if (!user.onboardingDone) {
     return (
-      <OnboardingModal
-        userId={user.uid}
-        email={user.email}
-        onComplete={(name, birthdate) => {
-          // useFinance actualizará el perfil via onSnapshot automáticamente
-        }}
-      />
+      <Suspense fallback={<LoaderFallback />}>
+        <OnboardingModal
+          userId={user.uid}
+          email={user.email}
+          onComplete={(name, birthdate) => {
+            // useFinance actualizará el perfil via onSnapshot automáticamente
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -232,21 +242,25 @@ export default function App() {
           <div className="max-w-5xl mx-auto p-4 md:p-10">
             <AnimatePresence mode="wait">
               {activeTab === 'dash' && (
-                <Dashboard
-                  key="dash"
-                  user={userAdapter}
-                  transactions={transactions}
-                  goals={goals}
-                  addGoal={addGoal}
-                  removeGoal={removeGoal}
-                  toggleRecurring={toggleRecurring}
-                  recalculateGoal={recalculateGoal}
-                  onUpgrade={() => setShowSubscription(true)}
-                  onUpdateProfile={handleUpdateProfile}
-                />
+                <Suspense fallback={<LoaderFallback />}>
+                  <Dashboard
+                    key="dash"
+                    user={userAdapter}
+                    transactions={transactions}
+                    goals={goals}
+                    addGoal={addGoal}
+                    removeGoal={removeGoal}
+                    toggleRecurring={toggleRecurring}
+                    recalculateGoal={recalculateGoal}
+                    onUpgrade={() => setShowSubscription(true)}
+                    onUpdateProfile={handleUpdateProfile}
+                  />
+                </Suspense>
               )}
               {activeTab === 'list' && (
-                <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
+                <Suspense fallback={<LoaderFallback />}>
+                  <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
+                </Suspense>
               )}
               {activeTab === 'chat' && (
                 <CommandBar
@@ -360,12 +374,24 @@ export default function App() {
 
         <AnimatePresence>
           {showSubscription && (
-            <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
+            <Suspense fallback={null}>
+              <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
+            </Suspense>
           )}
-          {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-          {showGuide && <Guide onClose={() => setShowGuide(false)} />}
+          {showHelp && (
+            <Suspense fallback={null}>
+              <HelpModal onClose={() => setShowHelp(false)} />
+            </Suspense>
+          )}
+          {showGuide && (
+            <Suspense fallback={null}>
+              <Guide onClose={() => setShowGuide(false)} />
+            </Suspense>
+          )}
           {showAdminPanel && user.isAdmin && (
-            <AdminPanel users={allUsers} onActivatePro={activatePro} onDeactivatePro={deactivatePro} onClose={() => setShowAdminPanel(false)} />
+            <Suspense fallback={null}>
+              <AdminPanel users={allUsers} onActivatePro={activatePro} onDeactivatePro={deactivatePro} onClose={() => setShowAdminPanel(false)} />
+            </Suspense>
           )}
         </AnimatePresence>
 
