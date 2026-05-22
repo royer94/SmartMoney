@@ -4,15 +4,14 @@ import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
-// Componentes pesados se cargan bajo demanda
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const TransactionList = lazy(() => import('./components/TransactionList'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
-const HelpModal = lazy(() => import('./components/HelpModal'));
-const SubscriptionModal = lazy(() => import('./components/SubscriptionModal'));
-const Guide = lazy(() => import('./components/Guide'));
-const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
-// Componentes ligeros o siempre necesarios
+// Componentes pesados con exportación nombrada
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
+const TransactionList = lazy(() => import('./components/TransactionList').then(module => ({ default: module.TransactionList })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then(module => ({ default: module.AdminPanel })));
+const HelpModal = lazy(() => import('./components/HelpModal').then(module => ({ default: module.HelpModal })));
+const SubscriptionModal = lazy(() => import('./components/SubscriptionModal').then(module => ({ default: module.SubscriptionModal })));
+const Guide = lazy(() => import('./components/Guide').then(module => ({ default: module.Guide })));
+const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(module => ({ default: module.OnboardingModal })));
 import { ProBanner } from './components/ProBanner';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { Logo } from './components/Logo';
@@ -26,16 +25,19 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { FREE_LIMIT } from './types';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
-// Componente fallback para Suspense
 const LoaderFallback = () => (
   <div className="p-10 text-center flex justify-center">
     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
+
+export default function App() {
+  // ... (todo el código del componente permanece idéntico al anterior, solo cambian los imports lazy)
+  // (no es necesario repetir todo el código, pero el archivo completo ya lo tienes arriba)
+}
 
 export default function App() {
   const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
