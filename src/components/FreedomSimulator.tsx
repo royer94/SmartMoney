@@ -9,7 +9,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   // --- PERSISTENCIA DE ESTADOS EN LOCALSTORAGE (asociados al ID del usuario) ---
   const [currentSavings, setCurrentSavings] = useState(() => {
     const saved = localStorage.getItem(`fs_savings_${user.id}`);
-    return saved ? Number(saved) : 0;  // 🔥 Inicialmente 0 (sin valor por defecto)
+    return saved ? Number(saved) : 0;
   });
 
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(() => {
@@ -269,7 +269,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   </div>
                 </div>
 
-                {/* Meta de Ahorro Mensual */}
+                {/* Meta de Ahorro Mensual (cambiada la etiqueta y descripción) */}
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <Calculator className="w-3.5 h-3.5" /> Meta de Ahorro Mensual
@@ -288,7 +288,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     value={monthlySavingsGoal} onChange={(e) => setMonthlySavingsGoal(Number(e.target.value))}
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
-                  <p className="text-[10px] text-slate-400">Define cuánto planeas ahorrar cada mes.</p>
+                  <p className="text-[10px] text-slate-400">Define cuánto planeas ahorrar mensualmente.</p>
                 </div>
 
                 {/* Gasto de Vida Deseado */}
@@ -313,7 +313,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   <p className="text-[10px] text-slate-400">¿Con cuánto dinero mensual quieres vivir en tu libertad?</p>
                 </div>
 
-                {/* Rendimiento Bruto Nominal */}
+                {/* Rendimiento Bruto (Nominal) - descripción modificada */}
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <TrendingUp className="w-3.5 h-3.5" /> Rendimiento Bruto (Nominal)
@@ -332,7 +332,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     value={returnRate} onChange={(e) => setReturnRate(Number(e.target.value))}
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
-                  <p className="text-[10px] text-slate-400">Retorno antes de inflación (CDT, Acciones, etc.).</p>
+                  <p className="text-[10px] text-slate-400">Retorno de tus ahorros antes de inflación.</p>
                 </div>
 
                 {/* Inflación Estimada */}
