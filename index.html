@@ -11,14 +11,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="SmartMone¥" />
     
-    <!-- ✅ Añadir referencia al manifest.json -->
+    <!-- ✅ Referencia al archivo manifest.json para PWA -->
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- Iconos (el mismo archivo para todos los casos) -->
+    <!-- Iconos -->
     <link rel="icon" type="image/png" href="/SM_icon.png" />
     <link rel="apple-touch-icon" href="/SM_icon.png" />
     
-    <!-- Scripts externos -->
+    <!-- Scripts externos (Epayco, OneSignal) -->
     <script type="text/javascript" src="https://checkout.epayco.co/checkout.js"></script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
@@ -33,5 +33,20 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- ✅ Registro del Service Worker para PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('Service Worker registrado con éxito:', registration);
+            })
+            .catch(function(error) {
+              console.error('Error al registrar el Service Worker:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
