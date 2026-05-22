@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth'; // ✅ Importación modular añadida
+import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
 import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
@@ -18,6 +18,7 @@ import { LandingPage } from './components/LandingPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
+import { InstallPWA } from './components/InstallPWA'; // ✅ Importación del componente
 import { 
   Plus, Settings, LogOut, Home, List, 
   MessageSquare, DollarSign, Shield, HelpCircle
@@ -89,7 +90,6 @@ export default function App() {
     }
   };
 
-  // ✅ Función definitiva corregida sin métodos deprecados
   const handleUpdateProfile = async (updatedData: { name: string; birthDate: string }) => {
     if (!user || !user.uid) {
       console.error('❌ Usuario sin uid:', user);
@@ -109,11 +109,9 @@ export default function App() {
         dataToSave.birthdate = updatedData.birthDate;
       }
 
-      // Usamos setDoc con merge: true para crear el documento si no existe
       await setDoc(userRef, dataToSave, { merge: true });
       console.log('✅ Firestore actualizado correctamente');
 
-      // ✅ Solución al error: uso de la función funcional updateProfile
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: updatedData.name.trim() });
         console.log('✅ Auth profile actualizado de forma segura');
@@ -131,7 +129,6 @@ export default function App() {
     }
   };
 
-  // 1. Pantalla de carga
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
@@ -142,25 +139,20 @@ export default function App() {
     );
   }
 
-  // 2. Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // 3. Onboarding si es nuevo usuario
   if (!user.onboardingDone) {
     return (
       <OnboardingModal
         userId={user.uid}
         email={user.email}
-        onComplete={(name, birthdate) => {
-          // useFinance actualizará el perfil via onSnapshot automáticamente
-        }}
+        onComplete={(name, birthdate) => {}}
       />
     );
   }
 
-  // 4. App principal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
@@ -372,6 +364,9 @@ export default function App() {
 
         <PWAPrompt />
         {user && <SubscriptionNotifier user={user} />}
+        
+        {/* ✅ Componente de instalación PWA (Android e iOS) */}
+        <InstallPWA />
       </div>
     </CurrencyProvider>
   );
