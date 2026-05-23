@@ -22,7 +22,8 @@ import { CurrencySelector } from './components/CurrencySelector';
 import { InstallPWA } from './components/InstallPWA';
 import { 
   Plus, Settings, LogOut, Home, List, 
-  MessageSquare, DollarSign, Shield, HelpCircle
+  MessageSquare, DollarSign, Shield, HelpCircle,
+  Mail, MessageCircle as WhatsAppIcon  // ✅ Iconos para contacto
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -313,6 +314,36 @@ export default function App() {
                       <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
                       <CurrencySelector userId={user.uid} />
                     </div>
+
+                    {/* ✅ SECCIÓN DE CONTACTO Y SOPORTE */}
+                    <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
+                      <div className="flex flex-wrap gap-3">
+                        {/* Correo */}
+                        <a
+                          href="mailto:contacto@smartmoneyai.click"
+                          className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
+                            <Mail className="w-4 h-4 text-blue-500" />
+                          </div>
+                          <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
+                        </a>
+                        {/* WhatsApp */}
+                        <a
+                          href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
+                            <WhatsAppIcon className="w-4 h-4 text-green-500" />
+                          </div>
+                          <span className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte WhatsApp</span>
+                        </a>
+                      </div>
+                    </div>
+
                     {user.isAdmin && (
                       <button
                         onClick={() => setShowAdminPanel(true)}
