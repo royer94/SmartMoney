@@ -11,7 +11,9 @@ import {
   Smartphone,
   CheckCircle2,
   Lightbulb,
-  BarChart3
+  BarChart3,
+  Mail,           // ✅ Icono para correo
+  MessageCircle   // ✅ Icono para WhatsApp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -88,6 +90,48 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 description="Calcula cuánto necesitas ahorrar para vivir de tus rentas. Ajusta inflación y rentabilidad esperada."
               />
             </div>
+          </section>
+
+          {/* ✅ NUEVA SECCIÓN: Contacto y Soporte (antes de los consejos) */}
+          <section className="space-y-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-green-500" />
+              Contacto y Soporte
+            </h3>
+            <div className="flex flex-wrap gap-4">
+              {/* Correo */}
+              <a
+                href="mailto:contacto@smartmoneyai.click"
+                className="group flex items-center gap-3 px-5 py-3 rounded-full border border-slate-200 bg-white hover:bg-blue-500/5 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 shadow-sm"
+              >
+                <div className="w-9 h-9 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
+                  <Mail className="w-4 h-4 text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">Correo</p>
+                  <p className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</p>
+                </div>
+              </a>
+
+              {/* WhatsApp */}
+              <a
+                href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 px-5 py-3 rounded-full border border-slate-200 bg-white hover:bg-green-500/5 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5 shadow-sm"
+              >
+                <div className="w-9 h-9 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-4 h-4 text-green-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">WhatsApp</p>
+                  <p className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte inmediato</p>
+                </div>
+              </a>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              ¿Dudas o problemas? Escríbenos. Te responderemos lo antes posible.
+            </p>
           </section>
 
           {/* Section: Tips */}
