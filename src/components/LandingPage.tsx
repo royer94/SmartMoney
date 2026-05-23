@@ -387,35 +387,45 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.button>
       </div>
 
-      {/* Footer */}
-<footer className="border-t border-slate-800 bg-gradient-to-b from-slate-950/80 to-slate-950/40 py-12 px-4">
-  <div className="max-w-6xl mx-auto">
-    <div className="flex flex-wrap justify-center gap-5 mb-9">
+      {/* FOOTER CORREGIDO */}
+      <footer className="border-t border-slate-800 bg-gradient-to-b from-slate-950/80 to-slate-950/40 py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-5">
+            {/* Email */}
+            <a
+              href="mailto:contacto@smartmoneyai.click"
+              className="group flex items-center gap-4 px-6 py-4 rounded-full border border-white/8 bg-white/4 hover:bg-blue-500/12 hover:border-blue-500/35 transition-all duration-300 hover:-translate-y-0.5"
+            >
+              <div className="w-11 h-11 rounded-full bg-blue-500/15 group-hover:bg-blue-500/25 flex items-center justify-center shrink-0 transition-colors duration-300">
+                <Mail className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">Correo</p>
+                <p className="text-sm text-blue-300 font-medium">contacto@smartmoneyai.click</p>
+              </div>
+            </a>
 
-      {/* Email */}
-      
-        href="mailto:contacto@smartmoneyai.click"
-        className="group flex items-center gap-4 px-6 py-4 rounded-full border border-white/8 bg-white/4 hover:bg-blue-500/12 hover:border-blue-500/35 transition-all duration-300 hover:-translate-y-0.5"
-      >
-        <div className="w-11 h-11 rounded-full bg-blue-500/15 group-hover:bg-blue-500/25 flex items-center justify-center shrink-0 transition-colors duration-300">
-          <Mail className="w-5 h-5 text-blue-400" />
+            {/* WhatsApp */}
+            <a
+              href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4 px-6 py-4 rounded-full border border-white/8 bg-white/4 hover:bg-green-500/12 hover:border-green-500/35 transition-all duration-300 hover:-translate-y-0.5"
+            >
+              <div className="w-11 h-11 rounded-full bg-green-500/12 group-hover:bg-green-500/22 flex items-center justify-center shrink-0 transition-colors duration-300">
+                <MessageCircle className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">WhatsApp</p>
+                <p className="text-sm text-green-300 font-medium">Soporte inmediato</p>
+              </div>
+            </a>
+          </div>
+          <div className="text-center mt-8">
+            <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} SmartMoney AI. Todos los derechos reservados.</p>
+          </div>
         </div>
-        <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">Correo</p>
-          <p className="text-sm text-blue-300 font-medium">contacto@smartmoneyai.click</p>
-        </div>
-      </a>
-
-      {/* WhatsApp */}
-      
-        href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group flex items-center gap-4 px-6 py-4 rounded-full border border-white/8 bg-white/4 hover:bg-green-500/12 hover:border-green-500/35 transition-all duration-300 hover:-translate-y-0.5"
-      >
-        <div className="w-11 h-11 rounded-full bg-green-500/12 group-hover:bg-green-500/22 flex items-center justify-center shrink-0 transition-colors duration-300">
-          {/* Ícono oficial WhatsApp SVG
-
+      </footer>
     </div>
   );
 }
