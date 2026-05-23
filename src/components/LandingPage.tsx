@@ -387,33 +387,39 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         </motion.button>
       </div>
 
-      {/* FOOTER CON CORREO Y WHATSAPP */}
-      <footer className="border-t border-slate-800 bg-slate-950/40 py-6 px-4">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-400">
-          <div className="flex gap-6">
-            {/* Correo electrónico */}
-            <a
-              href="mailto:contacto@smartmoneyai.click"
-              className="hover:text-blue-400 transition-colors flex items-center gap-1"
-            >
-              <Mail className="w-4 h-4" />
-              contacto@smartmoneyai.click
-            </a>
-
-            {/* Botón de WhatsApp con mensaje predeterminado */}
-            <a
-              href="https://wa.me/5733209131046?text=Hola%2C%20somos%20SmartMoney%20AI%2C%20tu%20gestor%20de%20finanzas%20impusado%20por%20IA.%20%C2%BFC%C3%B3mo%20podemos%20ayudarte%3F"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-green-400 transition-colors flex items-center gap-1"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Soporte WhatsApp
-            </a>
+      {/* FOOTER CON CORREO Y WHATSAPP (MEJORADO) */}
+<footer className="border-t border-slate-800 bg-gradient-to-b from-slate-950/80 to-slate-950/40 py-8 px-4">
+  <div className="max-w-6xl mx-auto">
+    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="flex gap-8">
+        {/* Enlace de correo */}
+        <a
+          href="mailto:contacto@smartmoneyai.click"
+          className="group flex items-center gap-2 text-slate-300 hover:text-blue-400 transition-all duration-300"
+        >
+          <div className="p-2 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+            <Mail className="w-5 h-5" />
           </div>
-          <p className="text-xs">&copy; {new Date().getFullYear()} SmartMoney AI. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+          <span className="font-medium">contacto@smartmoneyai.click</span>
+        </a>
+
+        {/* Enlace de WhatsApp */}
+        <a
+          href="https://wa.me/573209131046?text=Hola%2C%20somos%20SmartMoney%20AI%2C%20tu%20gestor%20de%20finanzas%20impulsado%20por%20IA.%20%C2%BFC%C3%B3mo%20podemos%20ayudarte%3F"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2 text-slate-300 hover:text-green-400 transition-all duration-300"
+        >
+          <div className="p-2 rounded-full bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+            <MessageCircle className="w-5 h-5" />
+          </div>
+          <span className="font-medium">Soporte WhatsApp</span>
+        </a>
+      </div>
+      <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} SmartMoney AI. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</footer>
 
     </div>
   );
