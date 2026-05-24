@@ -1,7 +1,3 @@
-// Solo por un segundo, cambia la línea de exportación a esto:
-export function ProBanner() {
-  throw new Error("ELIMINADO"); 
-  // ... resto del código
 import React from 'react';
 import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
@@ -37,7 +33,7 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
     );
   }
 
-  // Usuario gratuito: mostrar progreso con límite de 40 registros
+  // Usuario gratuito
   const maxTextRecords = 40;
   const usedRecords = maxTextRecords - remainingTextRecords;
   const progress = (usedRecords / maxTextRecords) * 100;
@@ -68,12 +64,6 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
       >
         Desbloquear Pro <Zap className="w-4 h-4 text-emerald-400" />
       </button>
-
-      {progress >= 80 && (
-        <p className="text-[10px] text-red-500 mt-3 font-bold uppercase tracking-tighter text-center animate-pulse">
-          ¡Límite casi alcanzado!
-        </p>
-      )}
     </div>
   );
 }
