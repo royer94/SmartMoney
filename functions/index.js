@@ -55,3 +55,39 @@ exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone
     console.log('Contadores reseteados para los usuarios elegibles.');
     return null;
 });
+
+// ✅ Función ÚNICA para inicializar campos de suscripción en usuarios existentes
+exports.initializeUserFields = functions.https.onRequest(async (req, res) => {
+    try {
+        const usersRef = db.collection('users');
+        const snapshot = await usersRef.get();
+        const batch = db.batch();
+        let updatedCount = 0;
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const updates = {};
+
+            // Definir valores por defecto si faltan
+            if (data.isTrialActive === undefined) updates.isTrialActive = true;
+            if (!data.trialEndDate) {
+                updates.trialEndDate = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+            }
+            if (data.isActive === undefined) updates.isActive = false;
+            if (data.monthlyRecordCount === undefined) updates.monthlyRecordCount = 0;
+            if (data.monthlyVoiceCount === undefined) updates.monthlyVoiceCount = 0;
+            if (!data.lastResetDate) updates.lastResetDate = admin.firestore.Timestamp.now();
+
+            if (Object.keys(updates).length > 0) {
+                batch.update(doc.ref, updates);
+                updatedCount++;
+            }
+        });
+
+        await batch.commit();
+        res.status(200).send(`✅ Inicialización completada. Usuarios actualizados: ${updatedCount}`);
+    } catch (error) {
+        console.error('Error en initializeUserFields:', error);
+        res.status(500).send('❌ Error al inicializar campos de suscripción');
+    }
+});
