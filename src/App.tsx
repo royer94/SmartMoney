@@ -4,7 +4,7 @@ import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
-// Componentes pesados con exportación nombrada (se importan correctamente)
+// Componentes pesados con exportación nombrada
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const TransactionList = lazy(() => import('./components/TransactionList').then(module => ({ default: module.TransactionList })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(module => ({ default: module.AdminPanel })));
@@ -12,7 +12,7 @@ const HelpModal = lazy(() => import('./components/HelpModal').then(module => ({ 
 const SubscriptionModal = lazy(() => import('./components/SubscriptionModal').then(module => ({ default: module.SubscriptionModal })));
 const Guide = lazy(() => import('./components/Guide').then(module => ({ default: module.Guide })));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(module => ({ default: module.OnboardingModal })));
-// Componentes ligeros o siempre necesarios
+// Componentes ligeros
 import { ProBanner } from './components/ProBanner';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { Logo } from './components/Logo';
@@ -20,25 +20,27 @@ import { LandingPage } from './components/LandingPage';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CurrencySelector } from './components/CurrencySelector';
 import { InstallPWA } from './components/InstallPWA';
+import { UserProvider, useUser } from './context/UserContext';
 import { 
   Plus, Settings, LogOut, Home, List, 
   MessageSquare, DollarSign, Shield, HelpCircle,
-  Mail, MessageCircle as WhatsAppIcon  // ✅ Iconos para contacto
+  Mail, MessageCircle as WhatsAppIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 
-// Componente fallback para Suspense
 const LoaderFallback = () => (
   <div className="p-10 text-center flex justify-center">
     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
 
-export default function App() {
-  const { user, transactions, goals, loading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
+// Componente interno que usa el contexto de usuario
+function AuthenticatedApp() {
+  const { user, loading: userLoading } = useUser();
+  const { transactions, goals, loading: financeLoading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
   const [showHelp, setShowHelp] = useState(false);
@@ -124,7 +126,6 @@ export default function App() {
         await updateProfile(auth.currentUser, { displayName: updatedData.name.trim() });
         console.log('✅ Auth profile actualizado de forma segura');
       }
-
     } catch (error: any) {
       console.error('🔥 Error detallado al guardar perfil:', error);
       if (error.code === 'permission-denied') {
@@ -137,8 +138,7 @@ export default function App() {
     }
   };
 
-  // Pantalla de carga
-  if (loading) {
+  if (userLoading || financeLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
         <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
@@ -148,289 +148,288 @@ export default function App() {
     );
   }
 
-  // Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // Onboarding si es nuevo usuario
   if (!user.onboardingDone) {
     return (
       <Suspense fallback={<LoaderFallback />}>
         <OnboardingModal
           userId={user.uid}
           email={user.email}
-          onComplete={(name, birthdate) => {
-            // useFinance actualizará el perfil via onSnapshot automáticamente
-          }}
+          onComplete={(name, birthdate) => {}}
         />
       </Suspense>
     );
   }
 
-  // App principal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
   };
 
   return (
-    <CurrencyProvider userId={user.uid}>
-      <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
-        {/* Desktop Sidebar */}
-        <aside className="hidden md:flex flex-col w-64 glass border-r border-slate-200 p-6 z-20">
-          <div className="flex items-center justify-between mb-10">
-            <Logo size="md" />
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 glass border-r border-slate-200 p-6 z-20">
+        <div className="flex items-center justify-between mb-10">
+          <Logo size="md" />
+        </div>
+        <nav className="flex-1 space-y-2">
+          <NavItem active={activeTab === 'dash'} icon={Home} label="Dashboard" onClick={() => handleTabChange('dash')} />
+          <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
+          <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
+          <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
+          <div className="pt-4 mt-4 border-t border-slate-100">
+            <button
+              onClick={handleShowHelp}
+              className={cn(
+                "w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold",
+                !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
+              )}
+            >
+              <HelpCircle className="w-5 h-5" />
+              Guía y Ayuda
+            </button>
           </div>
-          <nav className="flex-1 space-y-2">
-            <NavItem active={activeTab === 'dash'} icon={Home} label="Dashboard" onClick={() => handleTabChange('dash')} />
-            <NavItem active={activeTab === 'list'} icon={List} label="Movimientos" onClick={() => handleTabChange('list')} />
-            <NavItem active={activeTab === 'chat'} icon={MessageSquare} label="AI Control" onClick={() => handleTabChange('chat')} />
-            <NavItem active={activeTab === 'settings'} icon={Settings} label="Ajustes" onClick={() => handleTabChange('settings')} />
-            <div className="pt-4 mt-4 border-t border-slate-100">
-              <button
-                onClick={handleShowHelp}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 text-blue-600 hover:bg-blue-50 transition-colors rounded-xl font-bold",
-                  !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
-                )}
-              >
-                <HelpCircle className="w-5 h-5" />
-                Guía y Ayuda
-              </button>
-            </div>
-          </nav>
-          <div className="mt-auto pt-6 border-t border-slate-100">
+        </nav>
+        <div className="mt-auto pt-6 border-t border-slate-100">
+          <button
+            onClick={() => auth.signOut()}
+            className="mt-6 w-full flex items-center gap-3 p-3 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl font-medium"
+          >
+            <LogOut className="w-5 h-5" />
+            Cerrar Sesión
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto relative outline-none selection:bg-blue-100">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex items-center justify-between z-50 md:hidden transition-all duration-300">
+          <div className="flex items-center gap-2">
+            <Logo size="sm" />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleShowHelp}
+              className={cn(
+                "p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50",
+                !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
+              )}
+              aria-label="Help"
+            >
+              <HelpCircle className="w-6 h-6" />
+            </button>
             <button
               onClick={() => auth.signOut()}
-              className="mt-6 w-full flex items-center gap-3 p-3 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl font-medium"
+              className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
+              aria-label="Sign out"
             >
-              <LogOut className="w-5 h-5" />
-              Cerrar Sesión
+              <LogOut className="w-6 h-6" />
             </button>
           </div>
-        </aside>
+        </header>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto relative outline-none selection:bg-blue-100">
-          <header className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex items-center justify-between z-50 md:hidden transition-all duration-300">
-            <div className="flex items-center gap-2">
-              <Logo size="sm" />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleShowHelp}
-                className={cn(
-                  "p-3 text-blue-600 hover:bg-blue-50 active:scale-90 transition-all rounded-xl border border-blue-100 bg-blue-50/50",
-                  !helpPulsed && "animate-pulse ring-2 ring-blue-400 ring-offset-2"
-                )}
-                aria-label="Help"
-              >
-                <HelpCircle className="w-6 h-6" />
-              </button>
-              <button
-                onClick={() => auth.signOut()}
-                className="p-3 text-slate-500 hover:text-red-500 active:scale-90 transition-all rounded-xl border border-slate-200 bg-slate-100"
-                aria-label="Sign out"
-              >
-                <LogOut className="w-6 h-6" />
-              </button>
-            </div>
-          </header>
-
-          <div className="max-w-5xl mx-auto p-4 md:p-10">
-            <AnimatePresence mode="wait">
-              {activeTab === 'dash' && (
-                <Suspense fallback={<LoaderFallback />}>
-                  <Dashboard
-                    key="dash"
-                    user={userAdapter}
-                    transactions={transactions}
-                    goals={goals}
-                    addGoal={addGoal}
-                    removeGoal={removeGoal}
-                    toggleRecurring={toggleRecurring}
-                    recalculateGoal={recalculateGoal}
-                    onUpgrade={() => setShowSubscription(true)}
-                    onUpdateProfile={handleUpdateProfile}
-                  />
-                </Suspense>
-              )}
-              {activeTab === 'list' && (
-                <Suspense fallback={<LoaderFallback />}>
-                  <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
-                </Suspense>
-              )}
-              {activeTab === 'chat' && (
-                <CommandBar
-                  key="chat"
-                  user={user}
-                  addTransaction={addTransaction}
+        <div className="max-w-5xl mx-auto p-4 md:p-10">
+          <AnimatePresence mode="wait">
+            {activeTab === 'dash' && (
+              <Suspense fallback={<LoaderFallback />}>
+                <Dashboard
+                  key="dash"
+                  user={userAdapter}
                   transactions={transactions}
+                  goals={goals}
                   addGoal={addGoal}
-                  autoStartRecording={recordingRequested}
+                  removeGoal={removeGoal}
+                  toggleRecurring={toggleRecurring}
+                  recalculateGoal={recalculateGoal}
                   onUpgrade={() => setShowSubscription(true)}
+                  onUpdateProfile={handleUpdateProfile}
                 />
-              )}
-              {activeTab === 'settings' && (
-                <motion.div
-                  key="settings"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass p-10 rounded-[2.5rem] space-y-8"
-                >
-                  {/* El contenido de ajustes no es pesado, se mantiene normal */}
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
-                    <div className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
-                      user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
-                    )}>
-                      {user.isPro ? "Plan Pro" : "Plan Free"}
-                    </div>
+              </Suspense>
+            )}
+            {activeTab === 'list' && (
+              <Suspense fallback={<LoaderFallback />}>
+                <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
+              </Suspense>
+            )}
+            {activeTab === 'chat' && (
+              <CommandBar
+                key="chat"
+                user={user}
+                addTransaction={addTransaction}
+                transactions={transactions}
+                addGoal={addGoal}
+                autoStartRecording={recordingRequested}
+                onUpgrade={() => setShowSubscription(true)}
+              />
+            )}
+            {activeTab === 'settings' && (
+              <motion.div
+                key="settings"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass p-10 rounded-[2.5rem] space-y-8"
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
+                  <div className={cn(
+                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
+                    user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
+                  )}>
+                    {user.isPro ? "Plan Pro" : "Plan Free"}
                   </div>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
-                        <p className="font-semibold">{user.name || '—'}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
-                        <p className="font-semibold">{user.email}</p>
-                      </div>
-                    </div>
-                    {user.birthdate && (
-                      <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                        <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</p>
-                          <p className="font-semibold">{new Date(user.birthdate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                        </div>
-                      </div>
-                    )}
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
                     <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
-                      <CurrencySelector userId={user.uid} />
+                      <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
+                      <p className="font-semibold">{user.name || '—'}</p>
                     </div>
-
-                    {/* ✅ SECCIÓN DE CONTACTO Y SOPORTE */}
-                    <div className="p-4 bg-white rounded-2xl border border-slate-100">
-                      <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
-                      <div className="flex flex-wrap gap-3">
-                        {/* Correo */}
-                        <a
-                          href="mailto:contacto@smartmoneyai.click"
-                          className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
-                            <Mail className="w-4 h-4 text-blue-500" />
-                          </div>
-                          <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
-                        </a>
-                        {/* WhatsApp */}
-                        <a
-                          href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
-                            <WhatsAppIcon className="w-4 h-4 text-green-500" />
-                          </div>
-                          <span className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte WhatsApp</span>
-                        </a>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
+                      <p className="font-semibold">{user.email}</p>
+                    </div>
+                  </div>
+                  {user.birthdate && (
+                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</p>
+                        <p className="font-semibold">{new Date(user.birthdate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                     </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
+                    <CurrencySelector userId={user.uid} />
+                  </div>
 
-                    {user.isAdmin && (
-                      <button
-                        onClick={() => setShowAdminPanel(true)}
-                        className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
+                  {/* Contacto y Soporte */}
+                  <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
+                    <div className="flex flex-wrap gap-3">
+                      <a
+                        href="mailto:contacto@smartmoneyai.click"
+                        className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
                       >
-                        <div className="flex items-center gap-3">
-                          <Shield className="w-5 h-5" />
-                          <span className="font-bold">Panel de Administración</span>
+                        <div className="w-8 h-8 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
+                          <Mail className="w-4 h-4 text-blue-500" />
                         </div>
-                        <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-                      </button>
-                    )}
-                    <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+                        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
+                      </a>
+                      <a
+                        href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
+                          <WhatsAppIcon className="w-4 h-4 text-green-500" />
+                        </div>
+                        <span className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte WhatsApp</span>
+                      </a>
+                    </div>
                   </div>
-                  <div className="pt-6">
+
+                  {user.isAdmin && (
                     <button
-                      onClick={() => auth.signOut()}
-                      className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
+                      onClick={() => setShowAdminPanel(true)}
+                      className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
                     >
-                      <LogOut className="w-5 h-5" />
-                      Cerrar Sesión Activa
+                      <div className="flex items-center gap-3">
+                        <Shield className="w-5 h-5" />
+                        <span className="font-bold">Panel de Administración</span>
+                      </div>
+                      <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                     </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </main>
+                  )}
+                  <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+                </div>
+                <div className="pt-6">
+                  <button
+                    onClick={() => auth.signOut()}
+                    className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Cerrar Sesión Activa
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
 
-        {/* Mobile Bottom Nav */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-4 flex justify-around md:hidden z-30 transition-colors">
-          <MobileNavItem active={activeTab === 'dash'} icon={Home} onClick={() => handleTabChange('dash')} />
-          <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
-          <div className="relative -top-8">
-            <button
-              onClick={() => handleTabChange('chat')}
-              onPointerDown={() => {
-                longPressTimer.current = setTimeout(() => {
-                  setRecordingRequested(true);
-                  setActiveTab('chat');
-                }, 600);
-              }}
-              onPointerUp={() => {
-                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              className={cn(
-                "p-5 rounded-full shadow-2xl transition-all active:scale-95 select-none touch-none",
-                activeTab === 'chat' ? "bg-blue-600 text-white scale-110 shadow-blue-500/40" : "bg-white text-slate-900 border border-slate-200"
-              )}
-            >
-              <DollarSign className="w-8 h-8" />
-            </button>
-          </div>
-          <MobileNavItem active={activeTab === 'chat'} icon={MessageSquare} onClick={() => handleTabChange('chat')} />
-          <MobileNavItem active={activeTab === 'settings'} icon={Settings} onClick={() => handleTabChange('settings')} />
-        </nav>
+      {/* Mobile Bottom Nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-4 flex justify-around md:hidden z-30 transition-colors">
+        <MobileNavItem active={activeTab === 'dash'} icon={Home} onClick={() => handleTabChange('dash')} />
+        <MobileNavItem active={activeTab === 'list'} icon={List} onClick={() => handleTabChange('list')} />
+        <div className="relative -top-8">
+          <button
+            onClick={() => handleTabChange('chat')}
+            onPointerDown={() => {
+              longPressTimer.current = setTimeout(() => {
+                setRecordingRequested(true);
+                setActiveTab('chat');
+              }, 600);
+            }}
+            onPointerUp={() => {
+              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            className={cn(
+              "p-5 rounded-full shadow-2xl transition-all active:scale-95 select-none touch-none",
+              activeTab === 'chat' ? "bg-blue-600 text-white scale-110 shadow-blue-500/40" : "bg-white text-slate-900 border border-slate-200"
+            )}
+          >
+            <DollarSign className="w-8 h-8" />
+          </button>
+        </div>
+        <MobileNavItem active={activeTab === 'chat'} icon={MessageSquare} onClick={() => handleTabChange('chat')} />
+        <MobileNavItem active={activeTab === 'settings'} icon={Settings} onClick={() => handleTabChange('settings')} />
+      </nav>
 
-        <AnimatePresence>
-          {showSubscription && (
-            <Suspense fallback={null}>
-              <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
-            </Suspense>
-          )}
-          {showHelp && (
-            <Suspense fallback={null}>
-              <HelpModal onClose={() => setShowHelp(false)} />
-            </Suspense>
-          )}
-          {showGuide && (
-            <Suspense fallback={null}>
-              <Guide onClose={() => setShowGuide(false)} />
-            </Suspense>
-          )}
-          {showAdminPanel && user.isAdmin && (
-            <Suspense fallback={null}>
-              <AdminPanel users={allUsers} onActivatePro={activatePro} onDeactivatePro={deactivatePro} onClose={() => setShowAdminPanel(false)} />
-            </Suspense>
-          )}
-        </AnimatePresence>
+      <AnimatePresence>
+        {showSubscription && (
+          <Suspense fallback={null}>
+            <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
+          </Suspense>
+        )}
+        {showHelp && (
+          <Suspense fallback={null}>
+            <HelpModal onClose={() => setShowHelp(false)} />
+          </Suspense>
+        )}
+        {showGuide && (
+          <Suspense fallback={null}>
+            <Guide onClose={() => setShowGuide(false)} />
+          </Suspense>
+        )}
+        {showAdminPanel && user.isAdmin && (
+          <Suspense fallback={null}>
+            <AdminPanel users={allUsers} onActivatePro={activatePro} onDeactivatePro={deactivatePro} onClose={() => setShowAdminPanel(false)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
 
-        {user && <SubscriptionNotifier user={user} />}
-        
-        {/* Componente de instalación PWA */}
-        <InstallPWA />
-      </div>
-    </CurrencyProvider>
+      {user && <SubscriptionNotifier user={user} />}
+      <InstallPWA />
+    </div>
+  );
+}
+
+// Componente principal que envuelve con UserProvider y CurrencyProvider
+export default function App() {
+  return (
+    <UserProvider>
+      <CurrencyProvider userId={undefined}> {/* CurrencyProvider ahora puede leer el usuario del contexto o de userId; se puede ajustar */}
+        <AuthenticatedApp />
+      </CurrencyProvider>
+    </UserProvider>
   );
 }
 
