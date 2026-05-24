@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, Save } from 'lucide-react';
+import { X, User, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { ProBanner } from './ProBanner';
@@ -64,9 +64,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
             className="w-full max-w-md overflow-hidden bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl"
           >
             <div className="flex items-center justify-between p-8 border-b border-slate-50">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Ajustes del Perfil</h3>
-              </div>
+              <h3 className="text-xl font-bold text-slate-900">Ajustes del Perfil</h3>
               <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all">
                 <X className="w-5 h-5" />
               </button>
@@ -84,7 +82,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 </div>
               </div>
 
-              {/* El banner solo aparecerá si el usuario NO es Pro */}
+              {/* Banner condicional: solo se muestra si el usuario es Free */}
               {!user.isPro && (
                 <div className="mt-4">
                   <ProBanner onUpgrade={() => {}} />
