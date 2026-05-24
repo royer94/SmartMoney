@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main  # El flujo se activará automáticamente cada vez que hagas push o commit en la rama main
+    paths:
+      - 'functions/**' # 👈 ¡Ajuste añadido! El flujo solo se dispara si cambia algo dentro de la carpeta de backend
 
 jobs:
   deploy:
