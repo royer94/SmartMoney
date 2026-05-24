@@ -424,7 +424,8 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {user && <SubscriptionNotifier user={user} />}
+        {/* Solo muestra notificaciones de suscripción/trial si NO es un usuario Pro activo */}
+{user && !user.isActive && <SubscriptionNotifier user={user} />}
         
         {/* Componente de instalación PWA */}
         <InstallPWA />
