@@ -82,12 +82,10 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 </div>
               </div>
 
-              {/* Banner condicional: solo se muestra si el usuario es Free */}
-              {!user.isPro && (
-                <div className="mt-4">
-                  <ProBanner onUpgrade={() => {}} />
-                </div>
-              )}
+              {/* El componente ProBanner ahora decide internamente qué mostrar según el tipo de usuario */}
+              <div className="mt-4">
+                <ProBanner onUpgrade={() => {}} />
+              </div>
 
               <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all">
                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
