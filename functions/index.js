@@ -1,12 +1,18 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 
-// Inicialización limpia: toma el proyecto nativo donde está desplegada (Fresc Nat Admin 2)
+// Inicialización estándar para la Cloud Function
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-const db = admin.firestore();
+/**
+ * SOLUCIÓN AL PROYECTO HÍBRIDO:
+ * Forzamos al SDK a conectarse a la base de datos con el ID exacto de AI Studio
+ * que aparece en tu captura de pantalla, usando el entorno de "Fresc Nat Admin 2".
+ */
+const db = getFirestore("(default)", "ai-studio-4d598d16-d332-49e9-9157-502087392356");
 
 exports.initializeUserFields = functions
   .runWith({
@@ -17,14 +23,14 @@ exports.initializeUserFields = functions
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Apunta a la colección 'users' del propio proyecto nativo
+      // Usamos la referencia forzada de la base de datos activa
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "Conexión exitosa. La colección 'users' está vacía en este proyecto nativo o la app aún no ha guardado datos aquí."
+          message: "Conexión lograda, pero la colección 'users' está vacía en este ID."
         });
       }
 
@@ -35,13 +41,13 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Inicializa solo si los campos no existen
+        // Evita duplicar campos si ya existen
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días de trial
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días trial
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
@@ -65,7 +71,7 @@ exports.initializeUserFields = functions
 
       return res.status(200).send({
         status: "success",
-        message: `¡Campos inicializados! Se actualizaron con éxito ${totalUpdated} usuarios.`
+        message: `¡Éxito! Se actualizaron ${totalUpdated} usuarios en la base de datos vinculada.`
       });
 
     } catch (error) {
