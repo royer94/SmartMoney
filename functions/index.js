@@ -55,4 +55,3 @@ exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone
     console.log('Contadores reseteados para los usuarios elegibles.');
     return null;
 });
- 
