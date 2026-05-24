@@ -1,11 +1,11 @@
 // src/hooks/useSubscription.ts
 import { useMemo } from 'react';
-import { useFinance } from './useFinance'; // Ajusta la ruta si tu hook useFinance está en otro lugar
+import { useFinance } from './useFinance';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export function useSubscription() {
-  const { user, refreshUser } = useFinance(); // Necesitas que refreshUser actualice el user local (por ejemplo, recargando desde Firestore)
+  const { user, refreshUser } = useFinance();
 
   const status = useMemo(() => {
     if (!user) {
@@ -21,21 +21,25 @@ export function useSubscription() {
     }
 
     const now = new Date();
-    let isPro = user.isTrialActive || user.isActive;
-
+    
+    // Lógica estricta de Trial
     let trialRemainingDays = null;
+    let trialIsActive = false;
+
     if (user.isTrialActive && user.trialEndDate) {
-      const end = user.trialEndDate.toDate(); // asumiendo que es Timestamp de Firestore
+      const end = user.trialEndDate.toDate();
       const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      trialRemainingDays = diff > 0 ? diff : 0;
-      if (diff <= 0 && !user.isActive) {
-        isPro = false;
-        // Opcional: aquí podrías llamar a una función para desactivar trial localmente
-        // pero la Cloud Function ya debería haberlo hecho.
+      
+      if (diff > 0) {
+        trialRemainingDays = diff;
+        trialIsActive = true;
       }
     }
 
-    // Límites plan gratuito: 40 texto, 10 voz
+    // Definición real de isPro: O tiene suscripción activa o el trial está vigente
+    const isPro = !!user.isActive || trialIsActive;
+
+    // Límites de plan: 40 texto, 10 voz si es gratuito
     const maxText = isPro ? Infinity : 40;
     const maxVoice = isPro ? Infinity : 10;
 
@@ -47,8 +51,8 @@ export function useSubscription() {
 
     return {
       isPro,
-      isTrialActive: user.isTrialActive,
-      trialRemainingDays: trialRemainingDays && trialRemainingDays > 0 ? trialRemainingDays : null,
+      isTrialActive: trialIsActive,
+      trialRemainingDays,
       remainingTextRecords: Math.max(0, maxText - currentText),
       remainingVoiceRecords: Math.max(0, maxVoice - currentVoice),
       canAddTextRecord,
@@ -56,13 +60,13 @@ export function useSubscription() {
     };
   }, [user]);
 
-  // Consumir un registro (texto o voz) después de confirmar una transacción
+  // Consumir un registro
   const consumeRecord = async (type: 'text' | 'voice') => {
     if (!user) return;
     const field = type === 'text' ? 'monthlyRecordCount' : 'monthlyVoiceCount';
     const newValue = (user[field] ?? 0) + 1;
     await updateDoc(doc(db, 'users', user.uid), { [field]: newValue });
-    if (refreshUser) await refreshUser(); // para actualizar el user local
+    if (refreshUser) await refreshUser();
   };
 
   return { ...status, consumeRecord };
