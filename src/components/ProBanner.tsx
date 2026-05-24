@@ -7,7 +7,6 @@ import { useSubscription } from '../hooks/useSubscription';
 
 interface ProBannerProps {
   onUpgrade: () => void;
-  // Nota: ya no necesitamos recibir user, porque useSubscription obtiene los datos del contexto global
 }
 
 export function ProBanner({ onUpgrade }: ProBannerProps) {
@@ -34,21 +33,21 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
     );
   }
 
-  // Usuario gratuito: mostrar progreso con límite de 40 registros de texto
+  // Usuario gratuito: mostrar progreso con límite de 40 registros
   const maxTextRecords = 40;
   const usedRecords = maxTextRecords - remainingTextRecords;
   const progress = (usedRecords / maxTextRecords) * 100;
 
   return (
     <div className="bg-white border border-slate-200 p-6 rounded-3xl overflow-hidden relative group transition-colors">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-slate-900">Uso Gratuito</h3>
-        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h3 className="font-bold text-slate-900 text-sm md:text-base">Uso Gratuito</h3>
+        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg whitespace-nowrap">
           {usedRecords}/{maxTextRecords}
         </span>
       </div>
       
-      <div className="w-full bg-slate-100 h-2 rounded-full mb-6 transition-colors">
+      <div className="w-full bg-slate-100 h-2 rounded-full mb-6">
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(progress, 100)}%` }}
