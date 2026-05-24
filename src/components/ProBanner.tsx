@@ -3,15 +3,15 @@ import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { useSubscription } from '../hooks/useSubscription'; // Asegúrate de que la ruta sea correcta
+import { useSubscription } from '../hooks/useSubscription';
 
 interface ProBannerProps {
-  user: any; // Puede que no necesites user, porque useSubscription obtiene los datos
   onUpgrade: () => void;
+  // Nota: ya no necesitamos recibir user, porque useSubscription obtiene los datos del contexto global
 }
 
-export function ProBanner({ user, onUpgrade }: ProBannerProps) {
-  const { isPro, remainingTextRecords, isTrialActive } = useSubscription();
+export function ProBanner({ onUpgrade }: ProBannerProps) {
+  const { isPro, isTrialActive, remainingTextRecords } = useSubscription();
 
   // Si tiene acceso Pro (trial activo o suscripción pagada)
   if (isPro) {
@@ -27,28 +27,24 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
         <p className="text-sm text-blue-100 opacity-80 mb-4">
           {isTrialActive 
-            ? `Disfruta de todas las funciones Pro durante tu prueba.`
+            ? 'Disfruta de todas las funciones Pro durante tu prueba.'
             : 'Acceso ilimitado activado.'}
         </p>
-        {!isTrialActive && user.proExpiresAt && (
-          <div className="text-xs font-mono bg-white/10 p-2 rounded-lg">
-            Expira: {new Date(user.proExpiresAt).toLocaleDateString()}
-          </div>
-        )}
       </div>
     );
   }
 
-  // Usuario gratuito: mostrar progreso con límite de 40 registros
-  const usedRecords = 40 - remainingTextRecords;
-  const progress = (usedRecords / 40) * 100;
+  // Usuario gratuito: mostrar progreso con límite de 40 registros de texto
+  const maxTextRecords = 40;
+  const usedRecords = maxTextRecords - remainingTextRecords;
+  const progress = (usedRecords / maxTextRecords) * 100;
 
   return (
     <div className="bg-white border border-slate-200 p-6 rounded-3xl overflow-hidden relative group transition-colors">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-slate-900">Uso Gratuito</h3>
         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
-          {usedRecords}/40
+          {usedRecords}/{maxTextRecords}
         </span>
       </div>
       
