@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
-import { ProBanner } from './ProBanner';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -74,20 +73,30 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
               <div className="space-y-4">
                 <div className="relative">
                   <span className="absolute left-4 top-4 text-slate-400"><User className="w-4 h-4" /></span>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold" placeholder="Nombre" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold"
+                    placeholder="Nombre"
+                  />
                 </div>
                 <div className="relative">
                   <span className="absolute left-4 top-4 text-slate-400"><Calendar className="w-4 h-4" /></span>
-                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold" />
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold"
+                  />
                 </div>
               </div>
 
-              {/* ✅ PASAMOS user COMO PROP AL ProBanner */}
-              <div className="mt-4">
-                <ProBanner user={user} onUpgrade={() => {}} />
-              </div>
-
-              <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+              >
                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </form>
