@@ -12,6 +12,10 @@ interface ProfileSettingsModalProps {
 }
 
 export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }: ProfileSettingsModalProps) {
+  export function ProfileSettingsModal(...) {
+  console.log("Cargando el archivo ProfileSettingsModal real...");
+  console.log("Valor de user.isPro:", user.isPro);
+  // ... resto del código
   const [name, setName] = useState(user.name || '');
   const [birthDate, setBirthDate] = useState(user.birthDate || ''); 
   const [isSaving, setIsSaving] = useState(false);
