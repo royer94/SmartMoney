@@ -12,28 +12,12 @@ interface ProBannerProps {
 export function ProBanner({ onUpgrade }: ProBannerProps) {
   const { isPro, isTrialActive, remainingTextRecords } = useSubscription();
 
-  // Si tiene acceso Pro (trial activo o suscripción pagada)
+  // SI EL USUARIO ES PRO, NO MOSTRAMOS NADA EN PANTALLA
   if (isPro) {
-    return (
-      <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
-        <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 rotate-12" />
-        <div className="flex items-center gap-2 mb-2">
-          <Logo size="sm" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">
-            {isTrialActive ? 'Período de prueba' : 'Premium Member'}
-          </span>
-        </div>
-        <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
-        <p className="text-sm text-blue-100 opacity-80 mb-4">
-          {isTrialActive 
-            ? 'Disfruta de todas las funciones Pro durante tu prueba.'
-            : 'Acceso ilimitado activado.'}
-        </p>
-      </div>
-    );
+    return null;
   }
 
-  // Usuario gratuito
+  // Usuario gratuito: mostrar progreso con límite de 40 registros
   const maxTextRecords = 40;
   const usedRecords = maxTextRecords - remainingTextRecords;
   const progress = (usedRecords / maxTextRecords) * 100;
@@ -64,6 +48,12 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
       >
         Desbloquear Pro <Zap className="w-4 h-4 text-emerald-400" />
       </button>
+
+      {progress >= 80 && (
+        <p className="text-[10px] text-red-500 mt-3 font-bold uppercase tracking-tighter text-center animate-pulse">
+          ¡Límite casi alcanzado!
+        </p>
+      )}
     </div>
   );
 }
