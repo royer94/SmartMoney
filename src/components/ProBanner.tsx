@@ -7,10 +7,11 @@ import { motion } from 'motion/react';
 
 interface ProBannerProps {
   user: UserProfile;
-  onUpgrade: () => void; // ✅ Prop para abrir el modal de suscripción
+  onUpgrade: () => void; // ✅ Función para abrir el modal de suscripción
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
+  // Si ya es Pro, mostrar banner de estado
   if (user.isPro) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
@@ -28,6 +29,7 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
     );
   }
 
+  // Usuario gratuito: mostrar progreso y botón
   const progress = (user.freeRecordsCount / FREE_LIMIT) * 100;
 
   return (
@@ -50,14 +52,14 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
         />
       </div>
 
-      {/* Botón que abre el modal principal */}
+      {/* Botón que abre el SubscriptionModal */}
       <button 
         onClick={onUpgrade}
         className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
       >
         Desbloquear Pro <Zap className="w-4 h-4 text-emerald-400" />
       </button>
-      
+
       {progress >= 80 && (
         <p className="text-[10px] text-red-500 mt-3 font-bold uppercase tracking-tighter text-center animate-pulse">
           ¡Límite casi alcanzado!
