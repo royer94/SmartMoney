@@ -26,18 +26,20 @@ interface SubscriptionModalProps {
 
 const HOTMART_URL = 'https://pay.hotmart.com/O105879229W';
 
+// ✅ PRECIOS CORREGIDOS EN COP (pesos colombianos)
 const PLANS_COP = [
-  { months: 1,  amount: 16900,  label: '1 Mes',   desc: 'Acceso mensual' },
-  { months: 3,  amount: 40900,  label: '3 Meses',  desc: 'Plan Trimestral', badge: 'Popular' },
-  { months: 6,  amount: 74900,  label: '6 Meses',  desc: 'Plan Semestral' },
-  { months: 12, amount: 139900, label: '1 Año',    desc: 'Mejor Valor', badge: 'Recomendado' },
+  { months: 1,  amount: 19900,  label: '1 Mes',   desc: 'Acceso mensual', discount: 0 },
+  { months: 3,  amount: 56700,  label: '3 Meses',  desc: 'Plan Trimestral', discount: 5, badge: 'Popular' },
+  { months: 6,  amount: 101400, label: '6 Meses',  desc: 'Plan Semestral', discount: 15 },
+  { months: 12, amount: 166800, label: '1 Año',    desc: 'Plan Anual', discount: 30, badge: 'Mejor Valor' },
 ];
 
+// ✅ PRECIOS CORREGIDOS EN USD (dólares americanos)
 const PLANS_USD = [
-  { months: 1,  amount: 4.99,  label: '1 Mes',   desc: 'Acceso mensual' },
-  { months: 3,  amount: 11.99, label: '3 Meses',  desc: 'Plan Trimestral', badge: 'Popular' },
-  { months: 6,  amount: 21.99, label: '6 Meses',  desc: 'Plan Semestral' },
-  { months: 12, amount: 39.99, label: '1 Año',    desc: 'Mejor Valor', badge: 'Recomendado' },
+  { months: 1,  amount: 5.99,  label: '1 Mes',   desc: 'Acceso mensual', discount: 0 },
+  { months: 3,  amount: 16.47, label: '3 Meses',  desc: 'Plan Trimestral', discount: 8, badge: 'Popular' },
+  { months: 6,  amount: 29.94, label: '6 Meses',  desc: 'Plan Semestral', discount: 17 },
+  { months: 12, amount: 49.99, label: '1 Año',    desc: 'Plan Anual', discount: 30, badge: 'Mejor Valor' },
 ];
 
 export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps) {
@@ -172,41 +174,57 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
 
           {/* Plans Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {plans.map((plan, index) => (
-              <button
-                key={plan.label}
-                onClick={() => setSelectedPlanIndex(index)}
-                className={cn(
-                  "p-6 h-full border-2 transition-all rounded-3xl text-left relative flex flex-col justify-between",
-                  selectedPlanIndex === index 
-                    ? "bg-white border-indigo-600 shadow-xl shadow-indigo-100 ring-4 ring-indigo-50" 
-                    : "bg-white border-slate-100 hover:border-indigo-200"
-                )}
-              >
-                {plan.badge && (
-                  <span className="absolute -top-3 left-6 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
-                    {plan.badge}
-                  </span>
-                )}
-                <div>
-                  <h4 className="font-bold text-slate-900 text-lg">{plan.label}</h4>
-                  <p className="text-xs text-slate-400 mb-4">{plan.desc}</p>
-                </div>
-                <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-slate-900">
-                      {paymentMethod === 'epayco' 
-                        ? `$${(plan.amount as number).toLocaleString()}` 
-                        : `$${plan.amount}`}
+            {plans.map((plan, index) => {
+              const monthlyPrice = paymentMethod === 'epayco' 
+                ? Math.round(plan.amount / plan.months)
+                : (plan.amount / plan.months).toFixed(2);
+              return (
+                <button
+                  key={plan.label}
+                  onClick={() => setSelectedPlanIndex(index)}
+                  className={cn(
+                    "p-6 h-full border-2 transition-all rounded-3xl text-left relative flex flex-col justify-between",
+                    selectedPlanIndex === index 
+                      ? "bg-white border-indigo-600 shadow-xl shadow-indigo-100 ring-4 ring-indigo-50" 
+                      : "bg-white border-slate-100 hover:border-indigo-200"
+                  )}
+                >
+                  {plan.badge && (
+                    <span className="absolute -top-3 left-6 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                      {plan.badge}
                     </span>
-                    <span className="text-xs font-bold text-slate-400">
-                      {paymentMethod === 'epayco' ? 'COP' : 'USD'}
-                    </span>
+                  )}
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-lg">{plan.label}</h4>
+                    <p className="text-xs text-slate-400 mb-4">{plan.desc}</p>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Pago único</p>
-                </div>
-              </button>
-            ))}
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-black text-slate-900">
+                        {paymentMethod === 'epayco' 
+                          ? `$${plan.amount.toLocaleString()}` 
+                          : `$${plan.amount}`}
+                      </span>
+                      <span className="text-xs font-bold text-slate-400">
+                        {paymentMethod === 'epayco' ? 'COP' : 'USD'}
+                      </span>
+                    </div>
+                    {plan.discount > 0 && (
+                      <p className="text-xs text-emerald-600 font-medium mt-1">
+                        Ahorra {plan.discount}% ({paymentMethod === 'epayco' 
+                          ? `$${Math.round(plan.amount / (1 - plan.discount/100) - plan.amount).toLocaleString()} COP`
+                          : `$${ (plan.amount / (1 - plan.discount/100) - plan.amount).toFixed(2) } USD`})
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-400 font-medium mt-2">
+                      Equivalente a {paymentMethod === 'epayco' 
+                        ? `$${monthlyPrice.toLocaleString()} COP/mes`
+                        : `$${monthlyPrice} USD/mes`}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Payment info */}
