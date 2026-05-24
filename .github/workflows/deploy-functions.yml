@@ -14,21 +14,22 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Configurar el entorno de Node.js
+      # 2. Configurar el entorno de Node.js (Actualizado a la versión 22 compatible con los entornos modernos de GCP)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18 # Es la versión estándar y recomendada para Cloud Functions actuales
+          node-version: 22
 
       # 3. Instalar las dependencias de Node.js ESPECÍFICAMENTE dentro de la carpeta 'functions'
       - name: Install Functions Dependencies
-        run: npm install  # <-- Cambiado de 'npm ci' a 'npm install'
+        run: npm install
         working-directory: ./functions
 
       # 4. Desplegar en Firebase utilizando la cuenta de servicio configurada en los secretos
+      # Se agrega la bandera --force para evitar que las alertas de políticas de limpieza rompan el flujo de GitHub Actions
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only functions
+          args: deploy --only functions --force
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
