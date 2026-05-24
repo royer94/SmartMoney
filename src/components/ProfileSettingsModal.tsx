@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, Save, ShieldCheck, Pencil } from 'lucide-react';
+import { X, User, Calendar, Save, ShieldCheck, Pencil, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { cn } from '../lib/utils';
@@ -18,7 +18,6 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Sincronizar los campos cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       setName(user.name || '');
@@ -64,7 +63,6 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             className="w-full max-w-md overflow-hidden bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl"
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-8 border-b border-slate-50">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">Perfil del Usuario</h3>
@@ -78,7 +76,6 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
               </button>
             </div>
 
-            {/* Formulario */}
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {error && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 text-xs font-bold text-red-600 bg-red-50 rounded-2xl border border-red-100">
@@ -103,7 +100,6 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-11 pr-12 py-4 text-sm font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                   />
                   <span className="absolute right-4 text-slate-300">
@@ -131,7 +127,26 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 </div>
               </div>
 
-              {/* Email (no editable) */}
+              {/* Estatus del Plan - DINÁMICO */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Tu Plan Actual</p>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5">
+                    {user.isPro ? 'Miembro Pro' : 'Plan Free Limitado'}
+                  </p>
+                </div>
+                <div className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1",
+                  user.isPro 
+                    ? "bg-indigo-100 text-indigo-700" 
+                    : "bg-slate-200 text-slate-600"
+                )}>
+                  {user.isPro && <Zap className="w-3 h-3 fill-current" />}
+                  {user.isPro ? 'Pro' : 'Free'}
+                </div>
+              </div>
+
+              {/* Email */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Email de cuenta</p>
@@ -142,7 +157,6 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 </div>
               </div>
 
-              {/* Botones */}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
