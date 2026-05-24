@@ -1,38 +1,36 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 
-// Inicializa la app conectándola explícitamente al ID de tu proyecto y base de datos activa
+// Inicializa la app de administración de manera global
 if (admin.apps.length === 0) {
-  admin.initializeApp({
-    projectId: "gen-lang-client-0987361888",
-    databaseURL: "https://gen-lang-client-0987361888.firebaseio.com"
-  });
+  admin.initializeApp();
 }
 
-// Apuntamos explícitamente a la base de datos que se ve en tu captura de Firebase
-const db = admin.firestore();
-
 /**
- * Cloud Function HTTP para inicializar campos de suscripción en masa.
- * Conectada explícitamente al entorno correcto.
+ * Forzamos al SDK a apuntar al ID de base de datos específico 
+ * que se muestra en tus capturas de pantalla para evitar el error NOT_FOUND.
  */
+const db = getFirestore("(default)", "ai-studio-4d598d16-d332-49e9-9157-502087392356");
+
 exports.initializeUserFields = functions
   .runWith({
     timeoutSeconds: 300, 
     memory: "512MB"      
   })
   .https.onRequest(async (req, res) => {
+    // Habilitar CORS para evitar bloqueos
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Forzamos la consulta a la base de datos especificada
+      // Acceder a la colección 'users' dentro de la base de datos configurada
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "No se encontraron documentos en la colección 'users' para este ID de proyecto."
+          message: "Conexión exitosa, pero la colección 'users' está vacía en esta base de datos."
         });
       }
 
@@ -43,13 +41,13 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Solo actualiza si el campo no existe
+        // Inicializar solo si no tienen los campos asignados
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días trial
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días de prueba
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
@@ -73,14 +71,14 @@ exports.initializeUserFields = functions
 
       return res.status(200).send({
         status: "success",
-        message: `Campos inicializados correctamente. Se actualizaron ${totalUpdated} usuarios existentes.`
+        message: `¡Campos inicializados! Se actualizaron con éxito ${totalUpdated} usuarios existentes.`
       });
 
     } catch (error) {
-      console.error("Error detectado en initializeUserFields:", error);
+      console.error("Error en la ejecución de initializeUserFields:", error);
       return res.status(500).send({
         status: "error",
-        message: `Error interno de conexión a Firestore: ${error.message}`
+        message: `Error de Firestore: ${error.message}`
       });
     }
   });
