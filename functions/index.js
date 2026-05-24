@@ -2,16 +2,11 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
 
-// Inicialización estándar para la Cloud Function
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-/**
- * SOLUCIÓN AL PROYECTO HÍBRIDO:
- * Forzamos al SDK a conectarse a la base de datos con el ID exacto de AI Studio
- * que aparece en tu captura de pantalla, usando el entorno de "Fresc Nat Admin 2".
- */
+// Apuntamos a la base de datos que acabas de actualizar en la consola
 const db = getFirestore("(default)", "ai-studio-4d598d16-d332-49e9-9157-502087392356");
 
 exports.initializeUserFields = functions
@@ -23,14 +18,13 @@ exports.initializeUserFields = functions
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Usamos la referencia forzada de la base de datos activa
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "Conexión lograda, pero la colección 'users' está vacía en este ID."
+          message: "Conexión lograda, pero la colección 'users' está vacía."
         });
       }
 
@@ -41,13 +35,12 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Evita duplicar campos si ya existen
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días trial
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
@@ -71,7 +64,7 @@ exports.initializeUserFields = functions
 
       return res.status(200).send({
         status: "success",
-        message: `¡Éxito! Se actualizaron ${totalUpdated} usuarios en la base de datos vinculada.`
+        message: `¡Éxito! Se actualizaron ${totalUpdated} usuarios existentes.`
       });
 
     } catch (error) {
