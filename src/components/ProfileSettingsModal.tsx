@@ -1,4 +1,106 @@
-import React from 'react';
-export function ProfileSettingsModal() {
-  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-500 text-white">ESTE ES EL ARCHIVO REAL</div>;
+import React, { useState, useEffect } from 'react';
+import { X, User, Calendar, Save, ShieldCheck, Pencil, Zap, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { UserProfile } from '../types';
+import { cn } from '../lib/utils';
+
+interface ProfileSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: UserProfile;
+  onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void>;
+}
+
+export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }: ProfileSettingsModalProps) {
+  const [name, setName] = useState(user.name || '');
+  const [birthDate, setBirthDate] = useState(user.birthDate || ''); 
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(user.name || '');
+      setBirthDate(user.birthDate || '');
+      setError(null);
+      setSuccess(false);
+    }
+  }, [isOpen, user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError(null);
+    setSuccess(false);
+
+    if (!name.trim()) {
+      setError('El nombre no puede estar vacío.');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      await onUpdateProfile({ name: name.trim(), birthDate });
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Hubo un error al actualizar el perfil.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="w-full max-w-md overflow-hidden bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl"
+          >
+            <div className="flex items-center justify-between p-8 border-b border-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Ajustes del Perfil</h3>
+              </div>
+              <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {/* Campos de Nombre y Fecha */}
+              <div className="space-y-4">
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100" placeholder="Nombre" />
+                <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100" />
+              </div>
+
+              {/* LÓGICA DE BANNER DINÁMICA */}
+              {user.isPro ? (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-3xl text-white">
+                  <p className="font-bold">Miembro Pro</p>
+                  <p className="text-sm opacity-80">Acceso ilimitado activado.</p>
+                </div>
+              ) : (
+                <div className="bg-slate-100 p-6 rounded-3xl border border-slate-200">
+                  <p className="font-bold text-slate-900">Plan Free Limitado</p>
+                  <div className="w-full bg-white h-2 rounded-full mt-2">
+                    <div className="bg-blue-600 h-full rounded-full w-[40%]"></div>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold">
+                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 }
