@@ -285,10 +285,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       animate={{ opacity: 1 }}
       className="space-y-8 pb-32 transition-colors"
     >
-      {/* 🔴 NUEVO FRAGMENTO AÑADIDO: */}
-      <TrialBanner userData={user} />
+      {/* 🌟 Le pasamos tanto el usuario como la función nativa onUpgrade */}
+      <TrialBanner userData={user} onUpgrade={onUpgrade} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* ... Todo el resto de tu código intacto ... */}
         <div>
           <div className="flex items-center gap-2 group">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
