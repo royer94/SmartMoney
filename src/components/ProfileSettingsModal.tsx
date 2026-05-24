@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, Save, ShieldCheck, Pencil, Zap, AlertCircle } from 'lucide-react';
+import { X, User, Calendar, Save, ShieldCheck, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
-import { cn } from '../lib/utils';
+import { ProBanner } from './ProBanner'; // Importamos tu componente inteligente
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -65,7 +65,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
           >
             <div className="flex items-center justify-between p-8 border-b border-slate-50">
               <div>
-                <h3>--- ARCHIVO EDITADO CORRECTAMENTE ---</h3>
+                <h3 className="text-xl font-bold text-slate-900">Ajustes del Perfil</h3>
               </div>
               <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all">
                 <X className="w-5 h-5" />
@@ -73,28 +73,21 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Campos de Nombre y Fecha */}
               <div className="space-y-4">
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100" placeholder="Nombre" />
-                <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100" />
+                <div className="relative">
+                  <span className="absolute left-4 top-4 text-slate-400"><User className="w-4 h-4" /></span>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold" placeholder="Nombre" />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-4 text-slate-400"><Calendar className="w-4 h-4" /></span>
+                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="w-full p-4 pl-11 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-semibold" />
+                </div>
               </div>
 
-              {/* LÓGICA DE BANNER DINÁMICA */}
-              {user.isPro ? (
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-3xl text-white">
-                  <p className="font-bold">Miembro Pro</p>
-                  <p className="text-sm opacity-80">Acceso ilimitado activado.</p>
-                </div>
-              ) : (
-                <div className="bg-slate-100 p-6 rounded-3xl border border-slate-200">
-                  <p className="font-bold text-slate-900">Plan Free Limitado</p>
-                  <div className="w-full bg-white h-2 rounded-full mt-2">
-                    <div className="bg-blue-600 h-full rounded-full w-[40%]"></div>
-                  </div>
-                </div>
-              )}
+              {/* AQUÍ USAMOS TU COMPONENTE ORIGINAL QUE YA GESTIONA LA LÓGICA PRO/FREE */}
+              <ProBanner onUpgrade={() => {}} />
 
-              <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold">
+              <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all">
                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </form>
