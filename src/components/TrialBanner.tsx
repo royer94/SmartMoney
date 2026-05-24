@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react'; // Ajustado a tu versión de 'motion'
+import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
 
 interface TrialBannerProps {
@@ -8,9 +8,10 @@ interface TrialBannerProps {
     isTrialActive?: boolean;
     trialEndDate?: any; // Timestamp de Firebase
   } | null;
+  onUpgrade?: () => void; // 👈 1. Añadimos la función de pago como propiedad
 }
 
-export const TrialBanner: React.FC<TrialBannerProps> = ({ userData }) => {
+export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade }) => {
   const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData }) => {
 
   if (!userData || userData.plan !== 'trial' || diasRestantes === null) return null;
 
-  // 🌟 VARIANT 1: Modo Cortesía (Días 30 al 6) - Ultra compacto, fijo e inofensivo
+  // 🌟 VARIANT 1: Modo Cortesía (Días 30 al 6) - Ultra compacto
   if (diasRestantes > 5) {
     return (
       <div className="w-full bg-slate-900 text-slate-300 text-xs py-1.5 px-4 flex items-center justify-center gap-2 border-b border-slate-800 selection:bg-indigo-500">
@@ -38,7 +39,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData }) => {
           Modo <span className="text-white font-semibold">SmartMoney AI Pro</span> activado. Te quedan {diasRestantes} días de prueba.
         </span>
         <button 
-          onClick={() => alert("Redirigiendo a Pasarela de Pago...")}
+          onClick={onUpgrade} // 👈 2. Reemplazamos el alert por la función real
           className="ml-2 text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded transition-all"
         >
           Asegurar Pro
@@ -47,7 +48,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData }) => {
     );
   }
 
-  // 🌟 VARIANT 2: Modo Urgencia (Días 5 al 0) - El diseño llamativo, grande y animado con Framer Motion
+  // 🌟 VARIANT 2: Modo Urgencia (Días 5 al 0) - Gradiente llamativo
   return (
     <AnimatePresence>
       <motion.div
@@ -77,7 +78,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData }) => {
 
           <div className="flex-shrink-0 w-full sm:w-auto">
             <button
-              onClick={() => alert("Redirigiendo a Pasarela de Pago...")}
+              onClick={onUpgrade} // 👈 3. Reemplazamos el alert por la función real
               className="w-full flex items-center justify-center px-4 py-2 rounded-full bg-white text-indigo-700 font-bold text-sm shadow-sm hover:bg-indigo-50 transition-all duration-300 transform hover:scale-105 active:scale-95 group"
             >
               {diasRestantes > 0 ? 'Mantener mi Plan Pro' : 'Actualizar a Pro'}
