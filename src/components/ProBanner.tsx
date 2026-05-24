@@ -1,3 +1,7 @@
+// Solo por un segundo, cambia la línea de exportación a esto:
+export function ProBanner() {
+  throw new Error("ELIMINADO"); 
+  // ... resto del código
 import React from 'react';
 import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
