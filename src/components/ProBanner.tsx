@@ -11,38 +11,40 @@ interface ProBannerProps {
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
+  // 1. Si no hay usuario, retornamos null o carga
   if (!user) {
     return <div className="p-6 bg-white rounded-3xl animate-pulse">Cargando...</div>;
   }
 
-  // Lógica ajustada: 
-  // isProPaid: Usuario que pagó (isActive true)
-  // isTrial: Usuario en prueba (isTrialActive true y NO ha pagado)
-  const isProPaid = !!user.isActive;
-  const isTrial = !!user.isTrialActive && !isProPaid;
-  const isPro = isProPaid || isTrial;
+  // 2. Lógica de estados
+  const isProPaid = !!user.isActive; // Usuario con suscripción activa pagada
+  const isTrial = !!user.isTrialActive && !isProPaid; // Usuario en trial sin suscripción pagada
 
-  if (isPro) {
+  // 3. Si el usuario ya pagó (es Pro real), NO mostramos banner de trial
+  if (isProPaid) {
+    return null;
+  }
+
+  // 4. Si es usuario en Trial, mostramos el banner de prueba
+  if (isTrial) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
         <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 rotate-12" />
         <div className="flex items-center gap-2 mb-2">
           <Logo size="sm" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">
-            {isTrial ? 'Período de prueba' : 'Premium Member'}
+            Período de prueba
           </span>
         </div>
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
         <p className="text-sm text-blue-100 opacity-80 mb-4">
-          {isTrial
-            ? 'Disfruta de todas las funciones Pro durante tu prueba.'
-            : 'Acceso ilimitado activado.'}
+          Disfruta de todas las funciones Pro durante tu prueba.
         </p>
       </div>
     );
   }
 
-  // Usuario gratuito
+  // 5. Usuario gratuito estándar (sin trial ni pago)
   const maxTextRecords = 40;
   const usedRecords = user.monthlyRecordCount || 0;
   const progress = (usedRecords / maxTextRecords) * 100;
