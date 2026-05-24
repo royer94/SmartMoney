@@ -3,16 +3,23 @@ import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { useSubscription } from '../hooks/useSubscription';
+import { UserProfile } from '../types';
 
 interface ProBannerProps {
+  user?: UserProfile;        // Recibimos el usuario desde el padre
   onUpgrade: () => void;
 }
 
-export function ProBanner({ onUpgrade }: ProBannerProps) {
-  const { isPro, isTrialActive, remainingTextRecords } = useSubscription();
+export function ProBanner({ user, onUpgrade }: ProBannerProps) {
+  // Si no recibimos user, mostramos un estado de carga (no debería ocurrir)
+  if (!user) {
+    return <div className="p-6 bg-white rounded-3xl animate-pulse">Cargando...</div>;
+  }
 
-  // 1. ESTADO PRO: Mostramos el banner de Premium/Trial
+  // Determinar si es Pro: isPro = isTrialActive || isActive
+  const isPro = user.isTrialActive || user.isActive;
+  const isTrialActive = user.isTrialActive;
+
   if (isPro) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
@@ -24,8 +31,8 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
           </span>
         </div>
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
-        <p className="text-sm text-blue-100 opacity-80">
-          {isTrialActive 
+        <p className="text-sm text-blue-100 opacity-80 mb-4">
+          {isTrialActive
             ? 'Disfruta de todas las funciones Pro durante tu prueba.'
             : 'Acceso ilimitado activado.'}
         </p>
@@ -33,9 +40,9 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
     );
   }
 
-  // 2. ESTADO FREE: Mostramos el progreso de consumo
+  // Usuario gratuito: mostrar progreso con límite de 40 registros de texto
   const maxTextRecords = 40;
-  const usedRecords = Math.max(0, maxTextRecords - remainingTextRecords);
+  const usedRecords = user.monthlyRecordCount || 0;
   const progress = (usedRecords / maxTextRecords) * 100;
 
   return (
@@ -43,7 +50,7 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="font-bold text-slate-900 text-sm md:text-base">Uso Gratuito</h3>
         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg whitespace-nowrap">
-          {usedRecords}/{maxTextRecords} registros
+          {usedRecords}/{maxTextRecords}
         </span>
       </div>
       
@@ -64,6 +71,12 @@ export function ProBanner({ onUpgrade }: ProBannerProps) {
       >
         Desbloquear Pro <Zap className="w-4 h-4 text-emerald-400" />
       </button>
+
+      {progress >= 80 && (
+        <p className="text-[10px] text-red-500 mt-3 font-bold uppercase tracking-tighter text-center animate-pulse">
+          ¡Límite casi alcanzado!
+        </p>
+      )}
     </div>
   );
 }
