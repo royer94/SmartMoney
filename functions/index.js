@@ -1,17 +1,14 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
 
-// Inicializa la app de administración de manera global
+// Inicializa la app apuntando con precisión quirúrgica al ID del proyecto donde están tus datos reales
 if (admin.apps.length === 0) {
-  admin.initializeApp();
+  admin.initializeApp({
+    projectId: "ai-studio-4d598d16-d332-49e9-9157-502087392356" // El ID que se ve en tu captura de Firestore
+  });
 }
 
-/**
- * Forzamos al SDK a apuntar al ID de base de datos específico 
- * que se muestra en tus capturas de pantalla para evitar el error NOT_FOUND.
- */
-const db = getFirestore("(default)", "ai-studio-4d598d16-d332-49e9-9157-502087392356");
+const db = admin.firestore();
 
 exports.initializeUserFields = functions
   .runWith({
@@ -19,18 +16,17 @@ exports.initializeUserFields = functions
     memory: "512MB"      
   })
   .https.onRequest(async (req, res) => {
-    // Habilitar CORS para evitar bloqueos
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Acceder a la colección 'users' dentro de la base de datos configurada
+      // Accedemos a la colección 'users' del proyecto correcto
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "Conexión exitosa, pero la colección 'users' está vacía en esta base de datos."
+          message: "Conexión lograda, pero la colección 'users' está vacía en este proyecto."
         });
       }
 
@@ -41,13 +37,13 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Inicializar solo si no tienen los campos asignados
+        // Evitamos sobreescribir si ya tienen los campos
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días de prueba
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
@@ -71,11 +67,11 @@ exports.initializeUserFields = functions
 
       return res.status(200).send({
         status: "success",
-        message: `¡Campos inicializados! Se actualizaron con éxito ${totalUpdated} usuarios existentes.`
+        message: `¡Campos inicializados! Se actualizaron con éxito ${totalUpdated} usuarios en el proyecto correcto.`
       });
 
     } catch (error) {
-      console.error("Error en la ejecución de initializeUserFields:", error);
+      console.error("Error en la ejecución:", error);
       return res.status(500).send({
         status: "error",
         message: `Error de Firestore: ${error.message}`
