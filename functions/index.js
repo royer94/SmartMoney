@@ -4,19 +4,21 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
-// Configuración del plan gratuito
+// Configuración del plan gratuito (solo referencia, no se usa en la función)
 const FREE_TIER = {
     MAX_TEXT_RECORDS: 40,
     MAX_VOICE_RECORDS: 10,
 };
 
-// Ejecutar todos los días a las 00:00 (UTC)
+// ============================================================
+// Función programada (diaria) para expirar trials y resetear contadores
+// ============================================================
 exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone('UTC').onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();
     const nowDate = now.toDate();
     console.log('Iniciando tareas diarias de suscripción...');
 
-    // 1. Expirar trials
+    // 1. Expirar trials de usuarios sin suscripción activa
     const trialUsersSnapshot = await db.collection('users')
         .where('isTrialActive', '==', true)
         .where('trialEndDate', '<', now)
@@ -33,7 +35,7 @@ exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone
     await batch.commit();
     console.log(`Trials expirados para ${trialUsersSnapshot.size} usuarios.`);
 
-    // 2. Resetear contadores mensuales
+    // 2. Resetear contadores mensuales (primer día del mes)
     const firstDayOfMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
     const resetBatch = db.batch();
     const allUsersSnapshot = await db.collection('users').get();
@@ -56,38 +58,75 @@ exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone
     return null;
 });
 
-// ✅ Función ÚNICA para inicializar campos de suscripción en usuarios existentes
+// ============================================================
+// Función HTTP única para inicializar campos de suscripción en usuarios existentes
+// (Se debe ejecutar una sola vez, luego puede protegerse o eliminarse)
+// ============================================================
 exports.initializeUserFields = functions.https.onRequest({ allowUnauthenticated: true }, async (req, res) => {
     try {
         const usersRef = db.collection('users');
         const snapshot = await usersRef.get();
-        const batch = db.batch();
-        let updatedCount = 0;
 
-        snapshot.forEach(doc => {
+        if (snapshot.empty) {
+            res.status(200).send('No hay usuarios para actualizar.');
+            return;
+        }
+
+        let updatedCount = 0;
+        const BATCH_SIZE = 500;
+        let currentBatch = db.batch();
+        let batchCount = 0;
+
+        for (const doc of snapshot.docs) {
             const data = doc.data();
             const updates = {};
+            let needsUpdate = false;
 
-            // Definir valores por defecto si faltan
-            if (data.isTrialActive === undefined) updates.isTrialActive = true;
+            if (data.isTrialActive === undefined) {
+                updates.isTrialActive = true;
+                needsUpdate = true;
+            }
             if (!data.trialEndDate) {
                 updates.trialEndDate = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+                needsUpdate = true;
             }
-            if (data.isActive === undefined) updates.isActive = false;
-            if (data.monthlyRecordCount === undefined) updates.monthlyRecordCount = 0;
-            if (data.monthlyVoiceCount === undefined) updates.monthlyVoiceCount = 0;
-            if (!data.lastResetDate) updates.lastResetDate = admin.firestore.Timestamp.now();
+            if (data.isActive === undefined) {
+                updates.isActive = false;
+                needsUpdate = true;
+            }
+            if (data.monthlyRecordCount === undefined) {
+                updates.monthlyRecordCount = 0;
+                needsUpdate = true;
+            }
+            if (data.monthlyVoiceCount === undefined) {
+                updates.monthlyVoiceCount = 0;
+                needsUpdate = true;
+            }
+            if (!data.lastResetDate) {
+                updates.lastResetDate = admin.firestore.Timestamp.now();
+                needsUpdate = true;
+            }
 
-            if (Object.keys(updates).length > 0) {
-                batch.update(doc.ref, updates);
+            if (needsUpdate) {
+                currentBatch.update(doc.ref, updates);
                 updatedCount++;
+                batchCount++;
             }
-        });
 
-        await batch.commit();
+            if (batchCount >= BATCH_SIZE) {
+                await currentBatch.commit();
+                currentBatch = db.batch();
+                batchCount = 0;
+            }
+        }
+
+        if (batchCount > 0) {
+            await currentBatch.commit();
+        }
+
         res.status(200).send(`✅ Inicialización completada. Usuarios actualizados: ${updatedCount}`);
     } catch (error) {
         console.error('Error en initializeUserFields:', error);
-        res.status(500).send('❌ Error al inicializar campos de suscripción');
+        res.status(500).send(`❌ Error: ${error.message}`);
     }
 });
