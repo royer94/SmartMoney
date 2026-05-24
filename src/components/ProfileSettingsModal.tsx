@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, Save, ShieldCheck, Pencil } from 'lucide-react';
+import { X, User, Calendar, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
-import { ProBanner } from './ProBanner'; // Importamos tu componente inteligente
+import { ProBanner } from './ProBanner';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -84,8 +84,12 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 </div>
               </div>
 
-              {/* AQUÍ USAMOS TU COMPONENTE ORIGINAL QUE YA GESTIONA LA LÓGICA PRO/FREE */}
-              <ProBanner onUpgrade={() => {}} />
+              {/* El banner solo aparecerá si el usuario NO es Pro */}
+              {!user.isPro && (
+                <div className="mt-4">
+                  <ProBanner onUpgrade={() => {}} />
+                </div>
+              )}
 
               <button type="submit" disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all">
                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
