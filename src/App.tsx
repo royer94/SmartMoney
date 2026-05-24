@@ -4,6 +4,7 @@ import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
+
 // Componentes pesados con exportación nombrada (se importan correctamente)
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const TransactionList = lazy(() => import('./components/TransactionList').then(module => ({ default: module.TransactionList })));
@@ -12,6 +13,7 @@ const HelpModal = lazy(() => import('./components/HelpModal').then(module => ({ 
 const SubscriptionModal = lazy(() => import('./components/SubscriptionModal').then(module => ({ default: module.SubscriptionModal })));
 const Guide = lazy(() => import('./components/Guide').then(module => ({ default: module.Guide })));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(module => ({ default: module.OnboardingModal })));
+
 // Componentes ligeros o siempre necesarios
 import { ProBanner } from './components/ProBanner';
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
@@ -23,7 +25,7 @@ import { InstallPWA } from './components/InstallPWA';
 import { 
   Plus, Settings, LogOut, Home, List, 
   MessageSquare, DollarSign, Shield, HelpCircle,
-  Mail, MessageCircle as WhatsAppIcon  // ✅ Iconos para contacto
+  Mail, MessageCircle as WhatsAppIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -137,7 +139,6 @@ export default function App() {
     }
   };
 
-  // Pantalla de carga
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#0a0f1e]">
@@ -148,12 +149,10 @@ export default function App() {
     );
   }
 
-  // Landing si no hay usuario
   if (!user) {
     return <LandingPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
-  // Onboarding si es nuevo usuario
   if (!user.onboardingDone) {
     return (
       <Suspense fallback={<LoaderFallback />}>
@@ -168,7 +167,6 @@ export default function App() {
     );
   }
 
-  // App principal
   const userAdapter = {
     ...user,
     birthDate: user.birthdate || ''
@@ -279,14 +277,13 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   className="glass p-10 rounded-[2.5rem] space-y-8"
                 >
-                  {/* El contenido de ajustes no es pesado, se mantiene normal */}
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
                     <div className={cn(
                       "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
-                      user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
+                      user.isActive ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
                     )}>
-                      {user.isPro ? "Plan Pro" : "Plan Free"}
+                      {user.isActive ? "Plan Pro" : "Plan Free"}
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -315,11 +312,10 @@ export default function App() {
                       <CurrencySelector userId={user.uid} />
                     </div>
 
-                    {/* ✅ SECCIÓN DE CONTACTO Y SOPORTE */}
+                    {/* SECCIÓN DE CONTACTO Y SOPORTE */}
                     <div className="p-4 bg-white rounded-2xl border border-slate-100">
                       <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
                       <div className="flex flex-wrap gap-3">
-                        {/* Correo */}
                         <a
                           href="mailto:contacto@smartmoneyai.click"
                           className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
@@ -329,7 +325,6 @@ export default function App() {
                           </div>
                           <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
                         </a>
-                        {/* WhatsApp */}
                         <a
                           href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
                           target="_blank"
@@ -356,7 +351,11 @@ export default function App() {
                         <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                       </button>
                     )}
-                    <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+
+                    {/* CORRECCIÓN: El banner sólo se monta si el usuario NO tiene una suscripción activa (si no es Pro pago) */}
+                    {user && !user.isActive && (
+                      <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+                    )}
                   </div>
                   <div className="pt-6">
                     <button
