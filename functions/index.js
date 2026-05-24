@@ -2,15 +2,19 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
 
-// FORZAMOS la inicialización pasándole explícitamente el ID del proyecto de la IA
+// 1. Inicializamos la app apuntando con precisión al proyecto de la IA
 if (admin.apps.length === 0) {
   admin.initializeApp({
     projectId: "ai-studio-4d598d16-d332-49e9-9157-502087392356"
   });
 }
 
-// Conectamos Firestore asegurando la ruta de la base de datos predeterminada de ese entorno
-const db = getFirestore();
+/**
+ * 2. EL AJUSTE MAESTRO:
+ * Forzamos al SDK a buscar la base de datos usando el ID largo del proyecto
+ * en lugar del nombre "(default)" que viene predeterminado.
+ */
+const db = getFirestore("ai-studio-4d598d16-d332-49e9-9157-502087392356");
 
 exports.initializeUserFields = functions
   .runWith({
@@ -18,18 +22,17 @@ exports.initializeUserFields = functions
     memory: "512MB"      
   })
   .https.onRequest(async (req, res) => {
-    // Habilitar CORS
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Intentamos capturar la colección de usuarios
+      // Accedemos a la colección 'users' dentro del contenedor correcto
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "Conectado con éxito, pero la colección 'users' no tiene documentos en este momento."
+          message: "Conexión lograda, pero la colección 'users' está vacía en este entorno."
         });
       }
 
@@ -40,7 +43,7 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Inicializa solo si el usuario no tiene los campos de suscripción
+        // Evitamos sobreescribir si ya tienen los campos de SmartMoney AI
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
@@ -56,7 +59,6 @@ exports.initializeUserFields = functions
           count++;
           totalUpdated++;
 
-          // Firestore maneja lotes de máximo 500 escrituras
           if (count === 500) {
             batch.commit();
             batch = db.batch();
@@ -71,11 +73,11 @@ exports.initializeUserFields = functions
 
       return res.status(200).send({
         status: "success",
-        message: `¡Éxito absoluto! Se actualizaron ${totalUpdated} usuarios existentes en SmartMoney AI.`
+        message: `¡Éxito total! Se inicializaron los campos para ${totalUpdated} usuarios existentes.`
       });
 
     } catch (error) {
-      console.error("Error capturado en la ejecución:", error);
+      console.error("Error en la ejecución:", error);
       return res.status(500).send({
         status: "error",
         message: `Error de Firestore: ${error.message}`
