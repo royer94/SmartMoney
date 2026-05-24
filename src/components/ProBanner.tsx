@@ -1,33 +1,36 @@
 import React from 'react';
 import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
-import { UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-
-// Límite de registros de texto para plan gratuito (40)
-const FREE_TEXT_LIMIT = 40;
+import { useSubscription } from '../hooks/useSubscription'; // Asegúrate de que la ruta sea correcta
 
 interface ProBannerProps {
-  user: UserProfile;
+  user: any; // Puede que no necesites user, porque useSubscription obtiene los datos
   onUpgrade: () => void;
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
-  // Determinar si el usuario tiene acceso Pro (trial activo o suscripción pagada)
-  const isPro = user.isTrialActive || user.isActive;
+  const { isPro, remainingTextRecords, isTrialActive } = useSubscription();
 
+  // Si tiene acceso Pro (trial activo o suscripción pagada)
   if (isPro) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
         <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 rotate-12" />
         <div className="flex items-center gap-2 mb-2">
           <Logo size="sm" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Premium Member</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">
+            {isTrialActive ? 'Período de prueba' : 'Premium Member'}
+          </span>
         </div>
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
-        <p className="text-sm text-blue-100 opacity-80 mb-4">Acceso ilimitado activado.</p>
-        {user.proExpiresAt && (
+        <p className="text-sm text-blue-100 opacity-80 mb-4">
+          {isTrialActive 
+            ? `Disfruta de todas las funciones Pro durante tu prueba.`
+            : 'Acceso ilimitado activado.'}
+        </p>
+        {!isTrialActive && user.proExpiresAt && (
           <div className="text-xs font-mono bg-white/10 p-2 rounded-lg">
             Expira: {new Date(user.proExpiresAt).toLocaleDateString()}
           </div>
@@ -37,15 +40,15 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
   }
 
   // Usuario gratuito: mostrar progreso con límite de 40 registros
-  const usedRecords = user.monthlyRecordCount || 0;
-  const progress = (usedRecords / FREE_TEXT_LIMIT) * 100;
+  const usedRecords = 40 - remainingTextRecords;
+  const progress = (usedRecords / 40) * 100;
 
   return (
     <div className="bg-white border border-slate-200 p-6 rounded-3xl overflow-hidden relative group transition-colors">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-slate-900">Uso Gratuito</h3>
         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
-          {usedRecords}/{FREE_TEXT_LIMIT}
+          {usedRecords}/40
         </span>
       </div>
       
