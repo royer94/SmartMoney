@@ -132,7 +132,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Tu Plan Actual</p>
                   <p className="text-xs font-bold text-slate-900 mt-0.5">
-                    {user.isPro ? 'Miembro Pro' : 'Plan Free Limitado'}
+                    {user.isPro ? 'PRUEBA MODO PRO' : 'PRUEBA MODO FREE'}
                   </p>
                 </div>
                 <div className={cn(
