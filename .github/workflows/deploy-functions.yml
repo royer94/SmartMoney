@@ -21,9 +21,8 @@ jobs:
           node-version: 18 # Es la versión estándar y recomendada para Cloud Functions actuales
 
       # 3. Instalar las dependencias de Node.js ESPECÍFICAMENTE dentro de la carpeta 'functions'
-      # El parámetro 'working-directory' evita el error de que falte el package.json
       - name: Install Functions Dependencies
-        run: npm ci
+        run: npm install  # <-- Cambiado de 'npm ci' a 'npm install'
         working-directory: ./functions
 
       # 4. Desplegar en Firebase utilizando la cuenta de servicio configurada en los secretos
