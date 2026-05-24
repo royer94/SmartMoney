@@ -65,7 +65,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
           >
             <div className="flex items-center justify-between p-8 border-b border-slate-50">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Ajustes del Perfil</h3>
+                <h3>--- ARCHIVO EDITADO CORRECTAMENTE ---</h3>
               </div>
               <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all">
                 <X className="w-5 h-5" />
