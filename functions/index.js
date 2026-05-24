@@ -57,7 +57,7 @@ exports.dailySubscriptionTasks = functions.pubsub.schedule('0 0 * * *').timeZone
 });
 
 // ✅ Función ÚNICA para inicializar campos de suscripción en usuarios existentes
-exports.initializeUserFields = functions.https.onRequest(async (req, res) => {
+exports.initializeUserFields = functions.https.onRequest({ allowUnauthenticated: true }, async (req, res) => {
     try {
         const usersRef = db.collection('users');
         const snapshot = await usersRef.get();
