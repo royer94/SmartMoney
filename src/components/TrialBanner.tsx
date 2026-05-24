@@ -8,7 +8,7 @@ interface TrialBannerProps {
     isTrialActive?: boolean;
     trialEndDate?: any; // Timestamp de Firebase
   } | null;
-  onUpgrade?: () => void; // 👈 1. Añadimos la función de pago como propiedad
+  onUpgrade?: () => void;
 }
 
 export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade }) => {
@@ -30,17 +30,17 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade })
 
   if (!userData || userData.plan !== 'trial' || diasRestantes === null) return null;
 
-  // 🌟 VARIANT 1: Modo Cortesía (Días 30 al 6) - Ultra compacto
+  // 🌟 VARIANT 1: Modo Cortesía (Días 30 al 6) - Ultra compacto y flexible
   if (diasRestantes > 5) {
     return (
-      <div className="w-full bg-slate-900 text-slate-300 text-xs py-1.5 px-4 flex items-center justify-center gap-2 border-b border-slate-800 selection:bg-indigo-500">
-        <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+      <div className="w-full bg-slate-900 text-slate-300 text-xs py-2 px-4 flex flex-wrap items-center justify-center gap-2 border-b border-slate-800 text-center break-words">
+        <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse shrink-0" />
         <span>
           Modo <span className="text-white font-semibold">SmartMoney AI Pro</span> activado. Te quedan {diasRestantes} días de prueba.
         </span>
         <button 
-          onClick={onUpgrade} // 👈 2. Reemplazamos el alert por la función real
-          className="ml-2 text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded transition-all"
+          onClick={onUpgrade}
+          className="ml-2 text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded transition-all shrink-0"
         >
           Asegurar Pro
         </button>
@@ -48,7 +48,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade })
     );
   }
 
-  // 🌟 VARIANT 2: Modo Urgencia (Días 5 al 0) - Gradiente llamativo
+  // 🌟 VARIANT 2: Modo Urgencia / Vencido (Días 5 al 0) - Seguro ante desbordes
   return (
     <AnimatePresence>
       <motion.div
@@ -57,18 +57,19 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade })
         exit={{ opacity: 0, y: -20 }}
         className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-md"
       >
-        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           
-          <div className="flex items-center flex-1 min-w-0 gap-3">
-            <span className="flex p-2 rounded-lg bg-white/10 animate-bounce">
+          {/* Contenedor del texto: eliminamos 'truncate' y forzamos multilínea con 'normal' y 'break-words' */}
+          <div className="flex items-center flex-1 gap-3 w-full sm:w-auto">
+            <span className="flex p-2 rounded-lg bg-white/10 animate-pulse shrink-0">
               <ShieldAlert className="h-5 w-5 text-amber-300" />
             </span>
             
-            <p className="font-medium truncate text-sm sm:text-base">
+            <p className="font-medium text-sm sm:text-base whitespace-normal break-words leading-tight">
               {diasRestantes > 0 ? (
                 <>
                   ¡Atención! Tu prueba de <span className="font-extrabold underline decoration-wavy">SmartMoney AI Pro</span> está por expirar. 
-                  Te quedan solo <span className="font-black text-amber-300 bg-white/10 px-2 py-0.5 rounded-md">{diasRestantes} {diasRestantes === 1 ? 'día' : 'días'}</span>.
+                  Te quedan solo <span className="font-black text-amber-300 bg-white/10 px-2 py-0.5 rounded-md whitespace-nowrap">{diasRestantes} {diasRestantes === 1 ? 'día' : 'días'}</span>.
                 </>
               ) : (
                 <>Tu periodo de prueba Pro ha vencido. Tu cuenta pasará al plan Free limitado.</>
@@ -76,13 +77,14 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade })
             </p>
           </div>
 
+          {/* Contenedor del botón: evita deformaciones */}
           <div className="flex-shrink-0 w-full sm:w-auto">
             <button
-              onClick={onUpgrade} // 👈 3. Reemplazamos el alert por la función real
-              className="w-full flex items-center justify-center px-4 py-2 rounded-full bg-white text-indigo-700 font-bold text-sm shadow-sm hover:bg-indigo-50 transition-all duration-300 transform hover:scale-105 active:scale-95 group"
+              onClick={onUpgrade}
+              className="w-full flex items-center justify-center px-5 py-2 rounded-full bg-white text-indigo-700 font-bold text-sm shadow-sm hover:bg-indigo-50 transition-all duration-300 transform hover:scale-105 active:scale-95 group whitespace-nowrap"
             >
               {diasRestantes > 0 ? 'Mantener mi Plan Pro' : 'Actualizar a Pro'}
-              <ArrowRight className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform shrink-0" />
             </button>
           </div>
 
