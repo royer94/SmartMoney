@@ -13,7 +13,14 @@ const SubscriptionModal = lazy(() => import('./components/SubscriptionModal').th
 const Guide = lazy(() => import('./components/Guide').then(module => ({ default: module.Guide })));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(module => ({ default: module.OnboardingModal })));
 // Componentes ligeros
-import { ProBanner } from './components/ProBanner';
+// En App (5).tsx, busca el bloque donde renderizas los componentes:
+{/* Renderizado condicional del banner: SOLO si es trial activo */}
+{user && user.isTrialActive && !user.isActive && (
+  <ProBanner 
+    user={user} 
+    onUpgrade={() => setShowSubscription(true)} 
+  />
+)}
 import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { Logo } from './components/Logo';
 import { LandingPage } from './components/LandingPage';
