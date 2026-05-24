@@ -16,7 +16,6 @@ const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(m
 
 // Componentes ligeros o siempre necesarios
 import { ProBanner } from './components/ProBanner';
-import { SubscriptionNotifier } from './components/SubscriptionNotifier';
 import { Logo } from './components/Logo';
 import { LandingPage } from './components/LandingPage';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -423,9 +422,6 @@ export default function App() {
             </Suspense>
           )}
         </AnimatePresence>
-
-        {/* Solo muestra notificaciones de suscripción/trial si NO es un usuario Pro activo */}
-{user && !user.isActive && <SubscriptionNotifier user={user} />}
         
         {/* Componente de instalación PWA */}
         <InstallPWA />
