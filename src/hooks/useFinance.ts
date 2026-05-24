@@ -101,7 +101,28 @@ export function useFinance() {
         if (snapshot.exists()) {
           const data = snapshot.data();
           console.log(`[useFinance] User profile loaded for ${userId}`);
-          setUser({ ...data, isAdmin: isSystemAdmin } as UserProfile);
+          
+          // ========================================================
+          // CORRECCIÓN DE CONSISTENCIA PARA EL MODO PRO / TRIAL
+          // ========================================================
+          const isUserPro = data.isPro === true || data.isActive === true;
+          
+          // Si es Pro pero en Firestore el trial seguía colgado como true, lo apagamos en la BD de fondo
+          if (isUserPro && data.isTrialActive === true) {
+            const userRef = doc(db, 'users', userId);
+            updateDoc(userRef, { isTrialActive: false }).catch((err) => 
+              console.error("[useFinance] Error actualizando isTrialActive en Firestore:", err)
+            );
+          }
+
+          setUser({ 
+            ...data, 
+            isAdmin: isSystemAdmin,
+            // Forzamos que si es PRO, en la interfaz pase inmediatamente como false
+            isTrialActive: isUserPro ? false : data.isTrialActive
+          } as UserProfile);
+          // ========================================================
+
         } else {
           // Create user if not exists
           console.log(`[useFinance] Creating new user profile for ${userId}`);
@@ -425,4 +446,3 @@ export function useFinance() {
     toggleRecurring
   };
 }
-
