@@ -3,31 +3,33 @@ name: Deploy Firebase Functions
 on:
   push:
     branches:
-      - main  # Se ejecuta cuando haces push a main
+      - main  # El flujo se activará automáticamente cada vez que hagas push o commit en la rama main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Descargar el código del repositorio
-      - name: Checkout repo
+      # 1. Descargar el código de tu repositorio
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Instalar Node.js para las dependencias de la función
+      # 2. Configurar el entorno de Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18 # O la versión que uses en functions/package.json
+          node-version: 18 # Es la versión estándar y recomendada para Cloud Functions actuales
 
-      # 3. Instalar dependencias DENTRO de la carpeta functions
+      # 3. Instalar las dependencias de Node.js ESPECÍFICAMENTE dentro de la carpeta 'functions'
+      # El parámetro 'working-directory' evita el error de que falte el package.json
       - name: Install Functions Dependencies
         run: npm ci
         working-directory: ./functions
 
-      # 4. Desplegar usando la acción oficial (Evita problemas de rutas)
+      # 4. Desplegar en Firebase utilizando la cuenta de servicio configurada en los secretos
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only functions
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
