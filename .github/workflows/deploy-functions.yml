@@ -3,24 +3,31 @@ name: Deploy Firebase Functions
 on:
   push:
     branches:
-      - main
-    paths:
-      - 'functions/**'
+      - main  # Se ejecuta cuando haces push a main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      # 1. Descargar el código del repositorio
+      - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. Instalar Node.js para las dependencias de la función
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 18 # O la versión que uses en functions/package.json
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+      # 3. Instalar dependencias DENTRO de la carpeta functions
+      - name: Install Functions Dependencies
+        run: npm ci
+        working-directory: ./functions
 
+      # 4. Desplegar usando la acción oficial (Evita problemas de rutas)
       - name: Deploy to Firebase
-        run: firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
