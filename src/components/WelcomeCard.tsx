@@ -58,18 +58,21 @@ export function WelcomeCard({ user, goals, onConfigureBudget }: WelcomeCardProps
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 🟢 PLAN FREE ACTUALIZADO A LAS NUEVAS REGLAS FREEMIUM */}
                   <div className="p-4 bg-white/60 rounded-2xl border border-indigo-50">
                     <h4 className="font-bold text-sm text-slate-800 mb-3 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
                       Plan Free
                     </h4>
                     <ul className="space-y-2">
-                      <FeatureItem text="Hasta 20 registros/mes" available />
+                      <FeatureItem text="40 textos y 10 audios / mes" available />
                       <FeatureItem text="1 Presupuesto (Meta)" available />
                       <FeatureItem text="IA Advisor básico" available />
+                      <FeatureItem text="Control por Voz Inteligente" available={false} />
                       <FeatureItem text="Reportes avanzados" available={false} />
                     </ul>
                   </div>
+                  
                   <div className="p-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
                     <h4 className="font-bold text-sm text-white mb-3 flex items-center gap-2">
                       <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
