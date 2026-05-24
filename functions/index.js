@@ -1,49 +1,55 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
-// Inicializa la app de administración de Firebase si no está inicializada
+// Inicializa la app conectándola explícitamente al ID de tu proyecto y base de datos activa
 if (admin.apps.length === 0) {
-  admin.initializeApp();
+  admin.initializeApp({
+    projectId: "gen-lang-client-0987361888",
+    databaseURL: "https://gen-lang-client-0987361888.firebaseio.com"
+  });
 }
 
+// Apuntamos explícitamente a la base de datos que se ve en tu captura de Firebase
 const db = admin.firestore();
 
 /**
  * Cloud Function HTTP para inicializar campos de suscripción en masa.
- * Se le asigna más memoria y más tiempo de ejecución para evitar el Internal Server Error.
+ * Conectada explícitamente al entorno correcto.
  */
 exports.initializeUserFields = functions
   .runWith({
-    timeoutSeconds: 300, // Extiende el tiempo a 5 minutos (máximo permitido)
-    memory: "512MB"      // Aumenta la memoria para procesar el volumen de datos
+    timeoutSeconds: 300, 
+    memory: "512MB"      
   })
   .https.onRequest(async (req, res) => {
-    // Evita problemas de CORS si se llama desde la app
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // 1. Traer todos los usuarios de la colección 'users'
-      const usersSnapshot = await db.collection("users").get();
+      // Forzamos la consulta a la base de datos especificada
+      const usersRef = db.collection("users");
+      const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
-        return res.status(200).send("No se encontraron usuarios en la colección.");
+        return res.status(200).send({
+          status: "success",
+          message: "No se encontraron documentos en la colección 'users' para este ID de proyecto."
+        });
       }
 
       let totalUpdated = 0;
       let batch = db.batch();
       let count = 0;
 
-      // 2. Iterar sobre cada usuario para preparar la actualización
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // OPCIONAL: Solo actualiza si el usuario NO tiene ya los campos para ahorrar operaciones
+        // Solo actualiza si el campo no existe
         if (userData.isTrialActive === undefined) {
-          const userRef = db.collection("users").doc(doc.id);
+          const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días desde hoy
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días trial
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
@@ -53,30 +59,28 @@ exports.initializeUserFields = functions
           count++;
           totalUpdated++;
 
-          // Firestore tiene un límite estricto de 500 operaciones por Batch
           if (count === 500) {
-            batch.commit(); // Ejecuta este lote
-            batch = db.batch(); // Inicializa uno nuevo
+            batch.commit();
+            batch = db.batch();
             count = 0;
           }
         }
       });
 
-      // 3. Confirmar el último lote restante si tiene datos
       if (count > 0) {
         await batch.commit();
       }
 
       return res.status(200).send({
         status: "success",
-        message: `Campos inicializados correctamente. Se actualizaron ${totalUpdated} usuarios.`
+        message: `Campos inicializados correctamente. Se actualizaron ${totalUpdated} usuarios existentes.`
       });
 
     } catch (error) {
-      console.error("Error global en initializeUserFields:", error);
+      console.error("Error detectado en initializeUserFields:", error);
       return res.status(500).send({
         status: "error",
-        message: error.message
+        message: `Error interno de conexión a Firestore: ${error.message}`
       });
     }
   });
