@@ -1,18 +1,23 @@
 import React from 'react';
 import { Logo } from './Logo';
 import { ShieldCheck, Zap } from 'lucide-react';
-import { UserProfile, FREE_LIMIT } from '../types';
+import { UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 
+// Límite de registros de texto para plan gratuito (40)
+const FREE_TEXT_LIMIT = 40;
+
 interface ProBannerProps {
   user: UserProfile;
-  onUpgrade: () => void; // ✅ Función para abrir el modal de suscripción
+  onUpgrade: () => void;
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
-  // Si ya es Pro, mostrar banner de estado
-  if (user.isPro) {
+  // Determinar si el usuario tiene acceso Pro (trial activo o suscripción pagada)
+  const isPro = user.isTrialActive || user.isActive;
+
+  if (isPro) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
         <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 rotate-12" />
@@ -22,29 +27,32 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
         </div>
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
         <p className="text-sm text-blue-100 opacity-80 mb-4">Acceso ilimitado activado.</p>
-        <div className="text-xs font-mono bg-white/10 p-2 rounded-lg">
-          Expira: {new Date(user.proExpiresAt || '').toLocaleDateString()}
-        </div>
+        {user.proExpiresAt && (
+          <div className="text-xs font-mono bg-white/10 p-2 rounded-lg">
+            Expira: {new Date(user.proExpiresAt).toLocaleDateString()}
+          </div>
+        )}
       </div>
     );
   }
 
-  // Usuario gratuito: mostrar progreso y botón
-  const progress = (user.freeRecordsCount / FREE_LIMIT) * 100;
+  // Usuario gratuito: mostrar progreso con límite de 40 registros
+  const usedRecords = user.monthlyRecordCount || 0;
+  const progress = (usedRecords / FREE_TEXT_LIMIT) * 100;
 
   return (
     <div className="bg-white border border-slate-200 p-6 rounded-3xl overflow-hidden relative group transition-colors">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-slate-900">Uso Gratuito</h3>
         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg transition-colors">
-          {user.freeRecordsCount}/{FREE_LIMIT}
+          {usedRecords}/{FREE_TEXT_LIMIT}
         </span>
       </div>
       
       <div className="w-full bg-slate-100 h-2 rounded-full mb-6 transition-colors">
         <motion.div 
           initial={{ width: 0 }}
-          animate={{ width: `${progress}%` }}
+          animate={{ width: `${Math.min(progress, 100)}%` }}
           className={cn(
             "h-full rounded-full transition-all",
             progress > 80 ? "bg-red-500" : "bg-blue-600"
@@ -52,7 +60,6 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
         />
       </div>
 
-      {/* Botón que abre el SubscriptionModal */}
       <button 
         onClick={onUpgrade}
         className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
