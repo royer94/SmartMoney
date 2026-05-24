@@ -347,7 +347,7 @@ function AuthenticatedApp() {
                       <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
                     </button>
                   )}
-                  <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+                
                 </div>
                 <div className="pt-6">
                   <button
