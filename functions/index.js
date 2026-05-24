@@ -1,7 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
-// Inicializa la app de forma nativa en su propio proyecto (Fresc Nat Admin 2)
+// Inicialización limpia: toma el proyecto nativo donde está desplegada (Fresc Nat Admin 2)
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
@@ -17,14 +17,14 @@ exports.initializeUserFields = functions
     res.set("Access-Control-Allow-Origin", "*");
 
     try {
-      // Lee la colección 'users' de este mismo proyecto
+      // Apunta a la colección 'users' del propio proyecto nativo
       const usersRef = db.collection("users");
       const usersSnapshot = await usersRef.get();
       
       if (usersSnapshot.empty) {
         return res.status(200).send({
           status: "success",
-          message: "Conexión exitosa. La colección 'users' está vacía o aún no se han registrado usuarios en este entorno."
+          message: "Conexión exitosa. La colección 'users' está vacía en este proyecto nativo o la app aún no ha guardado datos aquí."
         });
       }
 
@@ -35,13 +35,13 @@ exports.initializeUserFields = functions
       usersSnapshot.docs.forEach((doc) => {
         const userData = doc.data();
 
-        // Inicializa los campos si no existen
+        // Inicializa solo si los campos no existen
         if (userData.isTrialActive === undefined) {
           const userRef = usersRef.doc(doc.id);
           
           batch.update(userRef, {
             isTrialActive: true,
-            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días trial
+            trialEndDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 días de trial
             isActive: true,
             monthlyRecordCount: 0,
             monthlyVoiceCount: 0,
