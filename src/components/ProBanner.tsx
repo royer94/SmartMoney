@@ -6,19 +6,21 @@ import { motion } from 'motion/react';
 import { UserProfile } from '../types';
 
 interface ProBannerProps {
-  user?: UserProfile;        // Recibimos el usuario desde el padre
+  user?: UserProfile;
   onUpgrade: () => void;
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
-  // Si no recibimos user, mostramos un estado de carga (no debería ocurrir)
   if (!user) {
     return <div className="p-6 bg-white rounded-3xl animate-pulse">Cargando...</div>;
   }
 
-  // Determinar si es Pro: isPro = isTrialActive || isActive
-  const isPro = user.isTrialActive || user.isActive;
-  const isTrialActive = user.isTrialActive;
+  // Lógica ajustada: 
+  // isProPaid: Usuario que pagó (isActive true)
+  // isTrial: Usuario en prueba (isTrialActive true y NO ha pagado)
+  const isProPaid = !!user.isActive;
+  const isTrial = !!user.isTrialActive && !isProPaid;
+  const isPro = isProPaid || isTrial;
 
   if (isPro) {
     return (
@@ -27,12 +29,12 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
         <div className="flex items-center gap-2 mb-2">
           <Logo size="sm" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">
-            {isTrialActive ? 'Período de prueba' : 'Premium Member'}
+            {isTrial ? 'Período de prueba' : 'Premium Member'}
           </span>
         </div>
         <h3 className="font-bold text-lg mb-1">$martMone¥ Pro</h3>
         <p className="text-sm text-blue-100 opacity-80 mb-4">
-          {isTrialActive
+          {isTrial
             ? 'Disfruta de todas las funciones Pro durante tu prueba.'
             : 'Acceso ilimitado activado.'}
         </p>
@@ -40,7 +42,7 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
     );
   }
 
-  // Usuario gratuito: mostrar progreso con límite de 40 registros de texto
+  // Usuario gratuito
   const maxTextRecords = 40;
   const usedRecords = user.monthlyRecordCount || 0;
   const progress = (usedRecords / maxTextRecords) * 100;
