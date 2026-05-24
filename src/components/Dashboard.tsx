@@ -31,6 +31,7 @@ import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { TrialBanner } from './TrialBanner';
 
 // Helper para filtrar transacciones no eliminadas (si existe campo deleted)
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
@@ -284,6 +285,9 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       animate={{ opacity: 1 }}
       className="space-y-8 pb-32 transition-colors"
     >
+      {/* 🔴 NUEVO FRAGMENTO AÑADIDO: */}
+      <TrialBanner userData={user} />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 group">
