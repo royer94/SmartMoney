@@ -16,7 +16,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Transaction, UserProfile, Goal, FREE_LIMIT } from '../types';
+import { Transaction, UserProfile, Goal, FREE_TEXT_LIMIT, FREE_VOICE_LIMIT } from '../types';
 
 enum OperationType {
   CREATE = 'create',
@@ -199,23 +199,31 @@ export function useFinance() {
     };
   }, [authUser?.uid]);
 
-  const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
-    const currentAuthId = auth.currentUser?.uid;
-    if (!currentAuthId || !user) return;
-    
-    // Monthly record count (for Free Plan)
-    if (!user.isPro) {
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthlyRecords = transactions.filter(tx => {
-        const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
-        return txDate >= firstDayOfMonth;
-      }).length;
+  // Dentro de const addTransaction = async (...) =>
+if (!user.isPro) {
+  const now = new Date();
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  // Filtramos las transacciones del mes actual
+  const currentMonthTransactions = transactions.filter(tx => {
+    const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+    return txDate >= firstDayOfMonth;
+  });
 
-      if (monthlyRecords >= FREE_LIMIT) {
-        throw new Error(`Has alcanzado el límite de ${FREE_LIMIT} registros mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
-      }
-    }
+  // Contamos por separado usando el nuevo campo obligatorio inputMode
+  const textRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'text').length;
+  const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
+
+  // Límite para registros de Texto (40)
+  if (t.inputMode === 'text' && textRecordsCount >= FREE_TEXT_LIMIT) {
+    throw new Error(`Has alcanzado el límite de ${FREE_TEXT_LIMIT} registros de texto mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+  }
+
+  // Límite para registros de Voz (10)
+  if (t.inputMode === 'voice' && voiceRecordsCount >= FREE_VOICE_LIMIT) {
+    throw new Error(`Has alcanzado el límite de ${FREE_VOICE_LIMIT} registros de voz mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+  }
+}
 
     const pathTx = 'transactions';
     try {
