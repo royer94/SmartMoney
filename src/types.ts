@@ -1,4 +1,6 @@
 export type TransactionType = 'expense' | 'income';
+// 🌟 Nuevo tipo para diferenciar si el registro se creó por texto o dictado por voz
+export type InputModeType = 'text' | 'voice';
 
 export interface UserProfile {
   uid: string;
@@ -22,6 +24,8 @@ export interface Transaction {
   description: string;
   timestamp: any;
   isRecurring?: boolean;
+  // 🌟 Campo obligatorio para clasificar el origen y aplicar las restricciones en el plan Free
+  inputMode: InputModeType;
 }
 
 export interface Goal {
@@ -45,7 +49,7 @@ export interface Currency {
 
 export const CURRENCIES: Currency[] = [
   { code: 'COP', symbol: '$', name: 'Peso colombiano',     locale: 'es-CO', flag: '🇨🇴', countries: 'Colombia' },
-  { code: 'MXN', symbol: '$', name: 'Peso mexicano',       locale: 'es-MX', flag: '🇲🇽', countries: 'México' },
+  { code: 'MXN', symbol: '$', name: 'Peso mexicano',        locale: 'es-MX', flag: '🇲🇽', countries: 'México' },
   { code: 'ARS', symbol: '$', name: 'Peso argentino',      locale: 'es-AR', flag: '🇦🇷', countries: 'Argentina' },
   { code: 'CLP', symbol: '$', name: 'Peso chileno',        locale: 'es-CL', flag: '🇨🇱', countries: 'Chile' },
   { code: 'PEN', symbol: 'S/', name: 'Sol peruano',        locale: 'es-PE', flag: '🇵🇪', countries: 'Perú' },
@@ -69,7 +73,9 @@ export const CATEGORIES = [
   'Intercambios', 'Premios', 'Pensión', 'Comisiones', 'Donaciones', 'Varios'
 ];
 
-export const FREE_LIMIT = 20;
+// 🌟 Reemplazo de FREE_LIMIT = 20 por los topes independientes del Backend:
+export const FREE_TEXT_LIMIT = 40;
+export const FREE_VOICE_LIMIT = 10;
 
 export interface Command {
   name: string;
