@@ -11,9 +11,7 @@ import {
   getDoc, 
   setDoc,
   Timestamp,
-  orderBy,
-  limit,
-  getDocs
+  orderBy
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Transaction, UserProfile, Goal, FREE_TEXT_LIMIT, FREE_VOICE_LIMIT } from '../types';
@@ -63,7 +61,6 @@ export function useFinance() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-
   const [authUser, setAuthUser] = useState<any>(null);
 
   useEffect(() => {
@@ -102,12 +99,8 @@ export function useFinance() {
           const data = snapshot.data();
           console.log(`[useFinance] User profile loaded for ${userId}`);
           
-          // ========================================================
-          // CORRECCIÓN DE CONSISTENCIA PARA EL MODO PRO / TRIAL
-          // ========================================================
           const isUserPro = data.isPro === true || data.isActive === true;
           
-          // Si es Pro pero en Firestore el trial seguía colgado como true, lo apagamos en la BD de fondo
           if (isUserPro && data.isTrialActive === true) {
             const userRef = doc(db, 'users', userId);
             updateDoc(userRef, { isTrialActive: false }).catch((err) => 
@@ -118,13 +111,10 @@ export function useFinance() {
           setUser({ 
             ...data, 
             isAdmin: isSystemAdmin,
-            // Forzamos que si es PRO, en la interfaz pase inmediatamente como false
             isTrialActive: isUserPro ? false : data.isTrialActive
           } as UserProfile);
-          // ========================================================
 
         } else {
-          // Create user if not exists
           console.log(`[useFinance] Creating new user profile for ${userId}`);
           const newData = {
             uid: userId,
@@ -132,7 +122,6 @@ export function useFinance() {
             isPro: false,
             freeRecordsCount: 0
           };
-          // Explicitly use setDoc and await it
           try {
             await setDoc(doc(db, 'users', userId), newData);
             console.log(`[useFinance] User profile created successfully for ${userId}`);
@@ -199,35 +188,35 @@ export function useFinance() {
     };
   }, [authUser?.uid]);
 
-  // Dentro de const addTransaction = async (...) =>
-if (!user.isPro) {
-  const now = new Date();
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  
-  // Filtramos las transacciones del mes actual
-  const currentMonthTransactions = transactions.filter(tx => {
-    const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
-    return txDate >= firstDayOfMonth;
-  });
+  // ✅ Función addTransaction correctamente unificada y asíncrona
+  const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
+    const currentAuthId = auth.currentUser?.uid;
+    if (!currentAuthId || !user) return;
 
-  // Contamos por separado usando el nuevo campo obligatorio inputMode
-  const textRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'text').length;
-  const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
+    // Validación de límites independientes para Plan Gratuito
+    if (!user.isPro) {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const currentMonthTransactions = transactions.filter(tx => {
+        const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+        return txDate >= firstDayOfMonth;
+      });
 
-  // Límite para registros de Texto (40)
-  if (t.inputMode === 'text' && textRecordsCount >= FREE_TEXT_LIMIT) {
-    throw new Error(`Has alcanzado el límite de ${FREE_TEXT_LIMIT} registros de texto mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
-  }
+      const textRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'text').length;
+      const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
 
-  // Límite para registros de Voz (10)
-  if (t.inputMode === 'voice' && voiceRecordsCount >= FREE_VOICE_LIMIT) {
-    throw new Error(`Has alcanzado el límite de ${FREE_VOICE_LIMIT} registros de voz mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
-  }
-}
+      if (t.inputMode === 'text' && textRecordsCount >= FREE_TEXT_LIMIT) {
+        throw new Error(`Has alcanzado el límite de ${FREE_TEXT_LIMIT} registros de texto mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+      }
+
+      if (t.inputMode === 'voice' && voiceRecordsCount >= FREE_VOICE_LIMIT) {
+        throw new Error(`Has alcanzado el límite de ${FREE_VOICE_LIMIT} registros de voz mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+      }
+    }
 
     const pathTx = 'transactions';
     try {
-      // Clean transaction object to ensure no extra fields (like 'id') are sent to addDoc
       const { ...cleanT } = t as any;
       if (cleanT.id) delete cleanT.id;
 
@@ -238,12 +227,10 @@ if (!user.isPro) {
       };
 
       const docRef = await addDoc(collection(db, pathTx), newTransaction);
-      
       let alerts: string[] = [];
 
-      // If it's an expense, update matching budgets (Goals) for the same month/year
       if (t.type === 'expense') {
-        const txDate = new Date(); // Current date for new transactions
+        const txDate = new Date();
         const txMonth = txDate.getMonth() + 1;
         const txYear = txDate.getFullYear();
 
@@ -253,11 +240,9 @@ if (!user.isPro) {
             const prevProgress = (goal.currentAmount || 0) / goal.targetAmount;
             const currProgress = newCurrent / goal.targetAmount;
 
-            const pathGoal = `goals/${goal.id}`;
             const goalRef = doc(db, 'goals', goal.id!);
             await updateDoc(goalRef, { currentAmount: newCurrent });
 
-            // Threshold Check
             if (prevProgress < 0.5 && currProgress >= 0.5) alerts.push(`⚠️ Has alcanzado el 50% de tu presupuesto: ${goal.name}`);
             if (prevProgress < 0.8 && currProgress >= 0.8) alerts.push(`🚨 Has alcanzado el 80% de tu presupuesto: ${goal.name}`);
             if (prevProgress < 1.0 && currProgress >= 1.0) alerts.push(`🛑 ¡Límite alcanzado!: ${goal.name}`);
@@ -265,9 +250,8 @@ if (!user.isPro) {
         }
       }
       
-      const pathUser = `users/${user.uid}`;
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { freeRecordsCount: user.freeRecordsCount + 1 });
+      await updateDoc(userRef, { freeRecordsCount: (user.freeRecordsCount || 0) + 1 });
 
       return { id: docRef.id, alerts };
     } catch (e) {
@@ -307,7 +291,6 @@ if (!user.isPro) {
       throw new Error("El plan gratuito solo permite establecer 1 presupuesto (meta). Actualiza a Pro para presupuestos ilimitados.");
     }
 
-    // Calculate initial currentAmount based on existing transactions for the period
     const initialAmount = transactions
       .filter(t => {
         if (t.type !== 'expense') return false;
