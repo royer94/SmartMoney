@@ -351,35 +351,41 @@ export function useFinance() {
   };
 
   const activatePro = async (targetUserId?: string, months: number = 1) => {
-    const uid = targetUserId || user?.uid;
-    if (!uid) return;
-    const path = `users/${uid}`;
-    try {
-      const userRef = doc(db, 'users', uid);
-      const expiry = new Date();
-      expiry.setMonth(expiry.getMonth() + months);
-      await updateDoc(userRef, { 
-        isPro: true, 
-        proExpiresAt: expiry.toISOString() 
-      });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, path);
-    }
-  };
+  const uid = targetUserId || user?.uid;
+  if (!uid) return;
+  const path = `users/${uid}`;
+  try {
+    const userRef = doc(db, 'users', uid);
+    const expiry = new Date();
+    expiry.setMonth(expiry.getMonth() + months);
+    await updateDoc(userRef, { 
+      isPro: true,
+      isActive: true,          // Nuevo campo para indicar suscripción activa
+      isTrialActive: false,    // Limpiar trial
+      trialEndDate: null,      // Limpiar fecha de trial
+      proExpiresAt: expiry.toISOString() 
+    });
+  } catch (e) {
+    handleFirestoreError(e, OperationType.UPDATE, path);
+  }
+};
 
-  const deactivatePro = async (targetUserId: string) => {
-    if (!user?.isAdmin) return;
-    const path = `users/${targetUserId}`;
-    try {
-      const userRef = doc(db, 'users', targetUserId);
-      await updateDoc(userRef, { 
-        isPro: false, 
-        proExpiresAt: null 
-      });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, path);
-    }
-  };
+const deactivatePro = async (targetUserId: string) => {
+  if (!user?.isAdmin) return;
+  const path = `users/${targetUserId}`;
+  try {
+    const userRef = doc(db, 'users', targetUserId);
+    await updateDoc(userRef, { 
+      isPro: false,
+      isActive: false,
+      isTrialActive: false,    // Limpiar trial
+      trialEndDate: null,
+      proExpiresAt: null 
+    });
+  } catch (e) {
+    handleFirestoreError(e, OperationType.UPDATE, path);
+  }
+};
 
   const toggleRecurring = async (id: string, state: boolean) => {
     const path = `transactions/${id}`;
