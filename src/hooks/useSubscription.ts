@@ -24,21 +24,27 @@ export function useSubscription() {
     let trialRemainingDays = null;
     let trialIsActive = false;
 
-    if (user.isTrialActive && user.trialEndDate) {
-      const end = user.trialEndDate.toDate();
-      const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (diff > 0) {
-        trialRemainingDays = diff;
-        trialIsActive = true;
+    // Manejo seguro de trialEndDate
+    let trialEndDate = null;
+    if (user.trialEndDate) {
+      if (typeof user.trialEndDate.toDate === 'function') {
+        trialEndDate = user.trialEndDate.toDate();
+      } else if (user.trialEndDate instanceof Date) {
+        trialEndDate = user.trialEndDate;
+      } else if (typeof user.trialEndDate === 'string') {
+        trialEndDate = new Date(user.trialEndDate);
       }
     }
+    if (trialEndDate && trialEndDate > now) {
+      trialIsActive = true;
+      trialRemainingDays = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
 
-    // isPro si tiene suscripción activa pagada o trial activo
-    const isPro = !!user.isActive || trialIsActive || !!user.isPro;
+    // Soporte para campo antiguo isPro y nuevo isActive
+    const isPro = user.isActive === true || trialIsActive || user.isPro === true;
 
     const maxText = isPro ? Infinity : 40;
     const maxVoice = isPro ? Infinity : 10;
-
     const currentText = user.monthlyRecordCount ?? 0;
     const currentVoice = user.monthlyVoiceCount ?? 0;
 
