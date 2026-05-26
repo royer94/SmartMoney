@@ -4,9 +4,8 @@ import { signInWithGoogle, auth, db } from './lib/firebase';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
-import { UserProvider, useUser } from './context/UserContext';
 
-// Componentes pesados con exportación nombrada (se importan correctamente)
+// Componentes pesados con exportación nombrada
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const TransactionList = lazy(() => import('./components/TransactionList').then(module => ({ default: module.TransactionList })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(module => ({ default: module.AdminPanel })));
@@ -17,6 +16,7 @@ const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(m
 
 // Componentes ligeros o siempre necesarios
 import { ProBanner } from './components/ProBanner';
+import { SubscriptionNotifier } from './components/SubscriptionNotifier'; // ✅ IMPORTADO
 import { Logo } from './components/Logo';
 import { LandingPage } from './components/LandingPage';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -31,6 +31,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
+import { UserProvider, useUser } from './context/UserContext'; // Asegurar que UserProvider esté importado
+
+// ... resto del código (LoaderFallback, NavItem, etc.)
 
 const LoaderFallback = () => (
   <div className="p-10 text-center flex justify-center">
