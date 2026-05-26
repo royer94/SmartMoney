@@ -32,13 +32,7 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
         name: name.trim(),
         birthdate,
         onboardingDone: true,
-        // ✅ Campos de suscripción para nuevos usuarios
-        isTrialActive: true,
-        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        isActive: false,
-        monthlyRecordCount: 0,
-        monthlyVoiceCount: 0,
-        lastResetDate: new Date(),
+        // ❌ NO se agregan campos de trial aquí
       });
       onComplete(name.trim(), birthdate);
     } catch (e) {
@@ -52,13 +46,7 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
     try {
       await updateDoc(doc(db, 'users', userId), {
         onboardingDone: true,
-        // Aún así ponemos los campos por defecto
-        isTrialActive: true,
-        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        isActive: false,
-        monthlyRecordCount: 0,
-        monthlyVoiceCount: 0,
-        lastResetDate: new Date(),
+        // ❌ NO se agregan campos de trial
       });
       onComplete('', '');
     } catch (e) {}
@@ -71,7 +59,6 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
       >
-        {/* Header */}
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-white rounded-full blur-[80px]" />
@@ -87,7 +74,6 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
           </div>
         </div>
 
-        {/* Form */}
         <div className="p-8 space-y-6">
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
