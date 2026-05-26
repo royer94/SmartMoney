@@ -15,17 +15,31 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
     return <div className="p-6 bg-white rounded-3xl animate-pulse">Cargando...</div>;
   }
 
-  // Detección de Pro: suscripción activa (isActive) o campo antiguo isPro
+  // Si es Pro pagado (isActive o campo antiguo isPro), no mostrar banner
   const isProPaid = user.isActive === true || user.isPro === true;
-  const isTrial = user.isTrialActive === true && !isProPaid;
-
-  // Si es Pro pagado (incluyendo antiguos Pro), no mostrar banner
   if (isProPaid) {
     return null;
   }
 
-  // Si está en período de prueba
-  if (isTrial) {
+  // Detectar trial activo solo si isTrialActive es true y la fecha de fin es futura
+  let trialActive = false;
+  if (user.isTrialActive) {
+    let trialEnd = null;
+    if (user.trialEndDate) {
+      if (typeof user.trialEndDate.toDate === 'function') {
+        trialEnd = user.trialEndDate.toDate();
+      } else if (user.trialEndDate instanceof Date) {
+        trialEnd = user.trialEndDate;
+      } else if (typeof user.trialEndDate === 'string') {
+        trialEnd = new Date(user.trialEndDate);
+      }
+    }
+    if (trialEnd && trialEnd > new Date()) {
+      trialActive = true;
+    }
+  }
+
+  if (trialActive) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
         <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 rotate-12" />
@@ -43,7 +57,7 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
     );
   }
 
-  // Usuario gratuito estándar (sin trial ni pago)
+  // Usuario gratuito estándar
   const maxTextRecords = 40;
   const usedRecords = user.monthlyRecordCount ?? 0;
   const progress = (usedRecords / maxTextRecords) * 100;
