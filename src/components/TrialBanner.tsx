@@ -1,95 +1,78 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
+import { Timer, Zap } from 'lucide-react';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface TrialBannerProps {
-  userData: {
-    plan?: string;
-    isTrialActive?: boolean;
-    trialEndDate?: any; // Timestamp de Firebase
-  } | null;
-  onUpgrade?: () => void;
+  onUpgrade: () => void;
 }
 
-export const TrialBanner: React.FC<TrialBannerProps> = ({ userData, onUpgrade }) => {
-  const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
+export function TrialBanner({ onUpgrade }: TrialBannerProps) {
+  const { isTrialActive, trialRemainingDays, trialEndDate } = useSubscription();
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number }>({ days: 0, hours: 0, minutes: 0 });
 
   useEffect(() => {
-    if (userData?.trialEndDate) {
-      const fechaVencimiento = userData.trialEndDate.toDate 
-        ? userData.trialEndDate.toDate() 
-        : new Date(userData.trialEndDate.seconds * 1000);
-      
-      const hoy = new Date();
-      const diferenciaMs = fechaVencimiento.getTime() - hoy.getTime();
-      const dias = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
-      
-      setDiasRestantes(dias > 0 ? dias : 0);
-    }
-  }, [userData]);
+    if (!isTrialActive || !trialEndDate) return;
 
-  if (!userData || userData.plan !== 'trial' || diasRestantes === null) return null;
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const end = new Date(trialEndDate).getTime();
+      const diff = end - now;
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0 });
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (86400000)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (3600000)) / (1000 * 60));
+      setTimeLeft({ days, hours, minutes });
+    };
 
-  // 🌟 VARIANT 1: Modo Cortesía (Días 30 al 6) - Ultra compacto y flexible
-  if (diasRestantes > 5) {
-    return (
-      <div className="w-full bg-slate-900 text-slate-300 text-xs py-2 px-4 flex flex-wrap items-center justify-center gap-2 border-b border-slate-800 text-center break-words">
-        <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse shrink-0" />
-        <span>
-          Modo <span className="text-white font-semibold">SmartMoney AI Pro</span> activado. Te quedan {diasRestantes} días de prueba.
-        </span>
-        <button 
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000); // actualizar cada minuto
+    return () => clearInterval(interval);
+  }, [isTrialActive, trialEndDate]);
+
+  if (!isTrialActive) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl mb-6"
+    >
+      <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
+      <div className="relative p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-full">
+            <Timer className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80">Período de prueba activo</p>
+            <h4 className="text-lg font-black">SmartMoney Pro</h4>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <span className="text-2xl font-black">{timeLeft.days}</span>
+            <p className="text-[10px] uppercase">Días</p>
+          </div>
+          <div className="text-center">
+            <span className="text-2xl font-black">{timeLeft.hours}</span>
+            <p className="text-[10px] uppercase">Horas</p>
+          </div>
+          <div className="text-center">
+            <span className="text-2xl font-black">{timeLeft.minutes}</span>
+            <p className="text-[10px] uppercase">Min</p>
+          </div>
+        </div>
+        <button
           onClick={onUpgrade}
-          className="ml-2 text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded transition-all shrink-0"
+          className="px-5 py-2 bg-white text-indigo-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-50 transition-all shadow-md"
         >
-          Asegurar Pro
+          <Zap className="w-4 h-4" /> Suscribirme
         </button>
       </div>
-    );
-  }
-
-  // 🌟 VARIANT 2: Modo Urgencia / Vencido (Días 5 al 0) - Seguro ante desbordes
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-md"
-      >
-        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          
-          {/* Contenedor del texto: eliminamos 'truncate' y forzamos multilínea con 'normal' y 'break-words' */}
-          <div className="flex items-center flex-1 gap-3 w-full sm:w-auto">
-            <span className="flex p-2 rounded-lg bg-white/10 animate-pulse shrink-0">
-              <ShieldAlert className="h-5 w-5 text-amber-300" />
-            </span>
-            
-            <p className="font-medium text-sm sm:text-base whitespace-normal break-words leading-tight">
-              {diasRestantes > 0 ? (
-                <>
-                  ¡Atención! Tu prueba de <span className="font-extrabold underline decoration-wavy">SmartMoney AI Pro</span> está por expirar. 
-                  Te quedan solo <span className="font-black text-amber-300 bg-white/10 px-2 py-0.5 rounded-md whitespace-nowrap">{diasRestantes} {diasRestantes === 1 ? 'día' : 'días'}</span>.
-                </>
-              ) : (
-                <>Tu periodo de prueba Pro ha vencido. Tu cuenta pasará al plan Free limitado.</>
-              )}
-            </p>
-          </div>
-
-          {/* Contenedor del botón: evita deformaciones */}
-          <div className="flex-shrink-0 w-full sm:w-auto">
-            <button
-              onClick={onUpgrade}
-              className="w-full flex items-center justify-center px-5 py-2 rounded-full bg-white text-indigo-700 font-bold text-sm shadow-sm hover:bg-indigo-50 transition-all duration-300 transform hover:scale-105 active:scale-95 group whitespace-nowrap"
-            >
-              {diasRestantes > 0 ? 'Mantener mi Plan Pro' : 'Actualizar a Pro'}
-              <ArrowRight className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform shrink-0" />
-            </button>
-          </div>
-
-        </div>
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
-};
+}
