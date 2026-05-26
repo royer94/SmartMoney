@@ -286,10 +286,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
       animate={{ opacity: 1 }}
       className="space-y-8 pb-32 transition-colors"
     >
-      {/* 🌟 Solo muestra el banner si el usuario NO es Pro ni está activo */}
-{!user.isPro && !user.isActive && (
-  <TrialBanner userData={user} onUpgrade={onUpgrade} />
-)}
+          <TrialBanner onUpgrade={onUpgrade} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* ... Todo el resto de tu código intacto ... */}
