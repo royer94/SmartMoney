@@ -32,6 +32,7 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { TrialBanner } from './TrialBanner';
+import { TrialBanner } from './TrialBanner';
 
 // Helper para filtrar transacciones no eliminadas (si existe campo deleted)
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
