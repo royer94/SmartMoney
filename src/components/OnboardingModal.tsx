@@ -16,10 +16,9 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Calcular edad máxima/mínima para el input
   const today = new Date();
   const maxDate = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate())
-    .toISOString().split('T')[0]; // mínimo 13 años
+    .toISOString().split('T')[0];
   const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate())
     .toISOString().split('T')[0];
 
@@ -33,6 +32,13 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
         name: name.trim(),
         birthdate,
         onboardingDone: true,
+        // ✅ Campos de suscripción para nuevos usuarios
+        isTrialActive: true,
+        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        isActive: false,
+        monthlyRecordCount: 0,
+        monthlyVoiceCount: 0,
+        lastResetDate: new Date(),
       });
       onComplete(name.trim(), birthdate);
     } catch (e) {
@@ -44,7 +50,16 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
 
   const handleSkip = async () => {
     try {
-      await updateDoc(doc(db, 'users', userId), { onboardingDone: true });
+      await updateDoc(doc(db, 'users', userId), {
+        onboardingDone: true,
+        // Aún así ponemos los campos por defecto
+        isTrialActive: true,
+        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        isActive: false,
+        monthlyRecordCount: 0,
+        monthlyVoiceCount: 0,
+        lastResetDate: new Date(),
+      });
       onComplete('', '');
     } catch (e) {}
   };
@@ -74,7 +89,6 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
 
         {/* Form */}
         <div className="p-8 space-y-6">
-          {/* Nombre */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
               <User className="w-3.5 h-3.5" />
@@ -90,7 +104,6 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
             />
           </div>
 
-          {/* Fecha de nacimiento */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5" />
@@ -113,7 +126,6 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
             <p className="text-red-500 text-sm font-medium text-center">{error}</p>
           )}
 
-          {/* Botones */}
           <div className="space-y-3 pt-2">
             <button
               onClick={handleSubmit}
