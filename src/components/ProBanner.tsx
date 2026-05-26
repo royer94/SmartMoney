@@ -11,21 +11,20 @@ interface ProBannerProps {
 }
 
 export function ProBanner({ user, onUpgrade }: ProBannerProps) {
-  // 1. Si no hay usuario, retornamos null o carga
   if (!user) {
     return <div className="p-6 bg-white rounded-3xl animate-pulse">Cargando...</div>;
   }
 
-  // 2. Lógica de estados
-  const isProPaid = !!user.isActive; // Usuario con suscripción activa pagada
-  const isTrial = !!user.isTrialActive && !isProPaid; // Usuario en trial sin suscripción pagada
+  // Detección de Pro: suscripción activa (isActive) o campo antiguo isPro
+  const isProPaid = user.isActive === true || user.isPro === true;
+  const isTrial = user.isTrialActive === true && !isProPaid;
 
-  // 3. Si el usuario ya pagó (es Pro real), NO mostramos banner de trial
+  // Si es Pro pagado (incluyendo antiguos Pro), no mostrar banner
   if (isProPaid) {
     return null;
   }
 
-  // 4. Si es usuario en Trial, mostramos el banner de prueba
+  // Si está en período de prueba
   if (isTrial) {
     return (
       <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-3xl text-white shadow-xl shadow-blue-600/20 relative overflow-hidden">
@@ -44,9 +43,9 @@ export function ProBanner({ user, onUpgrade }: ProBannerProps) {
     );
   }
 
-  // 5. Usuario gratuito estándar (sin trial ni pago)
+  // Usuario gratuito estándar (sin trial ni pago)
   const maxTextRecords = 40;
-  const usedRecords = user.monthlyRecordCount || 0;
+  const usedRecords = user.monthlyRecordCount ?? 0;
   const progress = (usedRecords / maxTextRecords) * 100;
 
   return (
