@@ -1,11 +1,11 @@
 // src/hooks/useSubscription.ts
 import { useMemo } from 'react';
-import { useFinance } from './useFinance';
+import { useUser } from '../context/UserContext';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export function useSubscription() {
-  const { user, refreshUser } = useFinance();
+  const { user, refreshUser } = useUser();
 
   const status = useMemo(() => {
     if (!user) {
@@ -21,25 +21,21 @@ export function useSubscription() {
     }
 
     const now = new Date();
-    
-    // Lógica estricta de Trial
     let trialRemainingDays = null;
     let trialIsActive = false;
 
     if (user.isTrialActive && user.trialEndDate) {
       const end = user.trialEndDate.toDate();
       const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
       if (diff > 0) {
         trialRemainingDays = diff;
         trialIsActive = true;
       }
     }
 
-    // Definición real de isPro: O tiene suscripción activa o el trial está vigente
+    // isPro si tiene suscripción activa pagada o trial activo
     const isPro = !!user.isActive || trialIsActive;
 
-    // Límites de plan: 40 texto, 10 voz si es gratuito
     const maxText = isPro ? Infinity : 40;
     const maxVoice = isPro ? Infinity : 10;
 
@@ -60,7 +56,6 @@ export function useSubscription() {
     };
   }, [user]);
 
-  // Consumir un registro
   const consumeRecord = async (type: 'text' | 'voice') => {
     if (!user) return;
     const field = type === 'text' ? 'monthlyRecordCount' : 'monthlyVoiceCount';
