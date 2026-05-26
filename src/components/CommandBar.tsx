@@ -5,6 +5,9 @@ import { parseTransaction, generateVoiceReport } from '../lib/gemini';
 import { Transaction, UserProfile, COMMANDS, FREE_LIMIT } from '../types';
 import { cn, formatCurrency } from '../lib/utils';
 import { FINANCE_TIPS } from '../lib/tips';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useUser } from '../context/UserContext';
 
 interface Message {
   id: string;
@@ -242,7 +245,6 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ]
 };
 
-// Helper para detectar si un texto es de supermercado (para sobreescribir categoría)
 const isSupermercadoText = (text: string): boolean => {
   if (!text) return false;
   const normalized = normalizeForNlp(text);
@@ -268,7 +270,6 @@ const parseLocalTransaction = (text: string) => {
     else if (expenseContext && !incomeContext) type = 'expense';
   }
   
-  // --- PRIORIDAD ESPECIAL: Si hay palabra de supermercado, asignar directamente ---
   const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
   const isSupermercado = supermercadoKeywords.some(keyword => normalized.includes(keyword));
   
@@ -278,7 +279,6 @@ const parseLocalTransaction = (text: string) => {
   if (isSupermercado) {
     category = 'Supermercado';
   } else {
-    // Evaluar el resto de categorías (excluyendo Supermercado para no duplicar)
     for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
       if (cat === 'Supermercado') continue;
       let matches = 0;
@@ -292,7 +292,6 @@ const parseLocalTransaction = (text: string) => {
     }
   }
   
-  // Ajustes para ingresos (sobrescribe categoría si es salario, ventas, etc.)
   if (type === 'income') {
     if (normalized.includes('salario') || normalized.includes('nomina') || normalized.includes('nómina') || normalized.includes('sueldo')) category = 'Salario';
     else if (normalized.includes('venta') || normalized.includes('vendí') || normalized.includes('vendió') || normalized.includes('facturé')) category = 'Ventas';
@@ -353,6 +352,7 @@ const sanitizeAndParseAIResponse = (result: any) => {
 };
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
+  const { user: contextUser, refreshUser } = useUser();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = sessionStorage.getItem('smartmoney_chat_messages');
@@ -365,6 +365,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const isRecordingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTrialOffer, setShowTrialOffer] = useState(false);
   const silenceTimer = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -466,7 +467,32 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     }
   };
 
+  const activateTrial = async () => {
+    if (!contextUser) return;
+    try {
+      const userRef = doc(db, 'users', contextUser.uid);
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 15);
+      await updateDoc(userRef, {
+        isTrialActive: true,
+        trialEndDate: trialEnd,
+      });
+      if (refreshUser) await refreshUser();
+      setShowTrialOffer(false);
+      addMessage('ai', '🎉 ¡Genial! Has activado tu prueba gratuita de 15 días de SmartMoney Pro. Disfruta de todas las funciones ilimitadas durante este período. El contador empezará a correr ahora mismo.');
+    } catch (error) {
+      console.error('Error activando trial:', error);
+      addMessage('ai', 'Hubo un error al activar tu prueba. Por favor, inténtalo de nuevo más tarde.');
+    }
+  };
+
   const confirmTransaction = async (msgId: string, tx: any) => {
+    // Detectar primer registro y ofrecer trial
+    const isFirstTransaction = transactions.length === 0 && !contextUser?.isTrialActive && !contextUser?.isActive;
+    if (isFirstTransaction && !showTrialOffer) {
+      setShowTrialOffer(true);
+      return; // No registrar hasta que el usuario decida
+    }
     try {
       setIsLoading(true);
       const normalizedTx = normalizeTransaction(tx);
@@ -536,14 +562,11 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             let finalTx = null;
             let transcribedText = '';
             
-            // Caso 1: El resultado ya es un objeto de transacción (type, amount, category, description)
             if (transcriptionResult && typeof transcriptionResult === 'object' && transcriptionResult.amount && transcriptionResult.type) {
               console.log("✅ Resultado directo de IA (objeto transacción)");
               finalTx = transcriptionResult;
-              // Intentar extraer el texto original si está disponible (podría no estarlo)
               transcribedText = finalTx.description || '';
             } 
-            // Caso 2: Es un string, intentar extraer texto y luego parsear
             else if (typeof transcriptionResult === 'string' && transcriptionResult.trim()) {
               console.log("📝 Texto transcrito:", transcriptionResult);
               transcribedText = transcriptionResult;
@@ -564,7 +587,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
               throw new Error('No se pudo obtener una transacción válida del audio');
             }
             
-            // ✅ FORZAR CATEGORÍA SUPERMERCADO si el texto o descripción contiene palabras clave
             if (finalTx && (isSupermercadoText(transcribedText) || isSupermercadoText(finalTx.description))) {
               console.log("🛒 Detectado supermercado, forzando categoría a 'Supermercado'");
               finalTx.category = 'Supermercado';
@@ -687,6 +709,45 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           </button>
         </div>
       </div>
+
+      {/* Modal de oferta de trial */}
+      <AnimatePresence>
+        {showTrialOffer && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl"
+            >
+              <h3 className="text-xl font-bold text-slate-900 mb-2">🎁 Prueba SmartMoney Pro</h3>
+              <p className="text-slate-600 text-sm mb-4">
+                ¡Activa tu prueba gratuita de <strong>15 días</strong> y disfruta de:
+              </p>
+              <ul className="list-disc list-inside text-sm text-slate-600 space-y-1 mb-6">
+                <li>Registros ilimitados (texto y voz)</li>
+                <li>Simulador de libertad financiera</li>
+                <li>Reportes PDF/CSV avanzados</li>
+                <li>Presupuestos y metas ilimitadas</li>
+              </ul>
+              <div className="flex gap-3">
+                <button
+                  onClick={activateTrial}
+                  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
+                >
+                  Aceptar y probar
+                </button>
+                <button
+                  onClick={() => setShowTrialOffer(false)}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Ahora no
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
