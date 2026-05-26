@@ -34,7 +34,7 @@ export function useSubscription() {
     }
 
     // isPro si tiene suscripción activa pagada o trial activo
-    const isPro = !!user.isActive || trialIsActive;
+    const isPro = !!user.isActive || trialIsActive || !!user.isPro;
 
     const maxText = isPro ? Infinity : 40;
     const maxVoice = isPro ? Infinity : 10;
