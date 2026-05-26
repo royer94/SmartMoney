@@ -1,13 +1,13 @@
 // context/UserContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onSnapshot, doc } from 'firebase/firestore';
+import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { UserProfile } from '../types';
 
 interface UserContextType {
   user: UserProfile | null;
   loading: boolean;
-  refreshUser: () => void; // Forzar recarga (opcional)
+  refreshUser: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -37,26 +37,40 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setLoading(true);
     const userRef = doc(db, 'users', userId);
-    const unsubscribe = onSnapshot(userRef, (snap) => {
+    const unsubscribe = onSnapshot(userRef, async (snap) => {
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
-        setUser({ ...data, uid: userId, isAdmin: (data as any).isAdmin || false });
+        // Asegurar valores por defecto para campos que podrían faltar (por si acaso)
+        const userData: UserProfile = {
+          ...data,
+          uid: userId,
+          isAdmin: (data as any).isAdmin || false,
+          // Los campos de suscripción pueden no existir inicialmente; se asignan después
+          isActive: data.isActive ?? false,
+          isPro: data.isPro ?? false,
+          isTrialActive: data.isTrialActive ?? false,
+          trialEndDate: data.trialEndDate ?? null,
+          monthlyRecordCount: data.monthlyRecordCount ?? 0,
+          monthlyVoiceCount: data.monthlyVoiceCount ?? 0,
+          lastResetDate: data.lastResetDate ?? null,
+        };
+        setUser(userData);
       } else {
-        // Crear usuario si no existe (similar a como lo hace useFinance)
+        // Crear usuario nuevo SOLO con campos básicos (sin trial)
         const newUser: UserProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
           isPro: false,
-          freeRecordsCount: 0,
-          // Campos de suscripción
-          isTrialActive: true,
-          trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           isActive: false,
+          isTrialActive: false,
+          trialEndDate: null,
           monthlyRecordCount: 0,
           monthlyVoiceCount: 0,
-          lastResetDate: new Date(),
+          lastResetDate: null,
+          freeRecordsCount: 0,
+          onboardingDone: false,
         };
-        setDoc(userRef, newUser);
+        await setDoc(userRef, newUser);
         setUser(newUser);
       }
       setLoading(false);
@@ -70,7 +84,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = () => {
     // No es necesario con onSnapshot, pero se deja por compatibilidad
-    // Si se necesita, se puede forzar una recarga manual (ej. recargando la página)
   };
 
   return (
