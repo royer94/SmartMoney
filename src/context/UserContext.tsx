@@ -52,26 +52,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           monthlyRecordCount: data.monthlyRecordCount ?? 0,
           monthlyVoiceCount: data.monthlyVoiceCount ?? 0,
           lastResetDate: data.lastResetDate ?? null,
-          // ✅ Nuevos campos para la oferta de trial
+          // Campos para la oferta de trial
           trialOfferLastShown: data.trialOfferLastShown ?? 0,
           trialOfferAccepted: data.trialOfferAccepted ?? false,
         };
         setUser(userData);
       } else {
-        // Crear usuario nuevo con todos los campos necesarios (incluyendo los de oferta de trial)
+        // ✅ Crear usuario nuevo con período de prueba ACTIVO por 15 días
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 15); // 15 días de prueba
+
         const newUser: UserProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
           isPro: false,
           isActive: false,
-          isTrialActive: false,
-          trialEndDate: null,
+          isTrialActive: true,
+          trialEndDate: trialEnd,
           monthlyRecordCount: 0,
           monthlyVoiceCount: 0,
-          lastResetDate: null,
+          lastResetDate: new Date(),
           freeRecordsCount: 0,
           onboardingDone: false,
-          // ✅ Inicializar campos de oferta de trial
           trialOfferLastShown: 0,
           trialOfferAccepted: false,
         };
