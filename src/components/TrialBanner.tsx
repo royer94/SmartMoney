@@ -9,9 +9,10 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
-  // ✅ No mostrar si el usuario es Pro o tiene suscripción activa
-  const isProOrActive = !!(user?.isPro || user?.isActive);
-  const showTrial = !!user?.isTrialActive && !isProOrActive;
+  // ✅ Mostrar solo si está en período de prueba Y no es Pro (pago o legacy)
+  const isPro = user?.isPro === true;
+  const isTrialActive = user?.isTrialActive === true;
+  const showTrial = isTrialActive && !isPro;
 
   if (!showTrial) return null;
 
