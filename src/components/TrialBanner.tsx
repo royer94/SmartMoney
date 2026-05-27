@@ -1,3 +1,4 @@
+// src/components/TrialBanner.tsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Timer, Zap } from 'lucide-react';
@@ -29,7 +30,7 @@ export function TrialBanner({ onUpgrade }: TrialBannerProps) {
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 60000); // actualizar cada minuto
+    const interval = setInterval(updateTimer, 60000); // cada minuto
     return () => clearInterval(interval);
   }, [isTrialActive, trialEndDate]);
 
@@ -37,40 +38,39 @@ export function TrialBanner({ onUpgrade }: TrialBannerProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl mb-6"
+      className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md mb-4"
     >
-      <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
-      <div className="relative p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-full">
-            <Timer className="w-6 h-6" />
+      <div className="relative px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-white/20 rounded-full">
+            <Timer className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider opacity-80">Período de prueba activo</p>
-            <h4 className="text-lg font-black">SmartMoney Pro</h4>
+            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Prueba activa</p>
+            <h4 className="text-sm font-black">SmartMoney Pro</h4>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="text-center">
-            <span className="text-2xl font-black">{timeLeft.days}</span>
-            <p className="text-[10px] uppercase">Días</p>
+            <span className="text-xl font-black">{timeLeft.days}</span>
+            <p className="text-[8px] uppercase">Días</p>
           </div>
           <div className="text-center">
-            <span className="text-2xl font-black">{timeLeft.hours}</span>
-            <p className="text-[10px] uppercase">Horas</p>
+            <span className="text-xl font-black">{timeLeft.hours}</span>
+            <p className="text-[8px] uppercase">Horas</p>
           </div>
           <div className="text-center">
-            <span className="text-2xl font-black">{timeLeft.minutes}</span>
-            <p className="text-[10px] uppercase">Min</p>
+            <span className="text-xl font-black">{timeLeft.minutes}</span>
+            <p className="text-[8px] uppercase">Min</p>
           </div>
         </div>
         <button
           onClick={onUpgrade}
-          className="px-5 py-2 bg-white text-indigo-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-50 transition-all shadow-md"
+          className="px-3 py-1.5 bg-white text-indigo-700 rounded-lg font-bold text-xs flex items-center gap-1 hover:bg-indigo-50 transition-all shadow"
         >
-          <Zap className="w-4 h-4" /> Suscribirme
+          <Zap className="w-3 h-3" /> Suscribirme
         </button>
       </div>
     </motion.div>
