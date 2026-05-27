@@ -9,40 +9,41 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
-  // Depuración (opcional, eliminar después)
-  console.log('[TrialBanner] user recibido:', user);
+  if (!user) return null;
 
-  if (!user) {
-    console.log('[TrialBanner] No user, return null');
-    return null;
-  }
-
-  // Determinar si es Pro (no mostrar banner)
   const isPro = user.isPro === true;
-  
-  // Determinar si está en prueba: isTrialActive o trialEndDate futuro
   let isTrial = user.isTrialActive === true;
-  
-  if (!isTrial && user.trialEndDate) {
-    const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
-    if (end > new Date()) {
+
+  // Inferir trial desde trialEndDate
+  let trialEndDateObj: Date | null = null;
+  if (user.trialEndDate) {
+    // Convertir a Date: si es Timestamp de Firestore, usar .toDate()
+    if (typeof user.trialEndDate.toDate === 'function') {
+      trialEndDateObj = user.trialEndDate.toDate();
+    } else {
+      trialEndDateObj = new Date(user.trialEndDate);
+    }
+    // Si la fecha es válida y futura, activar trial si no lo estaba
+    if (!isTrial && trialEndDateObj > new Date()) {
       isTrial = true;
-      console.log('[TrialBanner] Trial detectado por fecha futura');
     }
   }
 
   const showTrial = isTrial && !isPro;
-  console.log(`[TrialBanner] isPro=${isPro}, isTrial=${isTrial}, showTrial=${showTrial}`);
-
   if (!showTrial) return null;
 
-  // Calcular días restantes
-  let daysLeft = null;
-  if (user.trialEndDate) {
-    const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
-    const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    if (diff > 0) daysLeft = diff;
+  // ✅ Cálculo de días restantes (asegurar que sea un entero positivo)
+  let daysLeft: number | null = null;
+  if (trialEndDateObj) {
+    const now = new Date();
+    const diffTime = trialEndDateObj.getTime() - now.getTime();
+    if (diffTime > 0) {
+      daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
   }
+
+  // Si no se pudo calcular pero la fecha era futura, mostrar un mensaje genérico
+  const showDays = daysLeft !== null && daysLeft > 0;
 
   return (
     <motion.div
@@ -57,10 +58,12 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
           </div>
           <div>
             <h4 className="font-bold text-white text-sm">Período de prueba activo</h4>
-            {daysLeft !== null && (
+            {showDays ? (
               <p className="text-xs text-indigo-100">
                 Te quedan {daysLeft} {daysLeft === 1 ? 'día' : 'días'} de prueba
               </p>
+            ) : (
+              <p className="text-xs text-indigo-100">Prueba activa</p>
             )}
           </div>
         </div>
