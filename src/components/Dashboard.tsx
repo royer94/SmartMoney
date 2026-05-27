@@ -31,10 +31,8 @@ import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { TrialBanner } from './TrialBanner';
 
-// Helper para filtrar transacciones no eliminadas (si existe campo deleted)
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
-// Formateo compacto para el gráfico
 const compactCurrency = (value: number): string => {
   if (value >= 1_000_000) {
     const millions = value / 1_000_000;
@@ -79,8 +77,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   onUpgrade?: () => void, 
   onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> 
 }) {
-  // ✅ SOLUCIÓN PRINCIPAL: Definir isPro basado en el perfil del usuario
-  const isPro = user?.isPro ?? false;
+  // ✅ Acceso Pro: pago O trial activo
+  const hasProAccess = !!(user.isPro || user.isTrialActive || user.isActive);
+  
+  // ✅ Copia del usuario con isPro = true para que los componentes hijos (SubscriptionManager, AIAdvisor, etc.) funcionen en trial
+  const proUser = { ...user, isPro: hasProAccess };
 
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
@@ -115,7 +116,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPro && goals.length >= 1) {
+    if (!hasProAccess && goals.length >= 1) {
       onUpgrade?.();
       return;
     }
@@ -242,7 +243,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     exportTransactionsToCSV(filtered, periodLabel);
   };
 
-  // Categorías del mes actual (para el gráfico)
   const categoryTotals = React.useMemo(() => {
     const currentMonthExpensesList = transactions.filter(t => {
       if (!notDeleted(t)) return false;
@@ -335,7 +335,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
           </div>
           <button 
             onClick={() => {
-              if (!isPro) {
+              if (!hasProAccess) {
                 alert("El Modo Privacidad es una función Pro. Ideal para ocultar tus cifras en lugares públicos.");
                 return;
               }
@@ -365,9 +365,9 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
           >
             <FreedomSimulator 
               user={{
-                ...user,
-                birthDate: user.birthDate || (user as any).birthdate || '',
-                birthdate: (user as any).birthdate || user.birthDate || ''
+                ...proUser,
+                birthDate: proUser.birthDate || (proUser as any).birthdate || '',
+                birthdate: (proUser as any).birthdate || proUser.birthDate || ''
               }} 
               balance={currentMonthBalance} 
               actualMonthlySavings={currentMonthIncome - currentMonthExpenses} 
@@ -393,13 +393,13 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div onClick={() => {
-                if (!isPro) { alert("Los detalles de gastos son una función Pro."); return; }
+                if (!hasProAccess) { alert("Los detalles de gastos son una función Pro."); return; }
                 setShowExpenseDetails(true);
               }} className="cursor-pointer">
                 <StatCard label="Total Gastos (este mes)" amount={currentMonthExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
               </div>
               <div onClick={() => {
-                if (!isPro) { alert("Los detalles de ingresos son una función Pro."); return; }
+                if (!hasProAccess) { alert("Los detalles de ingresos son una función Pro."); return; }
                 setShowIncomeDetails(true);
               }} className="cursor-pointer">
                 <StatCard label="Total Ingresos (este mes)" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
@@ -411,10 +411,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <AIAdvisor user={user} transactions={transactions} goals={goals} onUpgrade={onUpgrade} />
+                <AIAdvisor user={proUser} transactions={transactions} goals={goals} onUpgrade={onUpgrade} />
               </div>
               <div>
-                <SubscriptionManager user={user} transactions={transactions} toggleRecurring={toggleRecurring} onUpgrade={onUpgrade} />
+                <SubscriptionManager user={proUser} transactions={transactions} toggleRecurring={toggleRecurring} onUpgrade={onUpgrade} />
               </div>
             </div>
 
@@ -501,10 +501,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               <div className="glass p-8 rounded-[2.5rem] transition-colors">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="font-bold text-lg">Historial de Flujo (Pro)</h3>
-                  {!isPro && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase border border-amber-100">Solo Pro</span>}
+                  {!hasProAccess && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase border border-amber-100">Solo Pro</span>}
                 </div>
                 <div className="h-64 mt-4 relative">
-                  {!isPro && (
+                  {!hasProAccess && (
                     <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-2xl">
                       <div className="text-center">
                         <Lock className="w-10 h-10 text-slate-400 mx-auto mb-2" />
@@ -528,7 +528,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             </div>
 
             <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-50 to-white border-slate-100 transition-colors relative overflow-hidden">
-              {!isPro && (
+              {!hasProAccess && (
                 <div className="absolute inset-0 z-10 bg-white/40 backdrop-blur-[1px] flex items-center justify-center">
                   <div className="text-center p-6 bg-white/90 rounded-3xl shadow-xl border border-slate-100 max-w-xs">
                     <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
@@ -550,7 +550,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 <button 
                   type="button"
                   onClick={() => {
-                    if (!isPro) {
+                    if (!hasProAccess) {
                       alert("La descarga de reportes es una función Pro. ¡Suscríbete para acceder!");
                       return;
                     }
@@ -567,7 +567,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Expense Details Modal */}
+      {/* Modales (sin cambios) */}
       <AnimatePresence>
         {showExpenseDetails && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
@@ -604,7 +604,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Income Details Modal */}
       <AnimatePresence>
         {showIncomeDetails && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
@@ -641,7 +640,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Report Customizer Modal */}
       <AnimatePresence>
         {showReportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
@@ -702,86 +700,43 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* Goal Form Modal */}
       <AnimatePresence>
         {showGoalForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="glass max-w-sm w-full p-8 rounded-[2.5rem]"
-            >
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="glass max-w-sm w-full p-8 rounded-[2.5rem]">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold">Crear Presupuesto</h3>
-                <button
-                  onClick={() => setShowGoalForm(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+                <button onClick={() => setShowGoalForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
               </div>
               <form onSubmit={handleAddGoal} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">
-                    Monto Límite Objetivo
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="$ 0.00"
-                    value={newGoal.target}
-                    onChange={(e) => setNewGoal({ ...newGoal, target: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors"
-                  />
+                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Monto Límite Objetivo</label>
+                  <input type="number" required placeholder="$ 0.00" value={newGoal.target} onChange={(e) => setNewGoal({ ...newGoal, target: e.target.value })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Mes</label>
-                    <select
-                      value={newGoal.month}
-                      onChange={(e) => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700"
-                    >
-                      {MONTHS.map((m, idx) => (
-                        <option key={m} value={idx + 1}>{m}</option>
-                      ))}
+                    <select value={newGoal.month} onChange={(e) => setNewGoal({ ...newGoal, month: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
+                      {MONTHS.map((m, idx) => <option key={m} value={idx + 1}>{m}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Año</label>
-                    <select
-                      value={newGoal.year}
-                      onChange={(e) => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700"
-                    >
-                      {YEARS.map((y) => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
+                    <select value={newGoal.year} onChange={(e) => setNewGoal({ ...newGoal, year: parseInt(e.target.value) })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700">
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold mt-4 shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
-                >
-                  Establecer Presupuesto
-                </button>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold mt-4 shadow-lg shadow-blue-600/30 active:scale-95 transition-all">Establecer Presupuesto</button>
               </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Profile Modal */}
       <AnimatePresence>
         {isProfileSettingsOpen && (
-          <ProfileSettingsModal
-            isOpen={isProfileSettingsOpen}
-            onClose={() => setIsProfileSettingsOpen(false)}
-            user={user}
-            onUpdateProfile={onUpdateProfile}
-          />
+          <ProfileSettingsModal isOpen={isProfileSettingsOpen} onClose={() => setIsProfileSettingsOpen(false)} user={user} onUpdateProfile={onUpdateProfile} />
         )}
       </AnimatePresence>
     </motion.div>
