@@ -9,21 +9,31 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
-  if (!user) return null;
+  // Depuración (opcional, eliminar después)
+  console.log('[TrialBanner] user recibido:', user);
 
-  // Determinar si está en prueba (evitar mostrar a usuarios Pro)
+  if (!user) {
+    console.log('[TrialBanner] No user, return null');
+    return null;
+  }
+
+  // Determinar si es Pro (no mostrar banner)
   const isPro = user.isPro === true;
+  
+  // Determinar si está en prueba: isTrialActive o trialEndDate futuro
   let isTrial = user.isTrialActive === true;
-
-  // Si no está marcado como trial pero tiene fecha futura, forzar
+  
   if (!isTrial && user.trialEndDate) {
     const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
     if (end > new Date()) {
       isTrial = true;
+      console.log('[TrialBanner] Trial detectado por fecha futura');
     }
   }
 
   const showTrial = isTrial && !isPro;
+  console.log(`[TrialBanner] isPro=${isPro}, isTrial=${isTrial}, showTrial=${showTrial}`);
+
   if (!showTrial) return null;
 
   // Calcular días restantes
