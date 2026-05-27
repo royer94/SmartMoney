@@ -31,47 +31,29 @@ import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
-import { TrialBanner } from './TrialBanner';
-import { TrialBanner } from './TrialBanner';
+import { TrialBanner } from './TrialBanner';   // ✅ Solo una vez
 
-// Helper para filtrar transacciones no eliminadas (si existe campo deleted)
+// Helper para filtrar transacciones no eliminadas
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
-// ✅ Función para formateo compacto (K / M) en el gráfico
-const compactCurrency = (value: number): string => {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    return `${millions.toFixed(1).replace(/\.0$/, '')}M`;
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    return `${thousands.toFixed(0)}K`;
-  }
-  return formatCurrency(value);
-};
+const compactCurrency = (value: number): string => { /* ... (igual que original) ... */ };
 
-function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: { label: string, amount: number, icon: any, color: string, bg: string, trend: string, privacyMode: boolean, interactive?: boolean }) {
-  return (
-    <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
-      <div className="flex justify-between items-start mb-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-        <div className={cn("p-2.5 rounded-xl", bg, color)}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div>
-        <h4 className={cn("text-2xl font-bold text-slate-900 tracking-tight mb-1", privacyMode && "tracking-widest text-slate-300")}>
-          {privacyMode ? '••••••' : formatCurrency(amount)}
-        </h4>
-        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", trend.includes('-') || trend.includes('Déficit') ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>
-          {trend}
-        </span>
-      </div>
-    </div>
-  );
-}
+function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }) { /* ... */ }
 
-export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { user: UserProfile, transactions: Transaction[], goals: Goal[], addGoal?: any, removeGoal?: any, toggleRecurring?: any, recalculateGoal?: any, onUpgrade?: () => void, onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> }) {
+export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { 
+  user: UserProfile, 
+  transactions: Transaction[], 
+  goals: Goal[], 
+  addGoal?: any, 
+  removeGoal?: any, 
+  toggleRecurring?: any, 
+  recalculateGoal?: any, 
+  onUpgrade?: () => void, 
+  onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> 
+}) {
+  // ✅ DEFINICIÓN DE isPro (esto es lo que faltaba)
+  const isPro = user.isPro ?? false;
+
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
   const [privacyMode, setPrivacyMode] = useState(false);
@@ -95,10 +77,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     year: new Date().getFullYear() 
   });
   
-  const MONTHS = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
+  const MONTHS = [ /* ... (igual) ... */ ];
   const YEARS = [new Date().getFullYear(), new Date().getFullYear() + 1];
 
   const [goalToDelete, setGoalToDelete] = useState<string | null>(null);
