@@ -3,38 +3,44 @@ import { Target, TrendingUp, Info, Calculator, Heart, User, Zap, Flame, RefreshC
 import { motion } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
 import { UserProfile } from '../types';
-import { useSubscription } from '../hooks/useSubscription';
 
-export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { user: UserProfile, balance: number, actualMonthlySavings?: number, onUpgrade?: () => void }) {
+export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { 
+  user: UserProfile, 
+  balance: number, 
+  actualMonthlySavings?: number, 
+  onUpgrade?: () => void 
+}) {
+  // ✅ Definir isPro (del usuario o false)
+  const isPro = user?.isPro ?? false;
   
-  // --- PERSISTENCIA DE ESTADOS EN LOCALSTORAGE (asociados al ID del usuario) ---
+  // --- PERSISTENCIA DE ESTADOS EN LOCALSTORAGE (usando user.uid en lugar de user.id) ---
   const [currentSavings, setCurrentSavings] = useState(() => {
-    const saved = localStorage.getItem(`fs_savings_${user.id}`);
+    const saved = localStorage.getItem(`fs_savings_${user.uid}`);
     return saved ? Number(saved) : 0;
   });
 
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(() => {
-    const saved = localStorage.getItem(`fs_savings_goal_${user.id}`);
+    const saved = localStorage.getItem(`fs_savings_goal_${user.uid}`);
     return saved ? Number(saved) : 2000000;
   });
 
   const [monthlyExpenses, setMonthlyExpenses] = useState(() => {
-    const saved = localStorage.getItem(`fs_expenses_${user.id}`);
+    const saved = localStorage.getItem(`fs_expenses_${user.uid}`);
     return saved ? Number(saved) : 4000000;
   });
 
   const [returnRate, setReturnRate] = useState(() => {
-    const saved = localStorage.getItem(`fs_return_rate_${user.id}`);
+    const saved = localStorage.getItem(`fs_return_rate_${user.uid}`);
     return saved ? Number(saved) : 12;
   });
 
   const [inflationRate, setInflationRate] = useState(() => {
-    const saved = localStorage.getItem(`fs_inflation_rate_${user.id}`);
+    const saved = localStorage.getItem(`fs_inflation_rate_${user.uid}`);
     return saved ? Number(saved) : 4.5;
   });
 
   const [currentAge, setCurrentAge] = useState(() => {
-    const saved = localStorage.getItem(`fs_current_age_${user.id}`);
+    const saved = localStorage.getItem(`fs_current_age_${user.uid}`);
     if (saved) return Number(saved);
     if (user.birthdate) {
       const birth = new Date(user.birthdate + 'T00:00:00');
@@ -47,30 +53,30 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
     return 30;
   });
 
-  // --- Guardar cambios en localStorage ---
+  // --- Guardar cambios en localStorage (usando user.uid) ---
   useEffect(() => {
-    localStorage.setItem(`fs_savings_${user.id}`, currentSavings.toString());
-  }, [currentSavings, user.id]);
+    localStorage.setItem(`fs_savings_${user.uid}`, currentSavings.toString());
+  }, [currentSavings, user.uid]);
 
   useEffect(() => {
-    localStorage.setItem(`fs_savings_goal_${user.id}`, monthlySavingsGoal.toString());
-  }, [monthlySavingsGoal, user.id]);
+    localStorage.setItem(`fs_savings_goal_${user.uid}`, monthlySavingsGoal.toString());
+  }, [monthlySavingsGoal, user.uid]);
 
   useEffect(() => {
-    localStorage.setItem(`fs_expenses_${user.id}`, monthlyExpenses.toString());
-  }, [monthlyExpenses, user.id]);
+    localStorage.setItem(`fs_expenses_${user.uid}`, monthlyExpenses.toString());
+  }, [monthlyExpenses, user.uid]);
 
   useEffect(() => {
-    localStorage.setItem(`fs_return_rate_${user.id}`, returnRate.toString());
-  }, [returnRate, user.id]);
+    localStorage.setItem(`fs_return_rate_${user.uid}`, returnRate.toString());
+  }, [returnRate, user.uid]);
 
   useEffect(() => {
-    localStorage.setItem(`fs_inflation_rate_${user.id}`, inflationRate.toString());
-  }, [inflationRate, user.id]);
+    localStorage.setItem(`fs_inflation_rate_${user.uid}`, inflationRate.toString());
+  }, [inflationRate, user.uid]);
 
   useEffect(() => {
-    localStorage.setItem(`fs_current_age_${user.id}`, currentAge.toString());
-  }, [currentAge, user.id]);
+    localStorage.setItem(`fs_current_age_${user.uid}`, currentAge.toString());
+  }, [currentAge, user.uid]);
 
   // Sincronizar edad si cambia birthdate
   useEffect(() => {
@@ -93,7 +99,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const targetNetWorth = monthlyExpenses * 12 * 25;
   const monthlyContribution = Math.max(0, monthlySavingsGoal); // siempre usamos la meta manual
 
-  // Filtro de viabilidad: si no ahorra y la tasa real ≤ 0, imposible
+  // Filtro de viabilidad
   const isImpossible = (monthlyContribution === 0 && annualRealReturn <= 0);
 
   let months = 0;
@@ -115,7 +121,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const remainingMonths = (isImpossible || isUnreachable) ? 0 : finalMonths % 12;
   const retirementAge = (isImpossible || isUnreachable) ? Infinity : currentAge + yearsToGoal;
 
-  // Progreso del ahorro (comparativa entre ahorro real y meta manual)
+  // Progreso del ahorro
   const savingsProgress = Math.min(100, Math.max(0, (actualMonthlySavings / monthlySavingsGoal) * 100));
   const isMeetingGoal = actualMonthlySavings >= monthlySavingsGoal;
   const diff = actualMonthlySavings - monthlySavingsGoal;
@@ -143,7 +149,8 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
   return (
     <div className="relative">
-      {isPro && (
+      {/* ✅ Bloqueo para usuarios Free */}
+      {!isPro && (
         <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] flex items-center justify-center rounded-[3rem]">
           <div className="text-center p-8 bg-white/95 rounded-[2.5rem] shadow-2xl border border-slate-100 max-w-sm m-6">
             <div className="p-4 bg-emerald-100 text-emerald-600 rounded-2xl w-fit mx-auto mb-4">
@@ -162,7 +169,8 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
         </div>
       )}
 
-      <div className={cn("space-y-8", isPro && "opacity-40 pointer-events-none grayscale-[0.5]")}>
+      {/* Contenido del simulador (semi-transparente si es Free) */}
+      <div className={cn("space-y-8", !isPro && "opacity-40 pointer-events-none grayscale-[0.5]")}>
         <div className="glass p-8 rounded-[3rem] bg-white border-slate-100 shadow-xl shadow-slate-200/50">
           <div className="max-w-2xl mb-10">
             <div className="flex items-center gap-3 mb-4">
@@ -178,7 +186,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2 space-y-8">
-              {/* Monitor de Ahorro Real vs Meta (solo informativo) */}
+              {/* Monitor de Ahorro Real vs Meta */}
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -240,7 +248,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   <p className="text-[10px] text-slate-400">Usamos tu edad para proyectar el año de tu retiro.</p>
                 </div>
 
-                {/* Capital Inicial (Ahorros acumulados) */}
+                {/* Capital Inicial */}
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <Heart className="w-3.5 h-3.5" /> Capital Inicial (Ahorros acumulados)
@@ -270,7 +278,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   </div>
                 </div>
 
-                {/* Meta de Ahorro Mensual (cambiada la etiqueta y descripción) */}
+                {/* Meta de Ahorro Mensual */}
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <Calculator className="w-3.5 h-3.5" /> Meta de Ahorro Mensual
@@ -314,7 +322,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   <p className="text-[10px] text-slate-400">¿Con cuánto dinero mensual quieres vivir en tu libertad?</p>
                 </div>
 
-                {/* Rendimiento Bruto (Nominal) - descripción modificada */}
+                {/* Rendimiento Bruto */}
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <TrendingUp className="w-3.5 h-3.5" /> Rendimiento Bruto (Nominal)
@@ -358,7 +366,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                   <p className="text-[10px] text-slate-400">Porcentaje de devaluación anual esperado de la moneda.</p>
                 </div>
 
-                {/* Indicador de Tasa Real (Fisher) */}
+                {/* Indicador de Tasa Real */}
                 <div className="md:col-span-2 flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-medium text-slate-500">
                   <span className="flex items-center gap-1">⚡ Tasa Real Neta Calculada (Fisher):</span>
                   <span className="font-mono font-bold text-emerald-600 text-sm bg-white border px-2 py-0.5 rounded-lg shadow-sm">
