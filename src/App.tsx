@@ -25,7 +25,8 @@ import { InstallPWA } from './components/InstallPWA';
 import { 
   Plus, Settings, LogOut, Home, List, 
   MessageSquare, DollarSign, Shield, HelpCircle,
-  Mail, MessageCircle as WhatsAppIcon
+  Mail, MessageCircle as WhatsAppIcon,
+  Crown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -277,18 +278,24 @@ function AuthenticatedApp() {
                 animate={{ opacity: 1, y: 0 }}
                 className="glass p-10 rounded-[2.5rem] space-y-8"
               >
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
-                  <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
-                    user.isPro ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"
-                  )}>
-                    {user.isPro ? "Plan Pro" : "Plan Free"}
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                    <div>
+               <div className="flex items-center justify-between">
+  <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
+  {user.isPro ? (
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 15 }}
+      className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-3 py-1.5 rounded-full shadow-md"
+    >
+      <Crown className="w-4 h-4 fill-amber-200" />
+      <span className="text-[10px] font-bold tracking-wide uppercase">Plan Pro</span>
+    </motion.div>
+  ) : (
+    <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-500 border border-slate-200">
+      Plan Free
+    </div>
+  )}
+</div>
                       <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
                       <p className="font-semibold">{user.name || '—'}</p>
                     </div>
