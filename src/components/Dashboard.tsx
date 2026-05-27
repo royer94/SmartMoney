@@ -289,7 +289,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   // ==================== RENDER ====================
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-32 transition-colors">
-      <TrialBanner onUpgrade={onUpgrade} />
+      <TrialBanner user={user} onUpgrade={onUpgrade} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
