@@ -1,6 +1,6 @@
 // context/UserContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { UserProfile } from '../types';
 
@@ -40,28 +40,39 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onSnapshot(userRef, async (snap) => {
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
-        // Asegurar valores por defecto para los campos de suscripción y oferta de trial
+        
+        // ✅ INFERIR estado de prueba desde trialEndDate si es futuro
+        let trialActive = data.isTrialActive === true;
+        let trialEnd = data.trialEndDate ?? null;
+        
+        if (!trialActive && trialEnd) {
+          const endDate = trialEnd.toDate ? trialEnd.toDate() : new Date(trialEnd);
+          if (endDate > new Date()) {
+            trialActive = true;
+            // Opcional: actualizar Firestore para futuras lecturas
+            await updateDoc(userRef, { isTrialActive: true }).catch(console.error);
+          }
+        }
+        
         const userData: UserProfile = {
           ...data,
           uid: userId,
           isAdmin: (data as any).isAdmin || false,
           isActive: data.isActive ?? false,
           isPro: data.isPro ?? false,
-          isTrialActive: data.isTrialActive ?? false,
-          trialEndDate: data.trialEndDate ?? null,
+          isTrialActive: trialActive,
+          trialEndDate: trialEnd,
           monthlyRecordCount: data.monthlyRecordCount ?? 0,
           monthlyVoiceCount: data.monthlyVoiceCount ?? 0,
           lastResetDate: data.lastResetDate ?? null,
-          // Campos para la oferta de trial
           trialOfferLastShown: data.trialOfferLastShown ?? 0,
           trialOfferAccepted: data.trialOfferAccepted ?? false,
         };
         setUser(userData);
       } else {
-        // ✅ Crear usuario nuevo con período de prueba ACTIVO por 15 días
+        // ✅ Nuevo usuario: 15 días de prueba
         const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 15); // 15 días de prueba
-
+        trialEnd.setDate(trialEnd.getDate() + 15);
         const newUser: UserProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
@@ -89,9 +100,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [userId]);
 
-  const refreshUser = () => {
-    // No es necesario con onSnapshot, pero se deja por compatibilidad
-  };
+  const refreshUser = () => {};
 
   return (
     <UserContext.Provider value={{ user, loading, refreshUser }}>
