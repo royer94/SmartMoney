@@ -40,12 +40,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onSnapshot(userRef, async (snap) => {
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
-        // Asegurar valores por defecto para campos que podrían faltar (por si acaso)
+        // Asegurar valores por defecto para los campos de suscripción y oferta de trial
         const userData: UserProfile = {
           ...data,
           uid: userId,
           isAdmin: (data as any).isAdmin || false,
-          // Los campos de suscripción pueden no existir inicialmente; se asignan después
           isActive: data.isActive ?? false,
           isPro: data.isPro ?? false,
           isTrialActive: data.isTrialActive ?? false,
@@ -53,10 +52,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           monthlyRecordCount: data.monthlyRecordCount ?? 0,
           monthlyVoiceCount: data.monthlyVoiceCount ?? 0,
           lastResetDate: data.lastResetDate ?? null,
+          // ✅ Nuevos campos para la oferta de trial
+          trialOfferLastShown: data.trialOfferLastShown ?? 0,
+          trialOfferAccepted: data.trialOfferAccepted ?? false,
         };
         setUser(userData);
       } else {
-        // Crear usuario nuevo SOLO con campos básicos (sin trial)
+        // Crear usuario nuevo con todos los campos necesarios (incluyendo los de oferta de trial)
         const newUser: UserProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
@@ -69,6 +71,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastResetDate: null,
           freeRecordsCount: 0,
           onboardingDone: false,
+          // ✅ Inicializar campos de oferta de trial
+          trialOfferLastShown: 0,
+          trialOfferAccepted: false,
         };
         await setDoc(userRef, newUser);
         setUser(newUser);
