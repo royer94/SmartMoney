@@ -3,6 +3,7 @@ import { Target, TrendingUp, Info, Calculator, Heart, User, Zap, Flame, RefreshC
 import { motion } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
 import { UserProfile } from '../types';
+import { useSubscription } from '../hooks/useSubscription';
 
 export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { user: UserProfile, balance: number, actualMonthlySavings?: number, onUpgrade?: () => void }) {
   
@@ -142,7 +143,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
   return (
     <div className="relative">
-      {!user.isPro && (
+      {isPro && (
         <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] flex items-center justify-center rounded-[3rem]">
           <div className="text-center p-8 bg-white/95 rounded-[2.5rem] shadow-2xl border border-slate-100 max-w-sm m-6">
             <div className="p-4 bg-emerald-100 text-emerald-600 rounded-2xl w-fit mx-auto mb-4">
@@ -161,7 +162,7 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
         </div>
       )}
 
-      <div className={cn("space-y-8", !user.isPro && "opacity-40 pointer-events-none grayscale-[0.5]")}>
+      <div className={cn("space-y-8", isPro && "opacity-40 pointer-events-none grayscale-[0.5]")}>
         <div className="glass p-8 rounded-[3rem] bg-white border-slate-100 shadow-xl shadow-slate-200/50">
           <div className="max-w-2xl mb-10">
             <div className="flex items-center gap-3 mb-4">
