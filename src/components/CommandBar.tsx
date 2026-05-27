@@ -187,7 +187,8 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Supermercado': [
     'mercado', 'supermercado', 'carulla', 'éxito', 'jumbo', 'd1', 'ara', 
     'mercar', 'tienda', 'abarrotes', 'despensa', 'cesta', 'víveres', 'super',
-    'makro', 'alkosto', 'olimpica', 'la 14', 'metro', 'superama', 'soriana'
+    'makro', 'alkosto', 'olimpica', 'la 14', 'metro', 'superama', 'soriana',
+    'pan'
   ],
   'Comida': [
     'comida', 'almuerzo', 'cena', 'desayuno', 'restaurante', 'café', 'cafe',
