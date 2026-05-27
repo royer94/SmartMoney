@@ -49,7 +49,7 @@ export function TrialBanner({ onUpgrade }: TrialBannerProps) {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Prueba activa</p>
-            <h4 className="text-sm font-black">SmartMoney Pro</h4>
+            <h4 className="text-sm font-black">SmartMoney AI Pro</h4>
           </div>
         </div>
         <div className="flex items-center gap-3">
