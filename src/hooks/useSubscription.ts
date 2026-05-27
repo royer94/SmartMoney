@@ -13,6 +13,7 @@ export function useSubscription() {
         isPro: false,
         isTrialActive: false,
         trialRemainingDays: null,
+        trialEndDate: null,          // ✅ añadido
         remainingTextRecords: 0,
         remainingVoiceRecords: 0,
         canAddTextRecord: false,
@@ -23,9 +24,9 @@ export function useSubscription() {
     const now = new Date();
     let trialRemainingDays = null;
     let trialIsActive = false;
+    let trialEndDate = null;          // ✅ declarado aquí
 
     // Manejo seguro de trialEndDate
-    let trialEndDate = null;
     if (user.trialEndDate) {
       if (typeof user.trialEndDate.toDate === 'function') {
         trialEndDate = user.trialEndDate.toDate();
@@ -55,6 +56,7 @@ export function useSubscription() {
       isPro,
       isTrialActive: trialIsActive,
       trialRemainingDays,
+      trialEndDate,                 // ✅ devuelve la fecha (en formato Date o null)
       remainingTextRecords: Math.max(0, maxText - currentText),
       remainingVoiceRecords: Math.max(0, maxVoice - currentVoice),
       canAddTextRecord,
