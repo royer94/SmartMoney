@@ -9,16 +9,35 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
-  // ✅ Mostrar solo si está en período de prueba Y no es Pro (pago o legacy)
-  const isPro = user?.isPro === true;
-  const isTrialActive = user?.isTrialActive === true;
-  const showTrial = isTrialActive && !isPro;
+  // Depuración: ver qué recibe
+  console.log('[TrialBanner] user:', user);
+
+  if (!user) {
+    console.log('[TrialBanner] No user, return null');
+    return null;
+  }
+
+  // Determinar si está en trial de forma robusta
+  const isPro = user.isPro === true;
+  let isTrial = user.isTrialActive === true;
+  
+  // Si no tiene isTrialActive pero tiene trialEndDate futuro, considerarlo trial
+  if (!isTrial && user.trialEndDate) {
+    const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
+    if (end > new Date()) {
+      isTrial = true;
+      console.log('[TrialBanner] trialEndDate futuro detectado, forzando isTrial=true');
+    }
+  }
+
+  const showTrial = isTrial && !isPro;
+  console.log(`[TrialBanner] isPro=${isPro}, isTrial=${isTrial}, showTrial=${showTrial}`);
 
   if (!showTrial) return null;
 
-  // Calcular días restantes si existe trialEndDate
+  // Días restantes
   let daysLeft = null;
-  if (user?.trialEndDate) {
+  if (user.trialEndDate) {
     const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
     const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     if (diff > 0) daysLeft = diff;
@@ -30,7 +49,6 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
       animate={{ opacity: 1, y: 0 }}
       className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-4 mb-6 shadow-lg shadow-indigo-200"
     >
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
       <div className="relative flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-2 rounded-xl">
