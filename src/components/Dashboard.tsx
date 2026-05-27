@@ -105,7 +105,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user.isPro && goals.length >= 1) {
+    if (!isPro && goals.length >= 1) {
       onUpgrade?.();
       return;
     }
@@ -333,7 +333,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
           </div>
           <button 
             onClick={() => {
-              if (!user.isPro) {
+              if (!isPro) {
                 alert("El Modo Privacidad es una función Pro. Ideal para ocultar tus cifras en lugares públicos.");
                 return;
               }
@@ -391,13 +391,13 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div onClick={() => {
-                if (!user.isPro) { alert("Los detalles de gastos son una función Pro."); return; }
+                if (!isPro) { alert("Los detalles de gastos son una función Pro."); return; }
                 setShowExpenseDetails(true);
               }} className="cursor-pointer">
                 <StatCard label="Total Gastos (este mes)" amount={currentMonthExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
               </div>
               <div onClick={() => {
-                if (!user.isPro) { alert("Los detalles de ingresos son una función Pro."); return; }
+                if (!isPro) { alert("Los detalles de ingresos son una función Pro."); return; }
                 setShowIncomeDetails(true);
               }} className="cursor-pointer">
                 <StatCard label="Total Ingresos (este mes)" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
@@ -499,10 +499,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               <div className="glass p-8 rounded-[2.5rem] transition-colors">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="font-bold text-lg">Historial de Flujo (Pro)</h3>
-                  {!user.isPro && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase border border-amber-100">Solo Pro</span>}
+                  {!isPro && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase border border-amber-100">Solo Pro</span>}
                 </div>
                 <div className="h-64 mt-4 relative">
-                  {!user.isPro && (
+                  {!isPro && (
                     <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-2xl">
                       <div className="text-center">
                         <Lock className="w-10 h-10 text-slate-400 mx-auto mb-2" />
@@ -526,7 +526,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
             </div>
 
             <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-50 to-white border-slate-100 transition-colors relative overflow-hidden">
-              {!user.isPro && (
+              {!isPro && (
                 <div className="absolute inset-0 z-10 bg-white/40 backdrop-blur-[1px] flex items-center justify-center">
                   <div className="text-center p-6 bg-white/90 rounded-3xl shadow-xl border border-slate-100 max-w-xs">
                     <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
@@ -548,7 +548,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 <button 
                   type="button"
                   onClick={() => {
-                    if (!user.isPro) {
+                    if (!isPro) {
                       alert("La descarga de reportes es una función Pro. ¡Suscríbete para acceder!");
                       return;
                     }
