@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Crown } from 'lucide-react';
+import { Zap, Crown, Hourglass } from 'lucide-react';
 import { motion } from 'motion/react';
 import { UserProfile } from '../types';
 
@@ -48,21 +48,22 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 60000); // Actualizar cada minuto
+    const interval = setInterval(updateTimer, 60000); // cada minuto
 
     return () => clearInterval(interval);
   }, [user]);
 
+  // No mostrar si no hay tiempo o no aplica
   if (!timeLeft) return null;
 
   const { days, hours, minutes } = timeLeft;
 
-  // Formato legible (ej. "3 días, 2 horas, 15 minutos")
+  // Formato de la cuenta regresiva
   const parts = [];
-  if (days > 0) parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
-  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
-  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
-  const timeString = parts.join(', ');
+  if (days > 0) parts.push(`${days}${days === 1 ? 'd' : 'd'}`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  const timeString = parts.join(' ');
 
   return (
     <motion.div
@@ -70,18 +71,27 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
       animate={{ opacity: 1, y: 0 }}
       className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-4 mb-6 shadow-lg shadow-indigo-200"
     >
-      <div className="relative flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="relative flex flex-wrap items-center justify-between gap-3">
+        {/* Izquierda: Reloj de arena con rotación */}
         <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-xl">
-            <Crown className="w-6 h-6 text-amber-300" />
-          </div>
-          <div>
-            <h4 className="font-bold text-white text-sm">Período de prueba activo</h4>
-            <p className="text-xs text-indigo-100">
-              Te quedan {timeString}
-            </p>
-          </div>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+            className="bg-white/20 p-2 rounded-xl"
+          >
+            <Hourglass className="w-6 h-6 text-amber-300" />
+          </motion.div>
         </div>
+
+        {/* Centro: Texto y cuenta regresiva */}
+        <div className="flex-1">
+          <h4 className="font-bold text-white text-sm">Período de prueba activo</h4>
+          <p className="text-xs text-indigo-100 font-mono">
+            {timeString}
+          </p>
+        </div>
+
+        {/* Derecha: Botón de upgrade */}
         {onUpgrade && (
           <button
             onClick={onUpgrade}
