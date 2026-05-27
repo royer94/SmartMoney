@@ -245,6 +245,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ]
 };
 
+// Helper para detectar si un texto es de supermercado (para sobreescribir categoría)
 const isSupermercadoText = (text: string): boolean => {
   if (!text) return false;
   const normalized = normalizeForNlp(text);
@@ -270,6 +271,7 @@ const parseLocalTransaction = (text: string) => {
     else if (expenseContext && !incomeContext) type = 'expense';
   }
   
+  // Prioridad especial: si hay palabra de supermercado, asignar directamente
   const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
   const isSupermercado = supermercadoKeywords.some(keyword => normalized.includes(keyword));
   
@@ -476,29 +478,54 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       await updateDoc(userRef, {
         isTrialActive: true,
         trialEndDate: trialEnd,
+        trialOfferAccepted: true,
+        trialOfferLastShown: transactions.length + 1,
       });
       if (refreshUser) await refreshUser();
       setShowTrialOffer(false);
-      addMessage('ai', '🎉 ¡Genial! Has activado tu prueba gratuita de 15 días de SmartMoney Pro. Disfruta de todas las funciones ilimitadas durante este período. El contador empezará a correr ahora mismo.');
+      addMessage('ai', '🎉 ¡Genial! Has activado tu prueba gratuita de 15 días de SmartMoney Pro. Disfruta de todas las funciones ilimitadas durante este período.');
     } catch (error) {
       console.error('Error activando trial:', error);
       addMessage('ai', 'Hubo un error al activar tu prueba. Por favor, inténtalo de nuevo más tarde.');
     }
   };
 
-  const confirmTransaction = async (msgId: string, tx: any) => {
-    // Detectar primer registro y ofrecer trial
-    const isFirstTransaction = transactions.length === 0 && !contextUser?.isTrialActive && !contextUser?.isActive;
-    if (isFirstTransaction && !showTrialOffer) {
-      setShowTrialOffer(true);
-      return; // No registrar hasta que el usuario decida
+  const declineTrial = async () => {
+    if (!contextUser) return;
+    try {
+      const userRef = doc(db, 'users', contextUser.uid);
+      await updateDoc(userRef, {
+        trialOfferLastShown: transactions.length + 1,
+      });
+      if (refreshUser) await refreshUser();
+      setShowTrialOffer(false);
+      addMessage('ai', 'Está bien. Si cambias de opinión, puedes activar el plan Pro desde el menú de ajustes.');
+    } catch (error) {
+      console.error('Error al guardar rechazo de trial:', error);
+      setShowTrialOffer(false);
     }
+  };
+
+  const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
       const normalizedTx = normalizeTransaction(tx);
       const result = await addTransaction(normalizedTx);
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
+      
+      // Lógica de oferta de trial después del registro exitoso
+      if (result?.id) {
+        const newCount = transactions.length + 1;
+        const shouldShow = !contextUser?.isTrialActive &&
+                           !contextUser?.isActive &&
+                           !contextUser?.trialOfferAccepted &&
+                           (newCount === 1 || (newCount % 5 === 0 && newCount > (contextUser?.trialOfferLastShown || 0)));
+        if (shouldShow) {
+          setShowTrialOffer(true);
+        }
+      }
+      
       if (result?.alerts?.length) result.alerts.forEach((alert: any) => addMessage('ai', alert));
       if (normalizedTx.type === 'expense' && normalizedTx.description) {
         const desc = normalizedTx.description.toLowerCase();
@@ -738,7 +765,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                   Aceptar y probar
                 </button>
                 <button
-                  onClick={() => setShowTrialOffer(false)}
+                  onClick={declineTrial}
                   className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Ahora no
