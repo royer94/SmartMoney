@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Crown } from 'lucide-react';
 import { motion } from 'motion/react';
 import { UserProfile } from '../types';
@@ -9,41 +9,60 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
-  if (!user) return null;
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number } | null>(null);
 
-  const isPro = user.isPro === true;
-  let isTrial = user.isTrialActive === true;
+  useEffect(() => {
+    if (!user) return;
 
-  // Inferir trial desde trialEndDate
-  let trialEndDateObj: Date | null = null;
-  if (user.trialEndDate) {
-    // Convertir a Date: si es Timestamp de Firestore, usar .toDate()
-    if (typeof user.trialEndDate.toDate === 'function') {
-      trialEndDateObj = user.trialEndDate.toDate();
-    } else {
-      trialEndDateObj = new Date(user.trialEndDate);
+    // Determinar si es Pro (no mostrar banner)
+    const isPro = user.isPro === true;
+    let isTrial = user.isTrialActive === true;
+    let trialEndDateObj: Date | null = null;
+
+    if (user.trialEndDate) {
+      if (typeof user.trialEndDate.toDate === 'function') {
+        trialEndDateObj = user.trialEndDate.toDate();
+      } else {
+        trialEndDateObj = new Date(user.trialEndDate);
+      }
+      if (!isTrial && trialEndDateObj > new Date()) {
+        isTrial = true;
+      }
     }
-    // Si la fecha es válida y futura, activar trial si no lo estaba
-    if (!isTrial && trialEndDateObj > new Date()) {
-      isTrial = true;
-    }
-  }
 
-  const showTrial = isTrial && !isPro;
-  if (!showTrial) return null;
+    const shouldShow = isTrial && !isPro;
+    if (!shouldShow || !trialEndDateObj) return;
 
-  // ✅ Cálculo de días restantes (asegurar que sea un entero positivo)
-  let daysLeft: number | null = null;
-  if (trialEndDateObj) {
-    const now = new Date();
-    const diffTime = trialEndDateObj.getTime() - now.getTime();
-    if (diffTime > 0) {
-      daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
-  }
+    const updateTimer = () => {
+      const now = new Date();
+      const diffMs = trialEndDateObj!.getTime() - now.getTime();
+      if (diffMs <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      setTimeLeft({ days, hours, minutes });
+    };
 
-  // Si no se pudo calcular pero la fecha era futura, mostrar un mensaje genérico
-  const showDays = daysLeft !== null && daysLeft > 0;
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000); // Actualizar cada minuto
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  if (!timeLeft) return null;
+
+  const { days, hours, minutes } = timeLeft;
+
+  // Formato legible (ej. "3 días, 2 horas, 15 minutos")
+  const parts = [];
+  if (days > 0) parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+  const timeString = parts.join(', ');
 
   return (
     <motion.div
@@ -58,13 +77,9 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
           </div>
           <div>
             <h4 className="font-bold text-white text-sm">Período de prueba activo</h4>
-            {showDays ? (
-              <p className="text-xs text-indigo-100">
-                Te quedan {daysLeft} {daysLeft === 1 ? 'día' : 'días'} de prueba
-              </p>
-            ) : (
-              <p className="text-xs text-indigo-100">Prueba activa</p>
-            )}
+            <p className="text-xs text-indigo-100">
+              Te quedan {timeString}
+            </p>
           </div>
         </div>
         {onUpgrade && (
