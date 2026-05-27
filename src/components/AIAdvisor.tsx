@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getFinancialInsights } from '../lib/gemini';
 import { UserProfile, Transaction, Goal } from '../types';
 import Markdown from 'react-markdown';
+import { useSubscription } from '../hooks/useSubscription';
 
 export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], onUpgrade?: () => void }) {
+  const { isPro } = useSubscription(); // ✅ usamos el estado real Pro (incluye trial)
   const [insights, setInsights] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const fetchInsights = async () => {
-    if (!user.isPro) return;
+    if (!isPro) return;
     setLoading(true);
     try {
       const result = await getFinancialInsights(transactions, goals);
@@ -24,12 +26,12 @@ export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: User
   };
 
   useEffect(() => {
-    if (user.isPro && transactions.length > 0 && !insights) {
+    if (isPro && transactions.length > 0 && !insights) {
       fetchInsights();
     }
-  }, [user.isPro]);
+  }, [isPro]);
 
-  if (!user.isPro) {
+  if (!isPro) {
     return (
       <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform">
