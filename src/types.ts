@@ -13,6 +13,18 @@ export interface UserProfile {
   name?: string;        // nombre del usuario
   birthdate?: string;   // fecha de nacimiento ISO: "1994-05-18"
   onboardingDone?: boolean; // si ya completó el onboarding
+  
+  // ✅ Nuevos campos para el sistema de suscripción y límites
+  isActive?: boolean;           // suscripción pagada activa
+  isTrialActive?: boolean;      // trial en curso
+  trialEndDate?: any;           // fecha de fin del trial (Timestamp o Date)
+  monthlyRecordCount?: number;  // contador de registros de texto en el mes
+  monthlyVoiceCount?: number;   // contador de registros de voz en el mes
+  lastResetDate?: any;          // fecha del último reseteo de contadores
+  
+  // ✅ Campos para la oferta del trial (activación manual)
+  trialOfferLastShown?: number;  // última transacción en que se mostró la oferta
+  trialOfferAccepted?: boolean;  // si el usuario ya aceptó el trial (para no volver a mostrar)
 }
 
 export interface Transaction {
