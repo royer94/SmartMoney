@@ -13,7 +13,6 @@ import {
   TrendingDown, 
   Target, 
   MoreVertical,
-  ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
   X,
@@ -21,7 +20,6 @@ import {
   FileText,
   Download,
   Lock,
-  RefreshCw,
   Settings
 } from 'lucide-react';
 import { generateReportPDF } from '../lib/pdfGenerator';
@@ -31,14 +29,44 @@ import { FreedomSimulator } from './FreedomSimulator';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
-import { TrialBanner } from './TrialBanner';   // ✅ Solo una vez
+import { TrialBanner } from './TrialBanner';
 
-// Helper para filtrar transacciones no eliminadas
+// Helper para filtrar transacciones no eliminadas (si existe campo deleted)
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
-const compactCurrency = (value: number): string => { /* ... (igual que original) ... */ };
+// Formateo compacto para el gráfico
+const compactCurrency = (value: number): string => {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    return `${millions.toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (value >= 1_000) {
+    const thousands = value / 1_000;
+    return `${thousands.toFixed(0)}K`;
+  }
+  return formatCurrency(value);
+};
 
-function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }) { /* ... */ }
+function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: any) {
+  return (
+    <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
+      <div className="flex justify-between items-start mb-4">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <div className={cn("p-2.5 rounded-xl", bg, color)}>
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+      <div>
+        <h4 className={cn("text-2xl font-bold text-slate-900 tracking-tight mb-1", privacyMode && "tracking-widest text-slate-300")}>
+          {privacyMode ? '••••••' : formatCurrency(amount)}
+        </h4>
+        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", trend.includes('-') || trend.includes('Déficit') ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>
+          {trend}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { 
   user: UserProfile, 
@@ -51,8 +79,8 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   onUpgrade?: () => void, 
   onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> 
 }) {
-  // ✅ DEFINICIÓN DE isPro (esto es lo que faltaba)
-  const isPro = user.isPro ?? false;
+  // ✅ SOLUCIÓN PRINCIPAL: Definir isPro basado en el perfil del usuario
+  const isPro = user?.isPro ?? false;
 
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
@@ -77,7 +105,10 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     year: new Date().getFullYear() 
   });
   
-  const MONTHS = [ /* ... (igual) ... */ ];
+  const MONTHS = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
   const YEARS = [new Date().getFullYear(), new Date().getFullYear() + 1];
 
   const [goalToDelete, setGoalToDelete] = useState<string | null>(null);
@@ -115,11 +146,11 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     }
   };
 
-  // ==================== FUNCIONES DE FILTRADO CON ELIMINADOS ====================
+  // ==================== FILTRADO ====================
   const getFilteredTransactions = (type: 'income' | 'expense', filter: 'total' | 'today' | 'week') => {
     return transactions.filter(t => {
       if (t.type !== type) return false;
-      if (!notDeleted(t)) return false; // excluir eliminados
+      if (!notDeleted(t)) return false;
       if (filter === 'total') return true;
       const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
       const now = new Date();
@@ -152,12 +183,9 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-  // Totales del mes actual (para las tarjetas principales)
   const currentMonthExpenses = getPeriodTotal('expense', currentMonth, currentYear);
   const currentMonthIncome = getPeriodTotal('income', currentMonth, currentYear);
   const currentMonthBalance = currentMonthIncome - currentMonthExpenses;
-
-  // Totales del mes anterior para tendencias
   const lastMonthExpenses = getPeriodTotal('expense', lastMonth, lastMonthYear);
   const lastMonthIncome = getPeriodTotal('income', lastMonth, lastMonthYear);
 
@@ -214,7 +242,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     exportTransactionsToCSV(filtered, periodLabel);
   };
 
-  // Categorías del mes actual (para el gráfico de distribución)
+  // Categorías del mes actual (para el gráfico)
   const categoryTotals = React.useMemo(() => {
     const currentMonthExpensesList = transactions.filter(t => {
       if (!notDeleted(t)) return false;
@@ -237,7 +265,6 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  // Historial (últimos 6 meses) también excluye eliminados
   const historyData = React.useMemo(() => {
     const data = [];
     for (let i = 5; i >= 0; i--) {
@@ -259,16 +286,12 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
     return formatCurrency(value);
   };
 
+  // ==================== RENDER ====================
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-8 pb-32 transition-colors"
-    >
-          <TrialBanner onUpgrade={onUpgrade} />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-32 transition-colors">
+      <TrialBanner onUpgrade={onUpgrade} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* ... Todo el resto de tu código intacto ... */}
         <div>
           <div className="flex items-center gap-2 group">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
@@ -592,7 +615,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
               </div>
               <div className="space-y-6">
                 <div className="flex gap-2">
-                  {(['today', 'week', 'total'] as const).map((f) => (
+                  {(['today', 'week', 'total'] as const).map(f => (
                     <button key={f} onClick={() => setIncomeFilter(f)} className={cn("flex-1 py-2 rounded-xl text-xs font-bold transition-all", incomeFilter === f ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-slate-100 text-slate-500")}>
                       {f === 'today' ? 'Hoy' : f === 'week' ? 'Semana' : 'Todo'}
                     </button>
@@ -679,7 +702,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* ✅ Goal Form Modal (AÑADIDO) */}
+      {/* Goal Form Modal */}
       <AnimatePresence>
         {showGoalForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
@@ -750,7 +773,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
         )}
       </AnimatePresence>
 
-      {/* ✅ Perfil Modal */}
+      {/* Profile Modal */}
       <AnimatePresence>
         {isProfileSettingsOpen && (
           <ProfileSettingsModal
