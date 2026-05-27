@@ -1,77 +1,58 @@
-// src/components/TrialBanner.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { Zap, Crown } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Timer, Zap } from 'lucide-react';
-import { useSubscription } from '../hooks/useSubscription';
+import { UserProfile } from '../types';
 
 interface TrialBannerProps {
-  onUpgrade: () => void;
+  user?: UserProfile;
+  onUpgrade?: () => void;
 }
 
-export function TrialBanner({ onUpgrade }: TrialBannerProps) {
-  const { isTrialActive, trialRemainingDays, trialEndDate } = useSubscription();
-  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number }>({ days: 0, hours: 0, minutes: 0 });
+export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
+  // ✅ No mostrar si el usuario es Pro o tiene suscripción activa
+  const isProOrActive = !!(user?.isPro || user?.isActive);
+  const showTrial = !!user?.isTrialActive && !isProOrActive;
 
-  useEffect(() => {
-    if (!isTrialActive || !trialEndDate) return;
+  if (!showTrial) return null;
 
-    const updateTimer = () => {
-      const now = new Date().getTime();
-      const end = new Date(trialEndDate).getTime();
-      const diff = end - now;
-      if (diff <= 0) {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0 });
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (86400000)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (3600000)) / (1000 * 60));
-      setTimeLeft({ days, hours, minutes });
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 60000); // cada minuto
-    return () => clearInterval(interval);
-  }, [isTrialActive, trialEndDate]);
-
-  if (!isTrialActive) return null;
+  // Calcular días restantes si existe trialEndDate
+  let daysLeft = null;
+  if (user?.trialEndDate) {
+    const end = user.trialEndDate.toDate ? user.trialEndDate.toDate() : new Date(user.trialEndDate);
+    const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff > 0) daysLeft = diff;
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md mb-4"
+      className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-4 mb-6 shadow-lg shadow-indigo-200"
     >
-      <div className="relative px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-white/20 rounded-full">
-            <Timer className="w-4 h-4" />
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
+      <div className="relative flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/20 p-2 rounded-xl">
+            <Crown className="w-6 h-6 text-amber-300" />
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Prueba activa</p>
-            <h4 className="text-sm font-black">SmartMoney AI Pro</h4>
+            <h4 className="font-bold text-white text-sm">Período de prueba activo</h4>
+            {daysLeft !== null && (
+              <p className="text-xs text-indigo-100">
+                Te quedan {daysLeft} {daysLeft === 1 ? 'día' : 'días'} de prueba
+              </p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-center">
-            <span className="text-xl font-black">{timeLeft.days}</span>
-            <p className="text-[8px] uppercase">Días</p>
-          </div>
-          <div className="text-center">
-            <span className="text-xl font-black">{timeLeft.hours}</span>
-            <p className="text-[8px] uppercase">Horas</p>
-          </div>
-          <div className="text-center">
-            <span className="text-xl font-black">{timeLeft.minutes}</span>
-            <p className="text-[8px] uppercase">Min</p>
-          </div>
-        </div>
-        <button
-          onClick={onUpgrade}
-          className="px-3 py-1.5 bg-white text-indigo-700 rounded-lg font-bold text-xs flex items-center gap-1 hover:bg-indigo-50 transition-all shadow"
-        >
-          <Zap className="w-3 h-3" /> Suscribirme
-        </button>
+        {onUpgrade && (
+          <button
+            onClick={onUpgrade}
+            className="px-5 py-2 bg-white text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-50 transition-all shadow-md"
+          >
+            <Zap className="w-4 h-4" />
+            Suscribirme ahora
+          </button>
+        )}
       </div>
     </motion.div>
   );
