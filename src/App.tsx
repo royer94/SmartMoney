@@ -272,105 +272,103 @@ function AuthenticatedApp() {
               />
             )}
             {activeTab === 'settings' && (
-              <motion.div
-                key="settings"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass p-10 rounded-[2.5rem] space-y-8"
-              >
-               <div className="flex items-center justify-between">
-  <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
-  {user.isPro ? (
-    <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-      className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-3 py-1.5 rounded-full shadow-md"
-    >
-      <Crown className="w-4 h-4 fill-amber-200" />
-      <span className="text-[10px] font-bold tracking-wide uppercase">Plan Pro</span>
-    </motion.div>
-  ) : (
-    <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-500 border border-slate-200">
-      Plan Free
+  <motion.div
+    key="settings"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="glass p-10 rounded-[2.5rem] space-y-8"
+  >
+    <div className="flex items-center justify-between">
+      <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
+      {user.isPro ? (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-3 py-1.5 rounded-full shadow-md"
+        >
+          <Crown className="w-4 h-4 fill-amber-200" />
+          <span className="text-[10px] font-bold tracking-wide uppercase">Plan Pro</span>
+        </motion.div>
+      ) : (
+        <div className={cn(
+          "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
+          "bg-slate-100 text-slate-500 border border-slate-200"
+        )}>
+          Plan Free
+        </div>
+      )}
     </div>
-  )}
-</div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
-                      <p className="font-semibold">{user.name || '—'}</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
-                      <p className="font-semibold">{user.email}</p>
-                    </div>
-                  </div>
-                  {user.birthdate && (
-                    <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</p>
-                        <p className="font-semibold">{new Date(user.birthdate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
-                    <CurrencySelector userId={user.uid} />
-                  </div>
 
-                  {/* Contacto y Soporte */}
-                  <div className="p-4 bg-white rounded-2xl border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
-                    <div className="flex flex-wrap gap-3">
-                      <a
-                        href="mailto:contacto@smartmoneyai.click"
-                        className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
-                          <Mail className="w-4 h-4 text-blue-500" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
-                      </a>
-                      <a
-                        href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
-                          <WhatsAppIcon className="w-4 h-4 text-green-500" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte WhatsApp</span>
-                      </a>
-                    </div>
-                  </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+        <div>
+          <p className="text-xs font-bold text-slate-400 uppercase">Nombre</p>
+          <p className="font-semibold">{user.name || '—'}</p>
+        </div>
+      </div>
+      <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+        <div>
+          <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
+          <p className="font-semibold">{user.email}</p>
+        </div>
+      </div>
+      {user.birthdate && (
+        <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</p>
+            <p className="font-semibold">{new Date(user.birthdate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          </div>
+        </div>
+      )}
+      <div>
+        <p className="text-xs font-bold text-slate-400 uppercase mb-2 px-1">Moneda</p>
+        <CurrencySelector userId={user.uid} />
+      </div>
 
-                  {user.isAdmin && (
-                    <button
-                      onClick={() => setShowAdminPanel(true)}
-                      className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Shield className="w-5 h-5" />
-                        <span className="font-bold">Panel de Administración</span>
-                      </div>
-                      <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-                    </button>
-                  )}
-                  <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
-                </div>
-                <div className="pt-6">
-                  <button
-                    onClick={() => auth.signOut()}
-                    className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    Cerrar Sesión Activa
-                  </button>
-                </div>
-              </motion.div>
-            )}
+      {/* Contacto y soporte */}
+      <div className="p-4 bg-white rounded-2xl border border-slate-100">
+        <p className="text-xs font-bold text-slate-400 uppercase mb-3 px-1">Contacto y Soporte</p>
+        <div className="flex flex-wrap gap-3">
+          <a href="mailto:contacto@smartmoneyai.click" className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-0.5">
+            <div className="w-8 h-8 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 flex items-center justify-center shrink-0">
+              <Mail className="w-4 h-4 text-blue-500" />
+            </div>
+            <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">contacto@smartmoneyai.click</span>
+          </a>
+          <a href="https://wa.me/573209131046?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20SmartMoney%20AI" target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-0.5">
+            <div className="w-8 h-8 rounded-full bg-green-500/10 group-hover:bg-green-500/20 flex items-center justify-center shrink-0">
+              <WhatsAppIcon className="w-4 h-4 text-green-500" />
+            </div>
+            <span className="text-sm font-medium text-slate-700 group-hover:text-green-600">Soporte WhatsApp</span>
+          </a>
+        </div>
+      </div>
+
+      {user.isAdmin && (
+        <button onClick={() => setShowAdminPanel(true)} className="w-full flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 hover:bg-red-100 transition-colors group">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5" />
+            <span className="font-bold">Panel de Administración</span>
+          </div>
+          <Plus className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+        </button>
+      )}
+
+      {/* Banner Pro solo si no es Pro activo */}
+      {user && !user.isActive && (
+        <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
+      )}
+    </div>
+
+    <div className="pt-6">
+      <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-bold hover:bg-red-50 p-4 rounded-2xl w-full justify-center transition-colors border border-red-100">
+        <LogOut className="w-5 h-5" />
+        Cerrar Sesión Activa
+      </button>
+    </div>
+  </motion.div>
+)}            )}
           </AnimatePresence>
         </div>
       </main>
