@@ -266,20 +266,26 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   const historyData = React.useMemo(() => {
-    const data = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      data.push({
-        name: MONTHS[m].substring(0, 3),
-        income: getPeriodTotal('income', m, y),
-        expense: getPeriodTotal('expense', m, y)
-      });
-    }
-    return data;
-  }, [transactions, MONTHS]);
+  const data = [];
+  const today = new Date();
+  // Establecer el primer día del mes actual para evitar problemas de fechas límite
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  
+  for (let i = 5; i >= 0; i--) {
+    // Calcular el mes correspondiente restando i meses al primer día del mes actual
+    const targetDate = new Date(currentMonthStart);
+    targetDate.setMonth(targetDate.getMonth() - i);
+    const m = targetDate.getMonth();
+    const y = targetDate.getFullYear();
+    
+    data.push({
+      name: MONTHS[m].substring(0, 3),
+      income: getPeriodTotal('income', m, y),
+      expense: getPeriodTotal('expense', m, y)
+    });
+  }
+  return data;
+}, [transactions, MONTHS]);
 
   const formatHidable = (value: number) => {
     if (privacyMode) return '••••••';
