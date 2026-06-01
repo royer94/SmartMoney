@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, RefreshCcw, Bell, ArrowRight, Zap, Info, Check, X } from 'lucide-react';
+import { RefreshCcw, Bell, Zap, Info, Check, X } from 'lucide-react';
 import { Transaction, UserProfile } from '../types';
-import { formatCurrency, formatDate } from '../lib/utils';
+import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { useFinance } from '../hooks/useFinance'; // 👈 Importar el hook
 
 export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade, addTransaction }: { 
   user: UserProfile, 
@@ -12,40 +13,40 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
   onUpgrade?: () => void,
   addTransaction?: (tx: any) => Promise<void>
 }) {
-  // Estado para el modal de recurrencia mensual
+  // ✅ Si no se pasa addTransaction como prop, lo obtenemos del hook
+  const { addTransaction: addTransactionFromHook } = useFinance();
+  const addTransactionFn = addTransaction || addTransactionFromHook;
+
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Transaction[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
 
+  // Validación de seguridad
+  if (!user || !user.uid) return null;
+
   const activeTransactions = transactions.filter(t => !(t as any).deleted);
   const recurringItems = activeTransactions.filter(t => t.isRecurring);
   const hasProAccess = user.isPro || user.isTrialActive || user.isActive;
 
-  // Calcular el total mensual de suscripciones recurrentes
   const monthlyTotal = recurringItems.reduce((acc, t) => acc + t.amount, 0);
   
-  // Calcular el gasto total REAL en la categoría "Suscripciones"
   const totalSuscripcionesCategoria = activeTransactions
     .filter(t => t.type === 'expense' && t.category === 'Suscripciones')
     .reduce((sum, t) => sum + t.amount, 0);
   
   const diferencia = totalSuscripcionesCategoria - monthlyTotal;
 
-  // Detección de posibles suscripciones olvidadas (solo Pro)
   const potentialSubscriptions = React.useMemo(() => {
     if (!hasProAccess) return [];
-    
     const expenses = activeTransactions.filter(t => t.type === 'expense' && !t.isRecurring);
     const groups: { [key: string]: Transaction[] } = {};
-    
     expenses.forEach(t => {
       const key = t.description.toLowerCase().trim().substring(0, 8);
       if (!groups[key]) groups[key] = [];
       groups[key].push(t);
     });
-    
     return Object.values(groups)
       .filter(items => {
         if (items.length < 2) return false;
@@ -58,9 +59,9 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
       .map(group => group[0]);
   }, [activeTransactions, hasProAccess]);
 
-  // 🔥 DETECCIÓN DE CAMBIO DE MES (modal automático)
+  // Detección de cambio de mes
   useEffect(() => {
-    if (!hasProAccess) return;
+    if (!hasProAccess || !user?.uid) return;
     
     const lastCheckKey = `last_recurring_check_${user.uid}`;
     const lastCheck = localStorage.getItem(lastCheckKey);
@@ -79,7 +80,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     }
     
     if (shouldShow && recurringItems.length > 0) {
-      // Filtrar solo los que no tienen copia en el mes actual
       const pending = recurringItems.filter(recurring => {
         const existingInCurrentMonth = activeTransactions.some(t => 
           t.description === recurring.description && 
@@ -96,16 +96,20 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         setShowRecurringModal(true);
       }
     }
-  }, [user.uid, recurringItems.length, hasProAccess, activeTransactions]);
+  }, [user?.uid, recurringItems.length, hasProAccess, activeTransactions]);
 
-  // Funciones del modal
   const handleConfirmSelected = async () => {
+    if (!addTransactionFn) {
+      console.error('addTransaction no está disponible');
+      return;
+    }
+    
     for (const id of selectedItems) {
       const tx = pendingRecurring.find(t => t.id === id);
-      if (tx && !confirmedItems.has(id) && addTransaction) {
+      if (tx && !confirmedItems.has(id)) {
         setProcessing(id);
         try {
-          await addTransaction({
+          await addTransactionFn({
             type: tx.type,
             amount: tx.amount,
             category: tx.category,
@@ -115,7 +119,7 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
           });
           setConfirmedItems(prev => new Set(prev).add(id));
         } catch (error) {
-          console.error('Error al registrar gasto recurrente:', error);
+          console.error('Error:', error);
         } finally {
           setProcessing(null);
         }
@@ -153,31 +157,28 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     }
   };
 
-  // ==================== RENDER PARA USUARIOS FREE ====================
+  // Vista para usuarios Free
   if (!hasProAccess) {
     return (
-      <div className="glass p-8 rounded-[2.5rem] bg-indigo-50 border-indigo-100 flex flex-col items-center text-center transition-colors">
+      <div className="glass p-8 rounded-[2.5rem] bg-indigo-50 border-indigo-100 flex flex-col items-center text-center">
         <div className="p-4 bg-white rounded-2xl shadow-sm mb-4">
           <RefreshCcw className="w-8 h-8 text-indigo-500" />
         </div>
         <h4 className="font-bold text-slate-900 mb-2">Monitor de Gastos Recurrentes (Pro)</h4>
         <p className="text-slate-500 text-xs mb-6 max-w-[240px]">
-          Detectamos automáticamente tus pagos recurrentes (Netflix, Spotify, Gym) para que nunca pierdas el control.
+          Detectamos automáticamente tus pagos recurrentes para que nunca pierdas el control.
         </p>
-        <button 
-          onClick={onUpgrade}
-          className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:shadow-lg shadow-indigo-200 transition-all"
-        >
+        <button onClick={onUpgrade} className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">
           Activar Monitor Pro
         </button>
       </div>
     );
   }
 
-  // ==================== RENDER PARA USUARIOS PRO ====================
+  // Vista para usuarios Pro
   return (
     <>
-      <div className="glass p-8 rounded-[2.5rem] bg-white border-slate-100 overflow-hidden transition-colors">
+      <div className="glass p-8 rounded-[2.5rem] bg-white border-slate-100">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-600 rounded-xl">
@@ -185,11 +186,11 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
             </div>
             <div>
               <h3 className="font-bold text-lg text-slate-900">Gastos Recurrentes</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">Tus recibos con costo fijo, suscripciones y pagos periódicos</p>
+              <p className="text-[10px] text-slate-400">Tus recibos con costo fijo, suscripciones y pagos periódicos</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Costo Mensual (Recurrentes)</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Costo Mensual</p>
             <p className="font-bold text-indigo-600">{formatCurrency(monthlyTotal)}</p>
             {diferencia > 0 && (
               <p className="text-[10px] text-slate-400 mt-1">
@@ -201,87 +202,60 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         </div>
 
         <div className="space-y-4">
-          {recurringItems.length === 0 && potentialSubscriptions.length === 0 ? (
+          {recurringItems.length === 0 ? (
             <div className="text-center py-8 px-4 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-               <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-               <p className="text-xs text-slate-400">Marca tus gastos como "recurrentes" en la lista de movimientos para verlos aquí.</p>
+              <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">Marca tus gastos como "recurrentes" en la lista de movimientos.</p>
             </div>
           ) : (
-            <>
-              {recurringItems.map(item => (
-                <motion.div 
-                   layout
-                   key={item.id}
-                   className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-lg shadow-sm font-bold text-slate-900 transition-colors">
-                       {item.description.charAt(0).toUpperCase()}
-                     </div>
-                     <div>
-                       <p className="text-sm font-bold text-slate-800">{item.description}</p>
-                       <p className="text-[10px] text-slate-400 uppercase font-bold">{item.category}</p>
-                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                     <p className="text-sm font-bold text-slate-900">{formatCurrency(item.amount)}</p>
-                     <button 
-                       onClick={() => toggleRecurring(item.id!, false)}
-                       className="p-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"
-                     >
-                       <Zap className="w-4 h-4" />
-                     </button>
-                  </div>
-                </motion.div>
-              ))}
-
-              {potentialSubscriptions.length > 0 && (
-                <div className="mt-8 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                     <Bell className="w-4 h-4" />
-                     <h4 className="text-[10px] font-black uppercase tracking-widest">Detección de Olvidos</h4>
-                  </div>
-                  {potentialSubscriptions.map(item => (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      key={`potential-${item.id}`}
-                      className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between border-dashed transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg text-amber-500 shadow-sm transition-colors">
-                          <RefreshCcw className="w-4 h-4 animate-spin-slow" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">{item.description}?</p>
-                          <p className="text-[10px] text-amber-600 font-bold uppercase">Pago frecuente detectado</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => toggleRecurring(item.id!, true)}
-                        className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-700 rounded-lg text-[10px] font-bold transition-all"
-                      >
-                        Seguir
-                      </button>
-                    </motion.div>
-                  ))}
+            recurringItems.map(item => (
+              <div key={item.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{item.description}</p>
+                  <p className="text-[10px] text-slate-400">{item.category}</p>
                 </div>
-              )}
-            </>
+                <div className="flex items-center gap-4">
+                  <p className="text-sm font-bold text-slate-900">{formatCurrency(item.amount)}</p>
+                  <button onClick={() => toggleRecurring(item.id!, false)} className="p-2 text-slate-300 hover:text-red-500">
+                    <Zap className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+
+          {potentialSubscriptions.length > 0 && (
+            <div className="mt-8 space-y-4">
+              <div className="flex items-center gap-2 text-amber-600">
+                <Bell className="w-4 h-4" />
+                <h4 className="text-[10px] font-black uppercase tracking-widest">Detección de Olvidos</h4>
+              </div>
+              {potentialSubscriptions.map(item => (
+                <div key={`potential-${item.id}`} className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{item.description}?</p>
+                    <p className="text-[10px] text-amber-600 font-bold uppercase">Pago frecuente detectado</p>
+                  </div>
+                  <button onClick={() => toggleRecurring(item.id!, true)} className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-700 rounded-lg text-[10px] font-bold">
+                    Seguir
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100">
-           <div className="bg-amber-50 rounded-2xl p-4 flex items-start gap-3 transition-colors">
-             <Bell className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-             <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-               <span className="font-bold text-amber-700">Tip:</span> Reduciendo tus suscripciones en un 20% acelerarías tu libertad financiera en aproximadamente 14 meses.
-             </p>
-           </div>
+          <div className="bg-amber-50 rounded-2xl p-4 flex items-start gap-3">
+            <Bell className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+              <span className="font-bold text-amber-700">Tip:</span> Reduciendo tus suscripciones en un 20% acelerarías tu libertad financiera en aproximadamente 14 meses.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* ==================== MODAL DE RECURRENCIA MENSUAL ==================== */}
+      {/* Modal de recurrencia mensual */}
       <AnimatePresence>
         {showRecurringModal && pendingRecurring.length > 0 && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -299,75 +273,54 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
                       <h2 className="text-xl font-bold">Gastos Recurrentes</h2>
                     </div>
                     <p className="text-indigo-100 text-sm">
-                      Estos son tus gastos recurrentes. ¿Deseas registrarlos para {new Date().toLocaleString('es', { month: 'long', year: 'numeric' })}?
+                      ¿Registrar estos gastos para {new Date().toLocaleString('es', { month: 'long', year: 'numeric' })}?
                     </p>
                   </div>
-                  <button onClick={handleSkip} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                  <button onClick={handleSkip} className="p-1 hover:bg-white/20 rounded-lg">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
               <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                {pendingRecurring.map(tx => {
-                  const isSelected = selectedItems.has(tx.id!);
-                  const isConfirmed = confirmedItems.has(tx.id!);
-                  const isProcessing = processing === tx.id;
-
-                  return (
-                    <motion.div
-                      key={tx.id}
-                      className={cn(
-                        "flex items-center justify-between p-4 rounded-xl border transition-all",
-                        isConfirmed ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-100 hover:border-indigo-200"
-                      )}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <button
-                          onClick={() => !isConfirmed && toggleItem(tx.id!)}
-                          disabled={isConfirmed || isProcessing}
-                          className={cn(
-                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
-                            isConfirmed ? "bg-emerald-500 border-emerald-500" : isSelected ? "bg-indigo-600 border-indigo-600" : "border-slate-300"
-                          )}
-                        >
-                          {(isConfirmed || isSelected) && <Check className="w-3 h-3 text-white" />}
-                        </button>
-                        <div className="flex-1">
-                          <p className="font-semibold text-slate-800 text-sm">{tx.description}</p>
-                          <p className="text-xs text-slate-400">{tx.category}</p>
-                        </div>
-                        <p className="font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
+                {pendingRecurring.map(tx => (
+                  <div key={tx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl">
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => toggleItem(tx.id!)}
+                        disabled={processing === tx.id}
+                        className={cn(
+                          "w-5 h-5 rounded border-2 flex items-center justify-center",
+                          selectedItems.has(tx.id!) ? "bg-indigo-600 border-indigo-600" : "border-slate-300"
+                        )}
+                      >
+                        {selectedItems.has(tx.id!) && <Check className="w-3 h-3 text-white" />}
+                      </button>
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-800 text-sm">{tx.description}</p>
+                        <p className="text-xs text-slate-400">{tx.category}</p>
                       </div>
-                      {isProcessing && <div className="ml-2 w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />}
-                    </motion.div>
-                  );
-                })}
+                      <p className="font-bold text-slate-900">{formatCurrency(tx.amount)}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <button onClick={toggleAll} className="text-xs font-semibold text-indigo-600">
-                    {selectedItems.size === pendingRecurring.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                  </button>
-                  <p className="text-xs text-slate-500">{selectedItems.size} de {pendingRecurring.length} seleccionados</p>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={handleSkip} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold text-sm">
-                    Omitir este mes
-                  </button>
-                  <button
-                    onClick={handleConfirmSelected}
-                    disabled={selectedItems.size === 0}
-                    className={cn(
-                      "flex-1 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2",
-                      selectedItems.size === 0 && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <Zap className="w-4 h-4" />
-                    Registrar {selectedItems.size}
-                  </button>
-                </div>
+                <button
+                  onClick={handleConfirmSelected}
+                  disabled={selectedItems.size === 0}
+                  className={cn(
+                    "w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2",
+                    selectedItems.size === 0 && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Zap className="w-4 h-4" />
+                  Registrar {selectedItems.size} {selectedItems.size === 1 ? 'gasto' : 'gastos'}
+                </button>
+                <button onClick={handleSkip} className="w-full py-2 text-slate-500 text-sm">
+                  Omitir este mes
+                </button>
               </div>
             </motion.div>
           </div>
