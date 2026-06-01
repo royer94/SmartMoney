@@ -420,7 +420,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 <AIAdvisor user={proUser} transactions={transactions} goals={goals} onUpgrade={onUpgrade} />
               </div>
               <div>
-                <SubscriptionManager user={proUser} transactions={transactions} toggleRecurring={toggleRecurring} onUpgrade={onUpgrade} addTransaction={addTransaction} />
+                <SubscriptionManager user={proUser} transactions={transactions} toggleRecurring={toggleRecurring} onUpgrade={onUpgrade} />
               </div>
             </div>
 
