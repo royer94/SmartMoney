@@ -4,18 +4,16 @@ import { Transaction, UserProfile } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { useFinance } from '../hooks/useFinance'; // 👈 Importar el hook
+import { useFinance } from '../hooks/useFinance';
 
-export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade, addTransaction }: { 
+export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade }: { 
   user: UserProfile, 
   transactions: Transaction[], 
   toggleRecurring: any, 
-  onUpgrade?: () => void,
-  addTransaction?: (tx: any) => Promise<void>
+  onUpgrade?: () => void
 }) {
-  // ✅ Si no se pasa addTransaction como prop, lo obtenemos del hook
-  const { addTransaction: addTransactionFromHook } = useFinance();
-  const addTransactionFn = addTransaction || addTransactionFromHook;
+  // ✅ Obtener la función directamente del hook
+  const { addTransaction } = useFinance();
 
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Transaction[]>([]);
@@ -23,7 +21,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
 
-  // Validación de seguridad
   if (!user || !user.uid) return null;
 
   const activeTransactions = transactions.filter(t => !(t as any).deleted);
@@ -59,16 +56,13 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
       .map(group => group[0]);
   }, [activeTransactions, hasProAccess]);
 
-  // Detección de cambio de mes
   useEffect(() => {
     if (!hasProAccess || !user?.uid) return;
-    
     const lastCheckKey = `last_recurring_check_${user.uid}`;
     const lastCheck = localStorage.getItem(lastCheckKey);
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
     let shouldShow = false;
     if (lastCheck) {
       const lastCheckDate = new Date(lastCheck);
@@ -78,7 +72,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     } else {
       shouldShow = true;
     }
-    
     if (shouldShow && recurringItems.length > 0) {
       const pending = recurringItems.filter(recurring => {
         const existingInCurrentMonth = activeTransactions.some(t => 
@@ -89,7 +82,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         );
         return !existingInCurrentMonth;
       });
-      
       if (pending.length > 0) {
         setPendingRecurring(pending);
         setSelectedItems(new Set(pending.map(t => t.id!)));
@@ -99,17 +91,16 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
   }, [user?.uid, recurringItems.length, hasProAccess, activeTransactions]);
 
   const handleConfirmSelected = async () => {
-    if (!addTransactionFn) {
+    if (!addTransaction) {
       console.error('addTransaction no está disponible');
       return;
     }
-    
     for (const id of selectedItems) {
       const tx = pendingRecurring.find(t => t.id === id);
       if (tx && !confirmedItems.has(id)) {
         setProcessing(id);
         try {
-          await addTransactionFn({
+          await addTransaction({
             type: tx.type,
             amount: tx.amount,
             category: tx.category,
@@ -125,7 +116,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         }
       }
     }
-    
     setTimeout(() => {
       const lastCheckKey = `last_recurring_check_${user.uid}`;
       localStorage.setItem(lastCheckKey, new Date().toISOString());
@@ -157,7 +147,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     }
   };
 
-  // Vista para usuarios Free
   if (!hasProAccess) {
     return (
       <div className="glass p-8 rounded-[2.5rem] bg-indigo-50 border-indigo-100 flex flex-col items-center text-center">
@@ -175,7 +164,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     );
   }
 
-  // Vista para usuarios Pro
   return (
     <>
       <div className="glass p-8 rounded-[2.5rem] bg-white border-slate-100">
@@ -223,7 +211,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
               </div>
             ))
           )}
-
           {potentialSubscriptions.length > 0 && (
             <div className="mt-8 space-y-4">
               <div className="flex items-center gap-2 text-amber-600">
@@ -255,7 +242,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
         </div>
       </div>
 
-      {/* Modal de recurrencia mensual */}
       <AnimatePresence>
         {showRecurringModal && pendingRecurring.length > 0 && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
