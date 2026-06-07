@@ -20,7 +20,10 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem(`dismissed_suggestions_${user?.uid}`);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
   if (!user || !user.uid) return null;
 
@@ -228,7 +231,11 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
                     <button onClick={() => toggleRecurring(item.id!, true)} className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-700 rounded-lg text-[10px] font-bold">
                       Seguir
                     </button>
-                    <button onClick={() => setDismissedSuggestions(prev => new Set(prev).add(item.id!))} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold">
+                    <button onClick={() => {
+    const newSet = new Set(dismissedSuggestions).add(item.id!);
+    setDismissedSuggestions(newSet);
+    localStorage.setItem(`dismissed_suggestions_${user?.uid}`, JSON.stringify([...newSet]));
+  }} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold">
                       No
                     </button>
                   </div>
