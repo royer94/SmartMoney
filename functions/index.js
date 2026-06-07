@@ -1,83 +1,121 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const crypto = require('crypto');
 
-if (admin.apps.length === 0) {
-  admin.initializeApp();
-}
+admin.initializeApp();
+const db = admin.firestore();
 
-const db = getFirestore("ai-studio-4d598d16-d332-49e9-9157-502087392356");
+// ==================== WEBHOOK DE EPayco ====================
+exports.epaycoWebhook = functions.https.onRequest(async (req, res) => {
+  // Solo aceptar POST
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
 
-exports.initializeUserFields = functions
-  .runWith({
-    timeoutSeconds: 300, 
-    memory: "512MB"      
-  })
-  .https.onRequest(async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
+  try {
+    console.log('[Webhook] Recibida notificación de ePayco');
+    const data = req.body;
+    
+    // Datos que envía ePayco
+    const {
+      x_ref_payco,
+      x_transaction_id,
+      x_amount,
+      x_currency_code,
+      x_response,
+      x_cod_response,
+      x_signature,
+      x_extra1,  // userId
+      x_extra2   // months
+    } = data;
 
-    try {
-      const usersRef = db.collection("users");
-      const usersSnapshot = await usersRef.get();
+    // 1. Obtener variables de entorno (configuradas en Firebase)
+    const p_cust_id_cliente = functions.config().epayco.customer_id;
+    const p_key = functions.config().epayco.p_key;
+    
+    if (!p_cust_id_cliente || !p_key) {
+      console.error('[Webhook] Faltan configuraciones: epayco.customer_id o epayco.p_key');
+      return res.status(200).send('Configuration error');
+    }
+
+    // 2. Validar firma de seguridad
+    const signatureString = `${p_cust_id_cliente}^${p_key}^${x_ref_payco}^${x_transaction_id}^${x_amount}^${x_currency_code}`;
+    const computedSignature = crypto
+      .createHash('sha256')
+      .update(signatureString)
+      .digest('hex');
+
+    if (computedSignature !== x_signature) {
+      console.error('[Webhook] Firma inválida - posible intento de fraude');
+      return res.status(200).send('Invalid signature');
+    }
+
+    console.log('[Webhook] Firma validada correctamente');
+
+    // 3. Verificar que la transacción no haya sido procesada antes
+    const transactionRef = db.collection('epayco_transactions').doc(x_ref_payco);
+    const transactionSnap = await transactionRef.get();
+    
+    if (transactionSnap.exists) {
+      console.log(`[Webhook] Transacción ${x_ref_payco} ya fue procesada`);
+      return res.status(200).send('Already processed');
+    }
+
+    // 4. Procesar según estado del pago
+    const isSuccessful = x_response === 'Aceptada' || x_cod_response === '1';
+    
+    if (isSuccessful) {
+      const userId = x_extra1;
+      const months = parseInt(x_extra2) || 1;
       
-      if (usersSnapshot.empty) {
-        return res.status(200).send({
-          status: "success",
-          message: "Conexión exitosa, pero la colección 'users' está vacía."
-        });
+      if (!userId) {
+        console.error('[Webhook] No se recibió userId en x_extra1');
+        return res.status(200).send('Missing userId');
       }
 
-      let totalUpdated = 0;
-      let batch = db.batch();
-      let count = 0;
+      // Calcular fecha de expiración
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + months);
 
-      // Calculamos 30 días en milisegundos hacia el futuro
-      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-      const trialEndDate = admin.firestore.Timestamp.fromDate(new Date(Date.now() + thirtyDaysInMs));
-
-      usersSnapshot.docs.forEach((doc) => {
-        const userRef = usersRef.doc(doc.id);
-        
-        /**
-         * Forzamos la actualización de todos los usuarios para corregir los 7 días anteriores
-         * y estructurar el nuevo modelo de límites.
-         */
-        batch.set(userRef, {
-          plan: "trial",                // Indica que está en periodo de prueba premium
-          isTrialActive: true,          // Flag de control premium
-          trialEndDate: trialEndDate,   // ¡Vence en 30 días!
-          isActive: true,               // Estado de la cuenta
-          monthlyRecordCount: 0,        // Registros de texto usados este mes
-          monthlyVoiceCount: 0,         // Registros de voz usados este mes
-          maxFreeRecords: 40,           // Límite que aplicará al pasar a Free
-          maxFreeVoice: 10,             // Límite de voz que aplicará al pasar a Free
-          lastResetDate: admin.firestore.Timestamp.now()
-        }, { merge: true });            // El merge evita borrar otros datos como el email o nombre
-
-        count++;
-        totalUpdated++;
-
-        if (count === 500) {
-          batch.commit();
-          batch = db.batch();
-          count = 0;
-        }
+      // Activar plan Pro en Firestore
+      const userRef = db.collection('users').doc(userId);
+      await userRef.update({
+        isPro: true,
+        isActive: true,
+        isTrialActive: false,
+        trialEndDate: null,
+        proExpiresAt: expiry.toISOString(),
+        lastPaymentDate: new Date().toISOString(),
+        lastPaymentAmount: parseFloat(x_amount),
+        lastPaymentMonths: months
       });
 
-      if (count > 0) {
-        await batch.commit();
-      }
+      console.log(`[Webhook] ✅ Usuario ${userId} activado como Pro por ${months} meses`);
 
-      return res.status(200).send({
-        status: "success",
-        message: `¡Éxito absoluto! Se configuraron los 30 días Pro y límites Free para ${totalUpdated} usuarios.`
+      // Guardar registro de la transacción procesada
+      await transactionRef.set({
+        userId,
+        months,
+        amount: parseFloat(x_amount),
+        transactionId: x_transaction_id,
+        processedAt: new Date().toISOString(),
+        status: 'success'
       });
-
-    } catch (error) {
-      console.error("Error en la ejecución:", error);
-      return res.status(500).send({
-        status: "error",
-        message: `Error de Firestore: ${error.message}`
+    } else {
+      console.log(`[Webhook] ❌ Pago rechazado: ${x_response}`);
+      
+      await transactionRef.set({
+        status: 'failed',
+        response: x_response,
+        processedAt: new Date().toISOString()
       });
     }
-  });
+
+    // 5. Responder con 200 OK
+    res.status(200).send('OK');
+    
+  } catch (error) {
+    console.error('[Webhook] Error:', error);
+    res.status(200).send('OK');
+  }
+});
