@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ePayco Webhook Tester</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --accent: #00ff88;
+    --accent2: #0066ff;
+    --danger: #ff4444;
+    --warning: #ffaa00;
+    --text: #e0e0f0;
+    --muted: #555570;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  header {
+    margin-bottom: 2.5rem;
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+  }
+
+  header h1 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+  }
+
+  header p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(0,255,136,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,255,136,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    margin-top: 0.5rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .field {
+    margin-bottom: 1rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.4rem;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="password"] { letter-spacing: 0.1em; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  .sig-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    word-break: break-all;
+    min-height: 2.5rem;
+  }
+
+  .sig-preview span { color: var(--accent); }
+
+  .scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .scenario-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.7rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+
+  .scenario-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .scenario-btn .sc-label { font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); display: block; margin-top: 0.2rem; }
+  .scenario-btn.accepted { border-color: rgba(0,255,136,0.3); }
+  .scenario-btn.rejected { border-color: rgba(255,68,68,0.3); }
+  .scenario-btn.failed { border-color: rgba(255,170,0,0.3); }
+
+  .send-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 0.9rem;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .send-btn:hover { background: #00cc6e; transform: translateY(-1px); }
+  .send-btn:active { transform: translateY(0); }
+  .send-btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+
+  .log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  .log-line { display: flex; gap: 0.5rem; }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-ok { color: var(--accent); }
+  .log-err { color: var(--danger); }
+  .log-warn { color: var(--warning); }
+  .log-info { color: var(--accent2); }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  .status-bar.show { display: flex; }
+  .status-bar.success { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3); color: var(--accent); }
+  .status-bar.error { background: rgba(255,68,68,0.08); border: 1px solid rgba(255,68,68,0.3); color: var(--danger); }
+  .status-bar.loading { background: rgba(0,102,255,0.08); border: 1px solid rgba(0,102,255,0.3); color: var(--accent2); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  .warning-note {
+    background: rgba(255,170,0,0.06);
+    border: 1px solid rgba(255,170,0,0.2);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    color: var(--warning);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 1.5rem;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>ePayco Webhook Tester</h1>
+    <p>SmartMoney AI — Simulador de confirmación de pagos</p>
+    <span class="badge">🔒 Las claves nunca salen de tu navegador</span>
+  </header>
+
+  <div class="warning-note">
+    ⚠ Tus claves se usan solo para calcular la firma SHA-256 localmente. No se envían a ningún servidor externo.
+  </div>
+
+  <!-- Credenciales -->
+  <div class="card">
+    <div class="card-title">Credenciales ePayco</div>
+    <div class="row">
+      <div class="field">
+        <label>P_CUST_ID_CLIENTE</label>
+        <input type="password" id="customerId" placeholder="Tu Customer ID" oninput="updateSig()">
+      </div>
+      <div class="field">
+        <label>P_KEY</label>
+        <input type="password" id="pKey" placeholder="Tu P_KEY" oninput="updateSig()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Datos del pago -->
+  <div class="card">
+    <div class="card-title">Datos de la transacción</div>
+    <div class="row">
+      <div class="field">
+        <label>x_ref_payco</label>
+        <input type="text" id="refPayco" value="TEST-001" oninput="updateSig()">
+      </div>
+      <div class="field">
+        <label>x_transaction_id</label>
+        <input type="text" id="transactionId" value="TXN-123456" oninput="updateSig()">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>x_amount</label>
+        <input type="text" id="amount" value="29900" oninput="updateSig()">
+      </div>
+      <div class="field">
+        <label>x_currency_code</label>
+        <input type="text" id="currency" value="COP" oninput="updateSig()">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>x_extra1 (userId de Firestore)</label>
+        <input type="text" id="userId" placeholder="UID del usuario en Firebase">
+      </div>
+      <div class="field">
+        <label>x_extra2 (meses)</label>
+        <input type="text" id="months" value="1">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>x_response</label>
+        <select id="xResponse" onchange="syncResponse()">
+          <option value="Aceptada">Aceptada</option>
+          <option value="Rechazada">Rechazada</option>
+          <option value="Fallida">Fallida</option>
+          <option value="Pendiente">Pendiente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>x_cod_response</label>
+        <input type="text" id="codResponse" value="1">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="field">
+      <label>Firma SHA-256 calculada (x_signature)</label>
+      <div class="sig-preview" id="sigPreview">— ingresa tus credenciales para calcular —</div>
+    </div>
+  </div>
+
+  <!-- Escenarios rápidos -->
+  <div class="card">
+    <div class="card-title">Escenarios rápidos</div>
+    <div class="scenario-grid">
+      <button class="scenario-btn accepted" onclick="setScenario('accepted')">
+        ✅ Pago aceptado
+        <span class="sc-label">Activa Pro en Firestore</span>
+      </button>
+      <button class="scenario-btn rejected" onclick="setScenario('rejected')">
+        ❌ Fondos insuficientes
+        <span class="sc-label">Registra transacción fallida</span>
+      </button>
+      <button class="scenario-btn failed" onclick="setScenario('failed')">
+        ⚠️ Error de comunicación
+        <span class="sc-label">Estado: Fallida</span>
+      </button>
+      <button class="scenario-btn" onclick="setScenario('duplicate')">
+        🔁 Duplicado
+        <span class="sc-label">Misma ref — debe ignorarse</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Webhook URL -->
+  <div class="card">
+    <div class="card-title">Destino</div>
+    <div class="field">
+      <label>URL del webhook</label>
+      <input type="text" id="webhookUrl" value="https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/epaycoWebhook">
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="statusBar" class="status-bar">
+    <span id="statusIcon">⏳</span>
+    <span id="statusMsg">Enviando...</span>
+  </div>
+
+  <!-- Botón enviar -->
+  <button class="send-btn" id="sendBtn" onclick="sendWebhook()">
+    <span>⚡</span> Enviar al webhook
+  </button>
+
+  <!-- Log -->
+  <div class="card" style="margin-top:1.5rem">
+    <div class="card-title">Log de respuestas</div>
+    <div class="log" id="log">
+      <div class="log-line"><span class="log-time">--:--:--</span><span class="log-info">Listo para enviar. Completa los datos y presiona el botón.</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---- SHA-256 via SubtleCrypto (nativo del navegador) ----
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function updateSig() {
+  const cid = document.getElementById('customerId').value;
+  const pk = document.getElementById('pKey').value;
+  const ref = document.getElementById('refPayco').value;
+  const txn = document.getElementById('transactionId').value;
+  const amt = document.getElementById('amount').value;
+  const cur = document.getElementById('currency').value;
+
+  const preview = document.getElementById('sigPreview');
+
+  if (!cid || !pk) {
+    preview.innerHTML = '— ingresa tus credenciales para calcular —';
+    return;
+  }
+
+  const str = `${cid}^${pk}^${ref}^${txn}^${amt}^${cur}`;
+  const hash = await sha256(str);
+  preview.innerHTML = `<span>${hash}</span><br><small style="color:var(--muted);font-size:0.65rem">cadena: ${cid}^***^${ref}^${txn}^${amt}^${cur}</small>`;
+}
+
+function syncResponse() {
+  const r = document.getElementById('xResponse').value;
+  const cod = { 'Aceptada': '1', 'Rechazada': '2', 'Fallida': '3', 'Pendiente': '4' };
+  document.getElementById('codResponse').value = cod[r] || '1';
+  updateSig();
+}
+
+function setScenario(type) {
+  const scenarios = {
+    accepted:  { response: 'Aceptada',  cod: '1', ref: 'TEST-' + Date.now() },
+    rejected:  { response: 'Rechazada', cod: '2', ref: 'TEST-' + Date.now() },
+    failed:    { response: 'Fallida',   cod: '3', ref: 'TEST-' + Date.now() },
+    duplicate: { response: 'Aceptada',  cod: '1', ref: document.getElementById('refPayco').value }
+  };
+  const s = scenarios[type];
+  document.getElementById('xResponse').value = s.response;
+  document.getElementById('codResponse').value = s.cod;
+  if (type !== 'duplicate') document.getElementById('refPayco').value = s.ref;
+  updateSig();
+}
+
+function log(msg, type = 'info') {
+  const logEl = document.getElementById('log');
+  const now = new Date().toLocaleTimeString('es-CO');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">${now}</span><span class="log-${type}">${msg}</span>`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStatus(type, msg) {
+  const bar = document.getElementById('statusBar');
+  const icons = { loading: '⏳', success: '✅', error: '❌' };
+  bar.className = `status-bar show ${type}`;
+  document.getElementById('statusIcon').textContent = icons[type];
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+async function sendWebhook() {
+  const cid = document.getElementById('customerId').value;
+  const pk = document.getElementById('pKey').value;
+  const ref = document.getElementById('refPayco').value;
+  const txn = document.getElementById('transactionId').value;
+  const amt = document.getElementById('amount').value;
+  const cur = document.getElementById('currency').value;
+  const userId = document.getElementById('userId').value;
+  const months = document.getElementById('months').value;
+  const xResponse = document.getElementById('xResponse').value;
+  const codResponse = document.getElementById('codResponse').value;
+  const webhookUrl = document.getElementById('webhookUrl').value;
+
+  if (!cid || !pk) { log('⚠ Ingresa P_CUST_ID_CLIENTE y P_KEY', 'warn'); return; }
+  if (!userId) { log('⚠ Ingresa el userId de Firebase (x_extra1)', 'warn'); return; }
+  if (!webhookUrl) { log('⚠ Ingresa la URL del webhook', 'warn'); return; }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  setStatus('loading', 'Calculando firma y enviando...');
+
+  const sigStr = `${cid}^${pk}^${ref}^${txn}^${amt}^${cur}`;
+  const signature = await sha256(sigStr);
+
+  const payload = {
+    x_ref_payco: ref,
+    x_transaction_id: txn,
+    x_amount: amt,
+    x_currency_code: cur,
+    x_response: xResponse,
+    x_cod_response: codResponse,
+    x_signature: signature,
+    x_extra1: userId,
+    x_extra2: months,
+    x_cust_id_cliente: cid,
+    x_test_request: 'TRUE'
+  };
+
+  log(`→ POST ${webhookUrl}`, 'info');
+  log(`→ Payload: ref=${ref} | response=${xResponse} | userId=${userId} | amount=${amt}`, 'info');
+  log(`→ Firma: ${signature.substring(0,20)}...`, 'info');
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+    
+    if (res.ok) {
+      log(`✅ HTTP ${res.status} — Respuesta: "${text}"`, 'ok');
+      
+      if (text === 'OK') {
+        log('✅ Webhook procesado correctamente', 'ok');
+        if (xResponse === 'Aceptada') {
+          log('🎉 Si el userId existe en Firestore, isPro debería ser true ahora', 'ok');
+        }
+        setStatus('success', `HTTP ${res.status} — ${text}`);
+      } else if (text === 'Already processed') {
+        log('⚠ Transacción duplicada — el webhook la ignoró correctamente', 'warn');
+        setStatus('success', 'Duplicado detectado y rechazado correctamente');
+      } else if (text === 'Invalid signature') {
+        log('❌ Firma inválida — verifica P_CUST_ID_CLIENTE y P_KEY', 'err');
+        setStatus('error', 'Firma inválida — revisa tus credenciales');
+      } else if (text === 'Configuration error') {
+        log('❌ Variables de entorno no configuradas en la Cloud Function', 'err');
+        setStatus('error', 'Variables faltantes en Google Cloud');
+      } else {
+        log(`⚠ Respuesta inesperada: "${text}"`, 'warn');
+        setStatus('error', `Respuesta: ${text}`);
+      }
+    } else {
+      log(`❌ HTTP ${res.status} — ${text}`, 'err');
+      setStatus('error', `Error HTTP ${res.status}`);
+    }
+  } catch (err) {
+    if (err.message.includes('CORS') || err.message.includes('fetch')) {
+      log('⚠ Error CORS — el webhook recibió la petición pero bloqueó la respuesta', 'warn');
+      log('💡 Esto es NORMAL con Cloud Functions. Verifica en Google Cloud → Registros', 'info');
+      setStatus('success', 'Enviado (verifica logs en Google Cloud Console)');
+    } else {
+      log(`❌ Error de red: ${err.message}`, 'err');
+      setStatus('error', err.message);
+    }
+  }
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
