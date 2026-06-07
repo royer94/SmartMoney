@@ -30,8 +30,8 @@ exports.epaycoWebhook = functions.https.onRequest(async (req, res) => {
     } = data;
 
     // 1. Obtener variables de entorno (configuradas en Firebase)
-    const p_cust_id_cliente = functions.config().epayco.customer_id;
-    const p_key = functions.config().epayco.p_key;
+const p_cust_id_cliente = process.env.EPAYCO_CUSTOMER_ID;
+const p_key = process.env.EPAYCO_P_KEY;
     
     if (!p_cust_id_cliente || !p_key) {
       console.error('[Webhook] Faltan configuraciones: epayco.customer_id o epayco.p_key');
