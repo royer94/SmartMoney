@@ -20,6 +20,7 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
   if (!user || !user.uid) return null;
 
@@ -217,15 +218,20 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
                 <Bell className="w-4 h-4" />
                 <h4 className="text-[10px] font-black uppercase tracking-widest">Detección de Olvidos</h4>
               </div>
-              {potentialSubscriptions.map(item => (
+              {potentialSubscriptions.filter(item => !dismissedSuggestions.has(item.id!)).map(item => (
                 <div key={`potential-${item.id}`} className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-slate-800">{item.description}?</p>
                     <p className="text-[10px] text-amber-600 font-bold uppercase">Pago frecuente detectado</p>
                   </div>
-                  <button onClick={() => toggleRecurring(item.id!, true)} className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-700 rounded-lg text-[10px] font-bold">
-                    Seguir
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => toggleRecurring(item.id!, true)} className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-700 rounded-lg text-[10px] font-bold">
+                      Seguir
+                    </button>
+                    <button onClick={() => setDismissedSuggestions(prev => new Set(prev).add(item.id!))} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold">
+                      No
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
