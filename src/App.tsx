@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { verifyEpaycoTransaction } from './services/paymentService';
 import { useSearchParams } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
 
@@ -56,20 +55,11 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     const refPayco = searchParams.get('ref_payco');
-    if (refPayco && user) {
-      const verify = async () => {
-        const data = await verifyEpaycoTransaction(refPayco);
-        if (data && (data.x_response === 'Aceptada' || data.x_cod_response === 1)) {
-          const months = parseInt(data.x_extra2) || 1;
-          await activatePro(data.x_extra1, months);
-          alert(`¡Pago exitoso! Tu plan Pro por ${months} ${months === 1 ? 'mes' : 'meses'} ha sido activado.`);
-        }
-        searchParams.delete('ref_payco');
-        setSearchParams(searchParams);
-      };
-      verify();
+    if (refPayco) {
+      searchParams.delete('ref_payco');
+      setSearchParams(searchParams);
     }
-  }, [user, searchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown') && user.onboardingDone) {
