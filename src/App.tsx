@@ -62,10 +62,6 @@ function AuthenticatedApp() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (user && user.freeRecordsCount === 0 && !localStorage.getItem('guide_shown') && user.onboardingDone) {
-      setShowGuide(true);
-      localStorage.setItem('guide_shown', 'true');
-    }
   }, [user]);
 
   const handleTabChange = (tab: typeof activeTab) => {
