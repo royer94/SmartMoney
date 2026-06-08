@@ -21,12 +21,19 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
   const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(() => {
     const saved = localStorage.getItem(`fs_savings_goal_${user.uid}`);
-    return saved ? Number(saved) : 2000000;
+    if (saved) return Number(saved);
+    const income = (user as any).monthlyIncome;
+    const budget = (user as any).monthlyBudget;
+    if (income && budget) return Math.max(0, Number(income) - Number(budget));
+    if (income) return Math.round(Number(income) * 0.3);
+    return 0;
   });
 
   const [monthlyExpenses, setMonthlyExpenses] = useState(() => {
     const saved = localStorage.getItem(`fs_expenses_${user.uid}`);
-    return saved ? Number(saved) : 4000000;
+    if (saved) return Number(saved);
+    if ((user as any).monthlyBudget) return Number((user as any).monthlyBudget);
+    return 0;
   });
 
   const [returnRate, setReturnRate] = useState(() => {
