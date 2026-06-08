@@ -414,7 +414,37 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
               </div>
             </div>
-
+{(user as any).monthlyBudget > 0 && (
+  <div className="glass p-6 rounded-[2rem] bg-white border border-slate-100">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2">
+        <div className="p-2 bg-blue-100 rounded-xl">
+          <Target className="w-4 h-4 text-blue-600" />
+        </div>
+        <div>
+          <p className="font-bold text-slate-900 text-sm">Presupuesto del mes</p>
+          <p className="text-[10px] text-slate-400">{MONTHS[currentMonth]} {currentYear}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-xs font-bold text-slate-500">
+          {privacyMode ? '••••' : formatCurrency(currentMonthExpenses)} <span className="text-slate-300">/</span> {privacyMode ? '••••' : formatCurrency((user as any).monthlyBudget)}
+        </p>
+        <p className={cn("text-[10px] font-bold", currentMonthExpenses > (user as any).monthlyBudget ? "text-red-500" : "text-emerald-500")}>
+          {currentMonthExpenses > (user as any).monthlyBudget
+            ? `⚠ Excedido por ${privacyMode ? '••••' : formatCurrency(currentMonthExpenses - (user as any).monthlyBudget)}`
+            : `✓ Disponible: ${privacyMode ? '••••' : formatCurrency((user as any).monthlyBudget - currentMonthExpenses)}`}
+        </p>
+      </div>
+    </div>
+    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+      <div
+        className={cn("h-2.5 rounded-full transition-all duration-500", currentMonthExpenses > (user as any).monthlyBudget ? "bg-red-500" : currentMonthExpenses > (user as any).monthlyBudget * 0.8 ? "bg-amber-400" : "bg-emerald-500")}
+        style={{ width: `${Math.min(100, (currentMonthExpenses / (user as any).monthlyBudget) * 100)}%` }}
+      />
+    </div>
+  </div>
+)}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
                 <AIAdvisor user={proUser} transactions={transactions} goals={goals} onUpgrade={onUpgrade} />
