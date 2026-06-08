@@ -519,9 +519,9 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       if (result?.id) {
         const newCount = transactions.length + 1;
         const shouldShow = !contextUser?.isTrialActive &&
-                           !contextUser?.isActive &&
-                           !contextUser?.trialOfferAccepted &&
-                           (newCount === 1 || (newCount % 5 === 0 && newCount > (contextUser?.trialOfferLastShown || 0)));
+                   !contextUser?.isActive &&
+                   !contextUser?.trialOfferAccepted &&
+                   (newCount === 1 || (newCount - (contextUser?.trialOfferLastShown || 0)) >= 3);
         if (shouldShow) {
           setShowTrialOffer(true);
         }
