@@ -158,8 +158,8 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
+ } else {
+    const distPath = path.join(process.cwd());
     app.use(express.static(distPath));
     app.get('/sitemap.xml', (req, res) => {
       res.sendFile(path.join(distPath, 'sitemap.xml'));
