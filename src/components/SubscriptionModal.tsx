@@ -24,9 +24,10 @@ interface SubscriptionModalProps {
   onUpgrade: (months: number) => void;
 }
 
+// ✅ URL de Hotmart con redirección a tu API
 const HOTMART_URL = 'https://pay.hotmart.com/O105879229W';
 
-// ✅ PRECIOS CORREGIDOS EN COP (pesos colombianos)
+// Precios en COP (pesos colombianos)
 const PLANS_COP = [
   { months: 1,  amount: 19900,  label: '1 Mes',   desc: 'Acceso mensual', discount: 0 },
   { months: 3,  amount: 56700,  label: '3 Meses',  desc: 'Plan Trimestral', discount: 5, badge: 'Popular' },
@@ -34,7 +35,7 @@ const PLANS_COP = [
   { months: 12, amount: 166800, label: '1 Año',    desc: 'Plan Anual', discount: 30, badge: 'Mejor Valor' },
 ];
 
-// ✅ PRECIOS CORREGIDOS EN USD (dólares americanos)
+// Precios en USD (dólares americanos)
 const PLANS_USD = [
   { months: 1,  amount: 5.99,  label: '1 Mes',   desc: 'Acceso mensual', discount: 0 },
   { months: 3,  amount: 16.47, label: '3 Meses',  desc: 'Plan Trimestral', discount: 8, badge: 'Popular' },
@@ -71,7 +72,14 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
   };
 
   const handleHotmart = () => {
-    window.open(HOTMART_URL, '_blank');
+    if (!user) {
+      alert('Error: Usuario no identificado');
+      return;
+    }
+    
+    // ✅ Redirigir a través de tu API para crear sesión
+    const sessionUrl = `${window.location.origin}/api/hotmart/session?userId=${user.uid}&months=${selectedPlan.months}`;
+    window.open(sessionUrl, '_blank');
   };
 
   return (
@@ -271,7 +279,7 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
   );
 }
 
-function BenefitItem({ icon: Icon, text }: { icon: any, text: string }) {
+function BenefitItem({ icon: Icon, text }: { icon: any; text: string }) {
   return (
     <div className="flex items-center gap-3">
       <div className="w-6 h-6 bg-white/10 rounded-lg flex items-center justify-center shrink-0">
