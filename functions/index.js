@@ -1,112 +1,129 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+const { defineString, defineSecret } = require('firebase-functions/params');
 
 admin.initializeApp();
 const db = admin.firestore();
 
+// ==================== PARÁMETROS DE CONFIGURACIÓN ====================
+
+// ✅ Para ePayco - Usamos Secret Manager para la P_KEY (más seguro)
+const epaycoCustomerId = defineString('EPAYCO_CUSTOMER_ID');
+const epaycoPKey = defineSecret('EPAYCO_P_KEY');
+
 // ==================== WEBHOOK DE EPayco ====================
-exports.epaycoWebhook = functions.https.onRequest(async (req, res) => {
-  // Cabeceras CORS
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+exports.epaycoWebhook = functions.https.onRequest(
+  { secrets: [epaycoPKey] }, // ✅ Vinculamos el secreto a esta función
+  async (req, res) => {
+    // Cabeceras CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Responder preflight OPTIONS
-  if (req.method === 'OPTIONS') {
-    return res.status(204).send('');
-  }
-
-  // Solo aceptar POST
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
-
-  try {
-    console.log('[Webhook] Recibida notificación de ePayco');
-    const data = req.body;
-    
-    const {
-      x_ref_payco, x_transaction_id, x_amount, x_currency_code,
-      x_response, x_cod_response, x_signature, x_extra1, x_extra2
-    } = data;
-
-    const p_cust_id_cliente = process.env.EPAYCO_CUSTOMER_ID;
-    const p_key = process.env.EPAYCO_P_KEY;
-    
-    if (!p_cust_id_cliente || !p_key) {
-      console.error('[Webhook] Faltan configuraciones: EPAYCO_CUSTOMER_ID o EPAYCO_P_KEY');
-      return res.status(200).send('Configuration error');
+    // Responder preflight OPTIONS
+    if (req.method === 'OPTIONS') {
+      return res.status(204).send('');
     }
 
-    const signatureString = `${p_cust_id_cliente}^${p_key}^${x_ref_payco}^${x_transaction_id}^${x_amount}^${x_currency_code}`;
-    const computedSignature = crypto.createHash('sha256').update(signatureString).digest('hex');
-
-    if (computedSignature !== x_signature) {
-      console.error('[Webhook] Firma inválida - posible intento de fraude');
-      return res.status(200).send('Invalid signature');
+    // Solo aceptar POST
+    if (req.method !== 'POST') {
+      return res.status(405).send('Method Not Allowed');
     }
 
-    console.log('[Webhook] Firma validada correctamente');
-
-    const transactionRef = db.collection('epayco_transactions').doc(x_ref_payco);
-    const transactionSnap = await transactionRef.get();
-    
-    if (transactionSnap.exists) {
-      console.log(`[Webhook] Transacción ${x_ref_payco} ya fue procesada`);
-      return res.status(200).send('Already processed');
-    }
-
-    const isSuccessful = x_response === 'Aceptada' || x_cod_response === '1';
-    
-    if (isSuccessful) {
-      const userId = x_extra1;
-      const months = parseInt(x_extra2) || 1;
+    try {
+      console.log('[Webhook] Recibida notificación de ePayco');
+      const data = req.body;
       
-      if (!userId) {
-        console.error('[Webhook] No se recibió userId en x_extra1');
-        return res.status(200).send('Missing userId');
+      const {
+        x_ref_payco, x_transaction_id, x_amount, x_currency_code,
+        x_response, x_cod_response, x_signature, x_extra1, x_extra2
+      } = data;
+
+      // ✅ Leer los valores de los parámetros
+      const p_cust_id_cliente = epaycoCustomerId.value();
+      const p_key = epaycoPKey.value();
+      
+      if (!p_cust_id_cliente || !p_key) {
+        console.error('[Webhook] Faltan configuraciones: EPAYCO_CUSTOMER_ID o EPAYCO_P_KEY');
+        return res.status(200).send('Configuration error');
       }
 
-      const expiry = new Date();
-      expiry.setMonth(expiry.getMonth() + months);
+      // Validar firma de seguridad
+      const signatureString = `${p_cust_id_cliente}^${p_key}^${x_ref_payco}^${x_transaction_id}^${x_amount}^${x_currency_code}`;
+      const computedSignature = crypto.createHash('sha256').update(signatureString).digest('hex');
 
-      await db.collection('users').doc(userId).update({
-        isPro: true,
-        isActive: true,
-        isTrialActive: false,
-        trialEndDate: null,
-        proExpiresAt: expiry.toISOString(),
-        lastPaymentDate: new Date().toISOString(),
-        lastPaymentAmount: parseFloat(x_amount),
-        lastPaymentMonths: months
-      });
+      if (computedSignature !== x_signature) {
+        console.error('[Webhook] Firma inválida - posible intento de fraude');
+        return res.status(200).send('Invalid signature');
+      }
 
-      console.log(`[Webhook] ✅ Usuario ${userId} activado como Pro por ${months} meses`);
+      console.log('[Webhook] Firma validada correctamente');
 
-      await transactionRef.set({
-        userId, months,
-        amount: parseFloat(x_amount),
-        transactionId: x_transaction_id,
-        processedAt: new Date().toISOString(),
-        status: 'success'
-      });
-    } else {
-      console.log(`[Webhook] ❌ Pago rechazado: ${x_response}`);
-      await transactionRef.set({
-        status: 'failed',
-        response: x_response,
-        processedAt: new Date().toISOString()
-      });
+      // Verificar que la transacción no haya sido procesada antes
+      const transactionRef = db.collection('epayco_transactions').doc(x_ref_payco);
+      const transactionSnap = await transactionRef.get();
+      
+      if (transactionSnap.exists) {
+        console.log(`[Webhook] Transacción ${x_ref_payco} ya fue procesada`);
+        return res.status(200).send('Already processed');
+      }
+
+      const isSuccessful = x_response === 'Aceptada' || x_cod_response === '1';
+      
+      if (isSuccessful) {
+        const userId = x_extra1;
+        const months = parseInt(x_extra2) || 1;
+        
+        if (!userId) {
+          console.error('[Webhook] No se recibió userId en x_extra1');
+          return res.status(200).send('Missing userId');
+        }
+
+        const expiry = new Date();
+        expiry.setMonth(expiry.getMonth() + months);
+
+        // Activar plan Pro en Firestore
+        await db.collection('users').doc(userId).update({
+          isPro: true,
+          isActive: true,
+          isTrialActive: false,
+          trialEndDate: null,
+          proExpiresAt: expiry.toISOString(),
+          lastPaymentDate: new Date().toISOString(),
+          lastPaymentAmount: parseFloat(x_amount),
+          lastPaymentMonths: months,
+          lastPaymentMethod: 'epayco'
+        });
+
+        console.log(`[Webhook] ✅ Usuario ${userId} activado como Pro por ${months} meses`);
+
+        // Guardar registro de la transacción
+        await transactionRef.set({
+          userId,
+          months,
+          amount: parseFloat(x_amount),
+          transactionId: x_transaction_id,
+          processedAt: new Date().toISOString(),
+          status: 'success'
+        });
+      } else {
+        console.log(`[Webhook] ❌ Pago rechazado: ${x_response}`);
+        await transactionRef.set({
+          status: 'failed',
+          response: x_response,
+          processedAt: new Date().toISOString()
+        });
+      }
+
+      res.status(200).send('OK');
+      
+    } catch (error) {
+      console.error('[Webhook] Error:', error);
+      res.status(200).send('OK');
     }
-
-    res.status(200).send('OK');
-    
-  } catch (error) {
-    console.error('[Webhook] Error:', error);
-    res.status(200).send('OK');
   }
-});
+);
 
 // ==================== WEBHOOK DE HOTMART ====================
 exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
@@ -115,12 +132,10 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Responder preflight OPTIONS
   if (req.method === 'OPTIONS') {
     return res.status(204).send('');
   }
 
-  // Solo aceptar POST
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
@@ -128,21 +143,16 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
   try {
     console.log('[Hotmart Webhook] Recibida notificación');
     const data = req.body;
-    
-    // Hotmart puede enviar diferentes estructuras según la versión
-    // Versión 2.0.0 usa: { event, data: { purchase, buyer } }
     const event = data.event || data.type || 'unknown';
     const eventData = data.data || data;
     
     console.log(`[Hotmart] Evento recibido: ${event}`);
 
-    // Verificar que es un evento de compra exitosa
     if (event !== 'PURCHASE_COMPLETED' && event !== 'PURCHASE_APPROVED') {
       console.log(`[Hotmart] Evento ignorado: ${event}`);
       return res.status(200).send('OK');
     }
 
-    // Extraer datos de la compra
     const purchase = eventData.purchase || eventData.data?.purchase || {};
     const buyer = eventData.buyer || eventData.data?.buyer || {};
     
@@ -152,15 +162,8 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
     
     console.log(`[Hotmart] Compra: ${transactionId} - $${amount} - ${status}`);
 
-    // 🔥 IMPORTANTE: Hotmart NO envía userId en el webhook
-    // Necesitamos obtenerlo de una sesión temporal.
-    // Por ahora, registramos la transacción y enviamos un email al admin.
-    
-    // Buscar si existe una sesión temporal con este transactionId
-    // (Implementar sistema de sesiones si es necesario)
+    // Buscar sesión temporal con este transactionId
     let userId = null;
-    
-    // Buscar en colección de sesiones temporales
     const sessionsSnapshot = await db.collection('hotmart_sessions')
       .where('transactionId', '==', transactionId)
       .where('expired', '==', false)
@@ -170,15 +173,11 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
     if (!sessionsSnapshot.empty) {
       const sessionData = sessionsSnapshot.docs[0].data();
       userId = sessionData.userId;
-      
-      // Marcar sesión como usada
       await sessionsSnapshot.docs[0].ref.update({ expired: true });
     }
 
-    // Si encontramos userId, activar Pro
     if (userId) {
-      const months = 1; // Por defecto 1 mes, o extraer del producto
-      
+      const months = 1;
       const expiry = new Date();
       expiry.setMonth(expiry.getMonth() + months);
 
@@ -197,10 +196,8 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
       console.log(`[Hotmart] ✅ Usuario ${userId} activado como Pro`);
     } else {
       console.warn('[Hotmart] ⚠️ No se encontró userId para la transacción:', transactionId);
-      // La transacción queda pendiente para revisión manual
     }
 
-    // Registrar la transacción
     const transactionRef = db.collection('hotmart_transactions').doc(transactionId);
     await transactionRef.set({
       userId: userId || 'unknown',
@@ -218,14 +215,12 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
 
   } catch (error) {
     console.error('[Hotmart] Error:', error);
-    // Siempre responder 200 para que Hotmart no reintente
     res.status(200).send('OK');
   }
 });
 
-// ==================== FUNCIÓN AUXILIAR: Crear sesión para Hotmart ====================
+// ==================== CREAR SESIÓN PARA HOTMART ====================
 exports.createHotmartSession = functions.https.onRequest(async (req, res) => {
-  // Cabeceras CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
@@ -241,7 +236,12 @@ exports.createHotmartSession = functions.https.onRequest(async (req, res) => {
       return res.status(400).json({ error: 'userId es requerido' });
     }
 
-    // Crear sesión temporal
+    // Verificar que el usuario existe
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
     const sessionRef = db.collection('hotmart_sessions').doc();
     const sessionId = sessionRef.id;
     
@@ -253,15 +253,13 @@ exports.createHotmartSession = functions.https.onRequest(async (req, res) => {
       expired: false
     });
 
-    // Redirigir a Hotmart con el sessionId
+    // Redirigir a Hotmart con el sessionId como parámetro ref
     const hotmartUrl = `https://pay.hotmart.com/O105879229W?ref=${sessionId}`;
     
-    // Si es una petición GET, redirigir
     if (req.method === 'GET') {
       return res.redirect(hotmartUrl);
     }
     
-    // Si es POST, devolver la URL
     return res.json({ url: hotmartUrl, sessionId });
 
   } catch (error) {
@@ -269,3 +267,29 @@ exports.createHotmartSession = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: 'Error al crear sesión' });
   }
 });
+
+// ==================== TAREAS DIARIAS ====================
+exports.dailySubscriptionTasks = functions.pubsub
+  .schedule('0 0 * * *')  // Todos los días a medianoche
+  .timeZone('America/Bogota')
+  .onRun(async (context) => {
+    console.log('[DailyTasks] Verificando suscripciones expiradas...');
+    
+    const now = new Date();
+    const usersSnapshot = await db.collection('users')
+      .where('isActive', '==', true)
+      .where('proExpiresAt', '<=', now.toISOString())
+      .get();
+
+    let updatedCount = 0;
+    for (const doc of usersSnapshot.docs) {
+      await doc.ref.update({
+        isActive: false,
+        isPro: false
+      });
+      updatedCount++;
+    }
+
+    console.log(`[DailyTasks] ✅ ${updatedCount} suscripciones expiradas desactivadas`);
+    return null;
+  });
