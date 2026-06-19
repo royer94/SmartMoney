@@ -1,7 +1,7 @@
 // services/paymentService.ts
 
 export const EPAYCO_CONFIG = {
-  PUBLIC_KEY: import.meta.env.VITE_EPAYCO_PUBLIC_KEY || 'ee434316d860d703cf445f1b14a515ea',
+  PUBLIC_KEY: import.meta.env.VITE_EPAYCO_PUBLIC_KEY || 'e489c30da23a3b0c82d37b7c3a0f578a',
   TEST_MODE: true
 };
 
