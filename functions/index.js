@@ -5,6 +5,7 @@ const { defineString, defineSecret } = require('firebase-functions/params');
 
 admin.initializeApp();
 const db = admin.firestore();
+db.settings({ databaseId: 'ai-studio-4d598d16-d332-49e9-9157-502087392356' });
 
 // =========**=========== PARÁMETROS DE CONFIGURACIÓN =========*===========
 const epaycoCustomerId = defineString('EPAYCO_CUSTOMER_ID');
