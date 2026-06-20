@@ -1,37 +1,37 @@
 name: Deploy Firebase Functions
-
 on:
   push:
     branches:
       - main  # El flujo se activará automáticamente cada vez que hagas push o commit en la rama main
     paths:
-      - 'functions/**' # 👈 ¡Ajuste añadido! El flujo solo se dispara si cambia algo dentro de la carpeta de backend
-
+      - 'functions/**' # El flujo solo se dispara si cambia algo dentro de la carpeta de backend
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
     steps:
       # 1. Descargar el código de tu repositorio
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      # 2. Configurar el entorno de Node.js (Actualizado a la versión 22 compatible con los entornos modernos de GCP)
+      # 2. Configurar el entorno de Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # 3. Instalar las dependencias de Node.js ESPECÍFICAMENTE dentro de la carpeta 'functions'
+      # 3. Instalar las dependencias de Node.js dentro de la carpeta 'functions'
       - name: Install Functions Dependencies
         run: npm install
         working-directory: ./functions
 
-      # 4. Desplegar en Firebase utilizando la cuenta de servicio configurada en los secretos
-      # Se agrega la bandera --force para evitar que las alertas de políticas de limpieza rompan el flujo de GitHub Actions
-      - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
+      # 4. Autenticar con Google Cloud usando la service account (método oficial)
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          args: deploy --only functions --force
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # 5. Desplegar usando el Firebase CLI directo (sin action de terceros)
+      - name: Deploy to Firebase
+        run: npx firebase-tools deploy --only functions --project gen-lang-client-0987361888 --force
