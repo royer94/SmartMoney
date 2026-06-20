@@ -72,15 +72,18 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
   };
 
   const handleHotmart = () => {
-    if (!user) {
-      alert('Error: Usuario no identificado');
-      return;
-    }
-    
-    // ✅ Redirigir a través de tu API para crear sesión
-    const sessionUrl = `${window.location.origin}/api/hotmart/session?userId=${user.uid}&months=${selectedPlan.months}`;
-    window.open(sessionUrl, '_blank');
-  };
+  if (!user) {
+    alert('Error: Usuario no identificado');
+    return;
+  }
+  
+  // ✅ URL real de Cloud Functions (con fallback por seguridad)
+  const baseUrl = import.meta.env.VITE_HOTMART_SESSION_URL || 
+    'https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/createHotmartSession';
+  
+  const sessionUrl = `${baseUrl}?userId=${user.uid}&months=${selectedPlan.months}`;
+  window.open(sessionUrl, '_blank');
+};
 
   return (
     <motion.div 
