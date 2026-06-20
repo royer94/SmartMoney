@@ -141,7 +141,7 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
 
     console.log(`[Hotmart] Evento recibido: ${event}`);
 
-    if (event !== 'PURCHASE_COMPLETED' && event !== 'PURCHASE_APPROVED') {
+    if (event !== 'PURCHASE_COMPLETED' && event !== 'PURCHASE_APPROVED' && event !== 'PURCHASE_COMPLETE') {
       console.log(`[Hotmart] Evento ignorado: ${event}`);
       return res.status(200).send('OK');
     }
