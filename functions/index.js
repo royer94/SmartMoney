@@ -6,7 +6,7 @@ const { defineString, defineSecret } = require('firebase-functions/params');
 admin.initializeApp();
 const db = admin.firestore();
 
-// =========*=========== PARÁMETROS DE CONFIGURACIÓN =========*===========
+// =========**=========== PARÁMETROS DE CONFIGURACIÓN =========*===========
 const epaycoCustomerId = defineString('EPAYCO_CUSTOMER_ID');
 const epaycoPKey = defineSecret('EPAYCO_P_KEY');
 
