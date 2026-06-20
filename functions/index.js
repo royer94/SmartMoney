@@ -12,8 +12,7 @@ const epaycoCustomerId = defineString('EPAYCO_CUSTOMER_ID');
 const epaycoPKey = defineSecret('EPAYCO_P_KEY');
 
 // ==================== WEBHOOK DE EPayco ====================
-exports.epaycoWebhook = functions.https.onRequest(
-  { secrets: [epaycoPKey] },
+exports.epaycoWebhook = functions.runWith({ secrets: [epaycoPKey] }).https.onRequest(
   async (req, res) => {
     // CORS
     res.set('Access-Control-Allow-Origin', '*');
