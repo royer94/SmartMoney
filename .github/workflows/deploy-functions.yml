@@ -1,10 +1,13 @@
-name: Deploy Firebase Functions
+name: Deploy Firebase Functions & Rules
 on:
   push:
     branches:
       - main  # El flujo se activará automáticamente cada vez que hagas push o commit en la rama main
     paths:
-      - 'functions/**' # El flujo solo se dispara si cambia algo dentro de la carpeta de backend
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'firebase.json'
+      - '.github/workflows/deploy-functions.yml'
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -32,6 +35,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 5. Desplegar usando el Firebase CLI directo (sin action de terceros)
-      - name: Deploy to Firebase
+      # 5. Desplegar Reglas de Firestore
+      - name: Deploy Firestore Rules
+        run: npx firebase-tools deploy --only firestore:rules --project gen-lang-client-0987361888 --force
+
+      # 6. Desplegar Cloud Functions
+      - name: Deploy Firebase Functions
         run: npx firebase-tools deploy --only functions --project gen-lang-client-0987361888 --force

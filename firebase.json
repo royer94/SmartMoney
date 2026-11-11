@@ -1,4 +1,8 @@
 {
+  "firestore": {
+    "database": "ai-studio-4d598d16-d332-49e9-9157-502087392356",
+    "rules": "firestore.rules"
+  },
   "functions": {
     "source": "functions",
     "runtime": "nodejs22",
