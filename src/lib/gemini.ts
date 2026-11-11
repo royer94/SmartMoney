@@ -1,5 +1,7 @@
 import { CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from "../types";
+import { auth } from "./firebase";
 
+const GROQ_PROXY_URL = "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/groqProxy";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -10,8 +12,28 @@ const getCurrentCurrency = () => {
   return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 };
 
-// ─── Transcribir audio con Whisper (Exportado para optimización local antes de llamar al LLM) ───
+// ─── Transcribir audio con Whisper (Primero intenta el proxy seguro en Cloud Functions) ───
 export const transcribeAudio = async (mimeType: string, base64Data: string): Promise<string> => {
+  if (auth.currentUser) {
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const proxyRes = await fetch(GROQ_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ action: 'transcribe', mimeType, base64Data })
+      });
+      if (proxyRes.ok) {
+        const data = await proxyRes.json();
+        return (data.text || '').trim();
+      }
+    } catch (e) {
+      // Fallback silencioso a cliente si el proxy aún no tiene GROQ_API_KEY
+    }
+  }
+
   const byteCharacters = atob(base64Data);
   const byteNumbers = new Uint8Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
@@ -40,8 +62,28 @@ export const transcribeAudio = async (mimeType: string, base64Data: string): Pro
   return (await response.text()).trim();
 };
 
-// ─── Chat con Llama ───────────────────────────────────────────────────────────
+// ─── Chat con Llama (Primero intenta el proxy seguro en Cloud Functions) ──────────────────
 const groqChat = async (messages: { role: string; content: string }[]): Promise<string> => {
+  if (auth.currentUser) {
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const proxyRes = await fetch(GROQ_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ action: 'chat', messages })
+      });
+      if (proxyRes.ok) {
+        const data = await proxyRes.json();
+        if (data.content) return data.content;
+      }
+    } catch (e) {
+      // Fallback silencioso a cliente si el proxy aún no tiene GROQ_API_KEY
+    }
+  }
+
   const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
@@ -254,7 +296,7 @@ export const getFinancialInsights = async (
     }
 
     // 7. Información del presupuesto (si existe meta para el mes)
-    const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear);
+    const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear && (!g.category || g.category === 'Todas'));
     if (currentGoal && currentGoal.targetAmount > 0) {
       const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
       if (totalExpenses > currentGoal.targetAmount) {

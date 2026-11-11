@@ -77,6 +77,11 @@ export function hasActiveTrial(user?: UserProfile | null): boolean {
   return user.isTrialActive === true;
 }
 
+function matchesGoalCategory(goal: Goal, txCategory?: string): boolean {
+  if (!goal.category || goal.category === 'Todas') return true;
+  return (goal.category || '').toLowerCase() === (txCategory || 'Otros').toLowerCase();
+}
+
 export function useFinance() {
   const { user, loading: userLoading } = useUser();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -210,7 +215,7 @@ export function useFinance() {
         const txYear = txDate.getFullYear();
 
         for (const goal of goals) {
-          if (goal.month === txMonth && goal.year === txYear) {
+          if (goal.month === txMonth && goal.year === txYear && matchesGoalCategory(goal, t.category)) {
             const newCurrent = (goal.currentAmount || 0) + Number(t.amount);
             const prevProgress = (goal.currentAmount || 0) / goal.targetAmount;
             const currProgress = newCurrent / goal.targetAmount;
@@ -239,7 +244,7 @@ export function useFinance() {
     }
   };
 
-  // ✅ Editar una transacción existente y recalcular el presupuesto del mes si cambió el monto o tipo
+  // ✅ Editar una transacción existente y recalcular los presupuestos del mes si cambió monto, tipo o categoría
   const updateTransaction = async (
     id: string,
     updates: Partial<Pick<Transaction, 'description' | 'amount' | 'category' | 'type' | 'isRecurring'>>
@@ -256,20 +261,21 @@ export function useFinance() {
 
       await updateDoc(doc(db, 'transactions', id), cleanUpdates);
 
-      if (prevTx && (updates.amount !== undefined || updates.type !== undefined)) {
+      if (prevTx && (updates.amount !== undefined || updates.type !== undefined || updates.category !== undefined)) {
         const txDate = prevTx.timestamp?.toDate ? prevTx.timestamp.toDate() : new Date(prevTx.timestamp);
         if (!isNaN(txDate.getTime())) {
           const txMonth = txDate.getMonth() + 1;
           const txYear = txDate.getFullYear();
-          const oldExpense = prevTx.type === 'expense' ? Number(prevTx.amount) : 0;
           const newType = updates.type ?? prevTx.type;
           const newAmount = updates.amount !== undefined ? Number(updates.amount) : Number(prevTx.amount);
-          const newExpense = newType === 'expense' ? newAmount : 0;
-          const diff = newExpense - oldExpense;
+          const newCategory = updates.category ?? prevTx.category;
 
-          if (diff !== 0) {
-            for (const goal of goals) {
-              if (goal.month === txMonth && goal.year === txYear && goal.id) {
+          for (const goal of goals) {
+            if (goal.month === txMonth && goal.year === txYear && goal.id) {
+              const oldContribution = (prevTx.type === 'expense' && matchesGoalCategory(goal, prevTx.category)) ? Number(prevTx.amount) : 0;
+              const newContribution = (newType === 'expense' && matchesGoalCategory(goal, newCategory)) ? newAmount : 0;
+              const diff = newContribution - oldContribution;
+              if (diff !== 0) {
                 const updatedCurrent = Math.max(0, (goal.currentAmount || 0) + diff);
                 await updateDoc(doc(db, 'goals', goal.id), { currentAmount: updatedCurrent });
               }
@@ -294,7 +300,7 @@ export function useFinance() {
           const txYear = txDate.getFullYear();
 
           for (const goal of goals) {
-            if (goal.month === txMonth && goal.year === txYear) {
+            if (goal.month === txMonth && goal.year === txYear && matchesGoalCategory(goal, t.category)) {
               const goalRef = doc(db, 'goals', goal.id!);
               await updateDoc(goalRef, { currentAmount: Math.max(0, (goal.currentAmount || 0) - Number(t.amount)) });
             }
@@ -319,6 +325,7 @@ export function useFinance() {
     const initialAmount = transactions
       .filter(t => {
         if (t.type !== 'expense') return false;
+        if (!matchesGoalCategory(g as Goal, t.category)) return false;
         
         let tDate: Date;
         try {
@@ -428,6 +435,7 @@ export function useFinance() {
     const amount = transactions
       .filter(t => {
         if (t.type !== 'expense') return false;
+        if (!matchesGoalCategory(goal, t.category)) return false;
         let tDate: Date;
         try {
           if (t.timestamp?.toDate) tDate = t.timestamp.toDate();

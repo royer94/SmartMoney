@@ -48,6 +48,7 @@ export interface Goal {
   currentAmount: number;
   month: number;
   year: number;
+  category?: string; // 'Todas' o nombre de categoría específica
 }
 
 export interface Currency {
@@ -75,6 +76,12 @@ export const CURRENCIES: Currency[] = [
 ];
 
 export const DEFAULT_CURRENCY = 'COP';
+
+export const EXPENSE_CATEGORIES = [
+  'Comida', 'Supermercado', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento',
+  'Salud', 'Educación', 'Ropa', 'Suscripciones', 'Mascotas', 'Hogar', 'Gimnasio',
+  'Viajes', 'Regalos', 'Ahorro', 'Inversiones', 'Seguros', 'Otros'
+];
 
 export const CATEGORIES = [
   'Comida', 'Supermercado', 'Transporte', 'Vivienda', 'Entretenimiento', 'Salud', 'Educación',

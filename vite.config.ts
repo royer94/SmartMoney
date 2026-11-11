@@ -31,13 +31,13 @@ export default defineConfig(({ mode }) => {
           icons: [
             {
               src: 'SM_icon.png',
-              sizes: '1024x1024',
+              sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
               src: 'SM_icon.png',
-              sizes: '1024x1024',
+              sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
             }

@@ -3,7 +3,7 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   Cell, CartesianGrid, LabelList
 } from 'recharts';
-import { Transaction, UserProfile, Goal } from '../types';
+import { Transaction, UserProfile, Goal, EXPENSE_CATEGORIES } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -106,7 +106,8 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
   const [newGoal, setNewGoal] = useState({ 
     target: '', 
     month: new Date().getMonth() + 1, 
-    year: new Date().getFullYear() 
+    year: new Date().getFullYear(),
+    category: 'Todas'
   });
   
   const MONTHS = [
@@ -125,7 +126,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
     }
     try {
       await addGoal({
-        name: `Presupuesto ${MONTHS[newGoal.month - 1]} ${newGoal.year}`,
+        name: newGoal.category && newGoal.category !== 'Todas' ? `${newGoal.category} (${MONTHS[newGoal.month - 1]} ${newGoal.year})` : `Presupuesto ${MONTHS[newGoal.month - 1]} ${newGoal.year}`, category: newGoal.category || 'Todas',
         targetAmount: parseFloat(newGoal.target),
         month: newGoal.month,
         year: newGoal.year
@@ -417,7 +418,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
                 <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
               </div>
             </div>
-{(user as any).monthlyBudget > 0 && (
+{(user as any).monthlyBudget > 0 && !goals.some(g => g.month === currentMonth + 1 && g.year === currentYear && (!g.category || g.category === 'Todas')) && (
   <div className="glass p-6 rounded-[2rem] bg-white border border-slate-100">
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
@@ -495,7 +496,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
                   {goals.length > 0 ? goals.map(goal => (
                     <div key={goal.id} className="space-y-2 group relative">
                       <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-slate-700">{goal.name}</span>
+                        <div className="flex items-center gap-2"><span className="font-semibold text-slate-700">{goal.name}</span>{goal.category && goal.category !== 'Todas' && (<span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">{goal.category}</span>)}</div>
                         <div className="flex items-center gap-2">
                           <span className="text-slate-500">{Math.round(((goal.currentAmount || 0) / goal.targetAmount) * 100)}%</span>
                           <div className="flex items-center gap-1">
@@ -749,7 +750,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
               </div>
               <form onSubmit={handleAddGoal} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Monto Límite Objetivo</label>
+                  <label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Categoría</label><select value={newGoal.category} onChange={(e) => setNewGoal({ ...newGoal, category: e.target.value })} className="w-full p-4 mb-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 text-slate-700"><option value="Todas">Todas (Presupuesto General del Mes)</option>{EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select><label className="text-xs font-bold text-slate-500 block mb-2 uppercase">Monto Límite Objetivo</label>
                   <input type="number" required placeholder="$ 0.00" value={newGoal.target} onChange={(e) => setNewGoal({ ...newGoal, target: e.target.value })} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-semibold focus:outline-none focus:border-blue-500 transition-colors" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
