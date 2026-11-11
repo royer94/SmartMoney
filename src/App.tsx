@@ -41,9 +41,10 @@ const LoaderFallback = () => (
 
 function AuthenticatedApp() {
   const { user, loading: userLoading } = useUser();
-  const { transactions, goals, loading: financeLoading, allUsers, addTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
+  const { transactions, goals, loading: financeLoading, allUsers, addTransaction, updateTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
+  const [dashboardSubTab, setDashboardSubTab] = useState<'overview' | 'liberty'>('overview');
   const [showHelp, setShowHelp] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -62,6 +63,7 @@ function AuthenticatedApp() {
   }, [searchParams]);
 
   const handleTabChange = (tab: typeof activeTab) => {
+    if (tab === 'dash') setDashboardSubTab('overview');
     setActiveTab(tab);
     setRecordingRequested(false);
   };
@@ -231,12 +233,13 @@ function AuthenticatedApp() {
                   recalculateGoal={recalculateGoal}
                   onUpgrade={() => setShowSubscription(true)}
                   onUpdateProfile={handleUpdateProfile}
+                  initialSubTab={dashboardSubTab}
                 />
               </Suspense>
             )}
             {activeTab === 'list' && (
               <Suspense fallback={<LoaderFallback />}>
-                <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} />
+                <TransactionList key="list" transactions={transactions} onDelete={removeTransaction} onToggleRecurring={toggleRecurring} onUpdate={updateTransaction} />
               </Suspense>
             )}
             {activeTab === 'chat' && (
@@ -248,6 +251,7 @@ function AuthenticatedApp() {
                 addGoal={addGoal}
                 autoStartRecording={recordingRequested}
                 onUpgrade={() => setShowSubscription(true)}
+                onOpenLiberty={() => { setDashboardSubTab('liberty'); setActiveTab('dash'); }}
               />
             )}
             {activeTab === 'settings' && (

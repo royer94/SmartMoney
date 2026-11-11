@@ -361,7 +361,7 @@ const sanitizeAndParseAIResponse = (result: any) => {
   return { amount, description, type, category };
 };
 
-export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
+export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade, onOpenLiberty }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void, onOpenLiberty?: () => void }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = sessionStorage.getItem('smartmoney_chat_messages');
@@ -540,7 +540,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('ai', `¡Hola ${user.name || user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo".`);
           break;
         case '/libertad':
-          addMessage('ai', "Puedes abrir el Simulador de Libertad Financiera desde la pestaña 'Libertad' en tu Dashboard.");
+          if (!hasProAccess) { addMessage('ai', "El Simulador de Libertad Financiera es una función Pro. ¡Pásate a Pro para proyectar tu retiro!", { isUpgrade: true }); } else { addMessage('ai', "🚀 Abriendo el Simulador de Libertad Financiera..."); onOpenLiberty?.(); }
           break;
         case '/suscripciones': {
           const recurring = transactions.filter(t => t.isRecurring);
@@ -553,7 +553,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           break;
         }
         case '/ocultar':
-          addMessage('ai', "Puedes activar el Modo Privacidad con el ícono del ojo en la esquina superior derecha de tu Dashboard.");
+          const nextPrivacy = localStorage.getItem('smartmoney_privacy') !== 'true'; localStorage.setItem('smartmoney_privacy', String(nextPrivacy)); addMessage('ai', nextPrivacy ? "🔒 Modo Privacidad activado. Los saldos de tu Dashboard ahora están ocultos." : "👁️ Modo Privacidad desactivado. Los saldos de tu Dashboard vuelven a estar visibles.");
           break;
         default:
           addMessage('ai', `Comando no reconocido. Escribe /ayuda para ver la lista.`);

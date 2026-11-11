@@ -6,7 +6,7 @@ import {
   List, RefreshCcw, Rocket, Crown, ChevronRight, Check
 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { CURRENCIES } from '../types';
 import { cn } from '../lib/utils';
 
@@ -146,10 +146,31 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
         onboardingDone: true,
         currency: selectedCurrency,
       };
-      if (monthlyIncome) updateData.monthlyIncome = parseFloat(monthlyIncome.replace(/\./g, '').replace(',', '.'));
-      if (monthlyBudget) updateData.monthlyBudget = parseFloat(monthlyBudget.replace(/\./g, '').replace(',', '.'));
+      const parsedIncome = monthlyIncome ? parseFloat(monthlyIncome.replace(/\./g, '').replace(',', '.')) : 0;
+      const parsedBudget = monthlyBudget ? parseFloat(monthlyBudget.replace(/\./g, '').replace(',', '.')) : 0;
+      if (parsedIncome > 0) updateData.monthlyIncome = parsedIncome;
+      if (parsedBudget > 0) updateData.monthlyBudget = parsedBudget;
 
       await updateDoc(doc(db, 'users', userId), updateData);
+
+      if (parsedBudget > 0) {
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        const MONTHS = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        await addDoc(collection(db, 'goals'), {
+          name: `Presupuesto ${MONTHS[currentMonth - 1]} ${currentYear}`,
+          targetAmount: parsedBudget,
+          currentAmount: 0,
+          month: currentMonth,
+          year: currentYear,
+          userId
+        });
+      }
+
       onComplete(name.trim(), birthdate);
     } catch (e) {
       setError('Error guardando tu información. Intenta de nuevo.');

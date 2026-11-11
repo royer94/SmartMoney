@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   Cell, CartesianGrid, LabelList
@@ -66,7 +66,7 @@ function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, in
   );
 }
 
-export function Dashboard({ user, transactions, goals, addTransaction, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { 
+export function Dashboard({ user, transactions, goals, addTransaction, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile, initialSubTab }: { 
   user: UserProfile, 
   transactions: Transaction[], 
   goals: Goal[], 
@@ -76,7 +76,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
   toggleRecurring?: any, 
   recalculateGoal?: any, 
   onUpgrade?: () => void, 
-  onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void> 
+  onUpdateProfile: (updatedData: { name: string; birthDate: string }) => Promise<void>, initialSubTab?: 'overview' | 'liberty' 
 }) {
   // ✅ Acceso Pro: pago O trial activo
   const hasProAccess = !!(user.isPro || user.isTrialActive || user.isActive);
@@ -85,8 +85,10 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
   const proUser = { ...user, isPro: hasProAccess };
 
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>('overview');
-  const [privacyMode, setPrivacyMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>(initialSubTab || 'overview');
+  useEffect(() => { if (initialSubTab) setActiveTab(initialSubTab); }, [initialSubTab]);
+  const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('smartmoney_privacy') === 'true');
+  useEffect(() => { localStorage.setItem('smartmoney_privacy', String(privacyMode)); }, [privacyMode]);
   const [showExpenseDetails, setShowExpenseDetails] = useState(false);
   const [showIncomeDetails, setShowIncomeDetails] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);

@@ -1,6 +1,6 @@
 // context/UserContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { onSnapshot, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { UserProfile, TRIAL_DAYS } from '../types';
 
@@ -36,8 +36,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setLoading(true);
+    let isSystemAdmin = false;
+    const adminCheckPromise = getDoc(doc(db, 'admins', userId))
+      .then((snap) => {
+        isSystemAdmin = snap.exists();
+        return isSystemAdmin;
+      })
+      .catch(() => false);
+
     const userRef = doc(db, 'users', userId);
     const unsubscribe = onSnapshot(userRef, async (snap) => {
+      await adminCheckPromise;
+
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
         
@@ -62,7 +72,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData: UserProfile = {
           ...data,
           uid: userId,
-          isAdmin: (data as any).isAdmin || false,
+          isAdmin: isSystemAdmin || Boolean((data as any).isAdmin),
           isActive: data.isActive ?? false,
           isPro: data.isPro ?? false,
           isTrialActive: (data.isPro || data.isActive) ? false : trialActive,
@@ -84,6 +94,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: auth.currentUser?.email || '',
           isPro: false,
           isActive: false,
+          isAdmin: isSystemAdmin,
           isTrialActive: true,
           trialEndDate: trialEnd.toISOString(),
           monthlyRecordCount: 0,
