@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   Cell, CartesianGrid, LabelList
@@ -66,10 +66,11 @@ function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, in
   );
 }
 
-export function Dashboard({ user, transactions, goals, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { 
+export function Dashboard({ user, transactions, goals, addTransaction, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile }: { 
   user: UserProfile, 
   transactions: Transaction[], 
   goals: Goal[], 
+  addTransaction?: any,
   addGoal?: any, 
   removeGoal?: any, 
   toggleRecurring?: any, 
@@ -450,7 +451,7 @@ export function Dashboard({ user, transactions, goals, addGoal, removeGoal, togg
                 <AIAdvisor user={proUser} transactions={transactions} goals={goals} onUpgrade={onUpgrade} />
               </div>
               <div>
-                <SubscriptionManager user={proUser} transactions={transactions} toggleRecurring={toggleRecurring} onUpgrade={onUpgrade} />
+                <SubscriptionManager user={proUser} transactions={transactions} toggleRecurring={toggleRecurring} addTransaction={addTransaction} onUpgrade={onUpgrade} />
               </div>
             </div>
 

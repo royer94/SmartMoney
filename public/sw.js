@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'smartmoney-v2';
+const CACHE_NAME = 'smartmoney-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -12,7 +12,6 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
-  // Activar el nuevo worker inmediatamente sin esperar a que se cierren otras pestañas
   self.skipWaiting();
 });
 
@@ -23,27 +22,43 @@ self.addEventListener('activate', event => {
       keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
     ))
   );
-  self.clients.claim(); // Tomar control de todas las pestañas abiertas
+  self.clients.claim();
 });
 
-// Fetch: estrategia "cache first" para todos los recursos
+// Fetch: ignorar peticiones POST/externas (APIs de IA, Firebase) y usar Network-First para navegación
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Para documentos HTML (navegación), priorizar red para entregar siempre la última versión
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Para recursos estáticos del mismo origen, Cache-First con actualización desde red
   event.respondWith(
     caches.match(event.request).then(response => {
-      // Si está en caché, devolverlo
       if (response) return response;
-      // Si no, ir a la red, cachear la respuesta y devolverla
       return fetch(event.request).then(networkResponse => {
-        // Solo cachear respuestas exitosas (200) y que no sean de otros dominios (opcional)
         if (networkResponse && networkResponse.status === 200) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
         }
         return networkResponse;
       });
-    }).catch(() => {
-      // Si no hay red y no está en caché, mostrar una página offline personalizada (opcional)
-      return caches.match('/offline.html');
     })
   );
 });

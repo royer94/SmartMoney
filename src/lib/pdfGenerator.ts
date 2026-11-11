@@ -65,7 +65,7 @@ export const generateReportPDF = (
     doc.text('Detalle de Movimientos', 20, currentY);
     currentY += 5;
 
-    // CORRECCIÓN SEVERA: Mapeo ultra-seguro de fechas de cualquier origen (Firestore, String o Date)
+    // Mapeo seguro de fechas de cualquier origen (Firestore, String o Date)
     const tableData = transactions.map(t => {
       let parsedDate = new Date();
       
@@ -73,14 +73,12 @@ export const generateReportPDF = (
         if (typeof t.timestamp.toDate === 'function') {
           parsedDate = t.timestamp.toDate();
         } else if (t.timestamp && typeof t.timestamp === 'object' && 'seconds' in t.timestamp) {
-          // Si viene como objeto plano de Firestore sin método toDate() activo
           parsedDate = new Date((t.timestamp as any).seconds * 1000);
         } else {
           parsedDate = new Date(t.timestamp as any);
         }
       }
       
-      // Validar si el parseo falló estrepitosamente para que no rompa el PDF
       const finalDateStr = isNaN(parsedDate.getTime()) 
         ? new Date().toLocaleDateString('es-CO') 
         : parsedDate.toLocaleDateString('es-CO');
@@ -160,7 +158,7 @@ export const generateReportPDF = (
     doc.setFontSize(14);
     doc.setTextColor(30, 41, 59);
     doc.text('Evaluación del Balance', 20, currentY);
-    doc.line(20, 242, 70, 242); // Línea corregida en posición estática segura
+    doc.line(20, currentY + 2, 75, currentY + 2);
     currentY += 10;
 
     const balanceEvaluation = balance >= 0 
@@ -170,7 +168,7 @@ export const generateReportPDF = (
     const splitBalance = doc.splitTextToSize(balanceEvaluation, 170);
     doc.text(splitBalance, 20, currentY);
 
-    // CORRECCIÓN DE PAGINACIÓN: Numeración segura de páginas al cierre del stream
+    // Numeración segura de páginas
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -181,7 +179,6 @@ export const generateReportPDF = (
 
     const fileName = `reporte_${period.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${new Date().getTime()}.pdf`;
 
-    // Ejecución final limpia
     if (action === 'print') {
       doc.autoPrint();
       const blobUrl = doc.output('bloburl');

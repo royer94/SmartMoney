@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCcw, Bell, Zap, Info, Check, X } from 'lucide-react';
 import { Transaction, UserProfile } from '../types';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
-import { useFinance } from '../hooks/useFinance';
 
-export function SubscriptionManager({ user, transactions, toggleRecurring, onUpgrade }: { 
+export function SubscriptionManager({ user, transactions, toggleRecurring, addTransaction, onUpgrade }: { 
   user: UserProfile, 
   transactions: Transaction[], 
   toggleRecurring: any, 
+  addTransaction?: any,
   onUpgrade?: () => void
 }) {
-  // ✅ Obtener la función directamente del hook
-  const { addTransaction } = useFinance();
-
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Transaction[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -78,12 +74,17 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
     }
     if (shouldShow && recurringItems.length > 0) {
       const pending = recurringItems.filter(recurring => {
-        const existingInCurrentMonth = activeTransactions.some(t => 
-          t.description === recurring.description && 
-          t.amount === recurring.amount &&
-          t.type === recurring.type &&
-          t.category === recurring.category
-        );
+        const existingInCurrentMonth = activeTransactions.some(t => {
+          const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+          return (
+            d.getMonth() === currentMonth &&
+            d.getFullYear() === currentYear &&
+            t.description === recurring.description && 
+            t.amount === recurring.amount &&
+            t.type === recurring.type &&
+            t.category === recurring.category
+          );
+        });
         return !existingInCurrentMonth;
       });
       if (pending.length > 0) {
@@ -141,14 +142,6 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
       newSet.add(id);
     }
     setSelectedItems(newSet);
-  };
-
-  const toggleAll = () => {
-    if (selectedItems.size === pendingRecurring.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(pendingRecurring.map(t => t.id!)));
-    }
   };
 
   if (!hasProAccess) {
@@ -232,10 +225,10 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, onUpg
                       Seguir
                     </button>
                     <button onClick={() => {
-    const newSet = new Set(dismissedSuggestions).add(item.id!);
-    setDismissedSuggestions(newSet);
-    localStorage.setItem(`dismissed_suggestions_${user?.uid}`, JSON.stringify([...newSet]));
-  }} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold">
+                      const newSet = new Set(dismissedSuggestions).add(item.id!);
+                      setDismissedSuggestions(newSet);
+                      localStorage.setItem(`dismissed_suggestions_${user?.uid}`, JSON.stringify([...newSet]));
+                    }} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold">
                       No
                     </button>
                   </div>

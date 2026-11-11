@@ -37,9 +37,16 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       
-      allow create: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId)
+        && incoming().get('isPro', false) == false
+        && incoming().get('isActive', false) == false
+        && incoming().get('isAdmin', false) == false;
 
-      allow update: if isOwner(userId) || isAdmin();
+      // Solo un admin (o Firebase Admin SDK desde Cloud Functions) puede activar isPro, isActive, proExpiresAt o isAdmin
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !incoming().diff(existing()).affectedKeys().hasAny(['isPro', 'isActive', 'proExpiresAt', 'isAdmin'])
+      );
     }
 
     // --- 2. Admins Collection ---

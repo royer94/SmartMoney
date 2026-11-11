@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { CURRENCIES, Currency, DEFAULT_CURRENCY } from '../types';
+import { useUser } from './UserContext';
 
 interface CurrencyContextType {
   currency: Currency;
@@ -35,11 +36,12 @@ const detectCurrency = (): string => {
 };
 
 export function CurrencyProvider({ children, userId }: { children: React.ReactNode; userId?: string }) {
+  const { user } = useUser();
+  const effectiveUserId = userId || user?.uid;
+
   const [currencyCode, setCurrencyCode] = useState<string>(() => {
-    // 1. Si ya tiene una guardada en localStorage, usarla
     const saved = localStorage.getItem('currency');
     if (saved) return saved;
-    // 2. Si no, detectar automáticamente
     const detected = detectCurrency();
     localStorage.setItem('currency', detected);
     return detected;
@@ -47,34 +49,42 @@ export function CurrencyProvider({ children, userId }: { children: React.ReactNo
 
   const currency = CURRENCIES.find(c => c.code === currencyCode) || CURRENCIES[0];
 
+  // Sincronizar automáticamente cuando el perfil del usuario en contexto trae su moneda
+  useEffect(() => {
+    if (user?.currency && CURRENCIES.some(c => c.code === user.currency)) {
+      setCurrencyCode(user.currency);
+      localStorage.setItem('currency', user.currency);
+    }
+  }, [user?.currency]);
+
   // Cargar moneda del usuario desde Firestore (tiene prioridad sobre detección)
   useEffect(() => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     const load = async () => {
       try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userDoc = await getDoc(doc(db, 'users', effectiveUserId));
         if (userDoc.exists() && userDoc.data().currency) {
           const saved = userDoc.data().currency;
           setCurrencyCode(saved);
           localStorage.setItem('currency', saved);
         } else {
-          // Primera vez — guardar la moneda detectada en Firestore
           const detected = localStorage.getItem('currency') || detectCurrency();
-          await updateDoc(doc(db, 'users', userId), { currency: detected }).catch(() => {});
+          await updateDoc(doc(db, 'users', effectiveUserId), { currency: detected }).catch(() => {});
         }
       } catch (e) {
         console.error('[Currency] Error cargando moneda:', e);
       }
     };
     load();
-  }, [userId]);
+  }, [effectiveUserId]);
 
   const setCurrency = async (code: string, uid?: string) => {
     setCurrencyCode(code);
     localStorage.setItem('currency', code);
-    if (uid) {
+    const targetUid = uid || effectiveUserId;
+    if (targetUid) {
       try {
-        await updateDoc(doc(db, 'users', uid), { currency: code });
+        await updateDoc(doc(db, 'users', targetUid), { currency: code });
       } catch (e) {
         console.error('[Currency] Error guardando moneda:', e);
       }

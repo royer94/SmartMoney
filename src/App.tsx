@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { signInWithGoogle, auth, db } from './lib/firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { CommandBar } from './components/CommandBar';
 
@@ -60,9 +60,6 @@ function AuthenticatedApp() {
       setSearchParams(searchParams);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-  }, [user]);
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
@@ -227,6 +224,7 @@ function AuthenticatedApp() {
                   user={userAdapter}
                   transactions={transactions}
                   goals={goals}
+                  addTransaction={addTransaction}
                   addGoal={addGoal}
                   removeGoal={removeGoal}
                   toggleRecurring={toggleRecurring}
@@ -261,7 +259,7 @@ function AuthenticatedApp() {
               >
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold">Ajustes del Perfil</h2>
-                  {user.isPro ? (
+                  {user.isPro || user.isActive ? (
                     <motion.div
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -271,6 +269,10 @@ function AuthenticatedApp() {
                       <Crown className="w-4 h-4 fill-amber-200" />
                       <span className="text-[10px] font-bold tracking-wide uppercase">Plan Pro</span>
                     </motion.div>
+                  ) : user.isTrialActive ? (
+                    <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-indigo-100 text-indigo-700 border border-indigo-200">
+                      Prueba Pro (30d)
+                    </div>
                   ) : (
                     <div className={cn(
                       "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
@@ -336,7 +338,7 @@ function AuthenticatedApp() {
                     </button>
                   )}
 
-                  {user && !user.isActive && (
+                  {user && !user.isActive && !user.isPro && (
                     <ProBanner user={user} onUpgrade={() => setShowSubscription(true)} />
                   )}
                 </div>
@@ -414,7 +416,7 @@ function AuthenticatedApp() {
 export default function App() {
   return (
     <UserProvider>
-      <CurrencyProvider userId={undefined}>
+      <CurrencyProvider>
         <AuthenticatedApp />
       </CurrencyProvider>
     </UserProvider>

@@ -123,7 +123,7 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
   // CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Hotmart-Hottok');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).send('');
@@ -135,6 +135,15 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
 
   try {
     console.log('[Hotmart Webhook] Recibida notificación');
+
+    // Validar token de seguridad de Hotmart si está definido en variables de entorno
+    const expectedHottok = process.env.HOTMART_HOTTOK;
+    const receivedHottok = req.headers['x-hotmart-hottok'] || req.body?.hottok;
+    if (expectedHottok && receivedHottok !== expectedHottok) {
+      console.error('[Hotmart] Hottok inválido');
+      return res.status(401).send('Invalid Hottok');
+    }
+
     const data = req.body;
     const event = data.event || data.type || 'unknown';
     const eventData = data.data || data;
@@ -149,26 +158,75 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
     const purchase = eventData.purchase || eventData.data?.purchase || {};
     const buyer = eventData.buyer || eventData.data?.buyer || {};
 
-    const transactionId = purchase.transaction_id || purchase.id || 'unknown';
-    const amount = purchase.payment?.value || purchase.amount || 0;
-    const status = purchase.payment?.status || purchase.status || '';
+    const transactionId = purchase.transaction || purchase.transaction_id || purchase.id || 'unknown';
+    const amount = purchase.price?.value || purchase.payment?.value || purchase.amount || 0;
+    const status = purchase.status || purchase.payment?.status || '';
 
-    console.log(`[Hotmart] Compra: ${transactionId} - $${amount} - ${status}`);
+    // Parámetro de rastreo enviado en createHotmartSession (xcod / sck / src / ref)
+    const originSessionId =
+      purchase.origin?.xcod ||
+      purchase.origin?.sck ||
+      purchase.origin?.src ||
+      data.xcod ||
+      data.sck ||
+      data.ref ||
+      null;
 
-    // Buscar sesión temporal
+    console.log(`[Hotmart] Compra: ${transactionId} - $${amount} - ${status} - sessionId: ${originSessionId}`);
+
     let userId = null;
     let months = 1;
-    const sessionsSnapshot = await db.collection('hotmart_sessions')
-      .where('transactionId', '==', transactionId)
-      .where('expired', '==', false)
-      .limit(1)
-      .get();
 
-    if (!sessionsSnapshot.empty) {
-      const sessionData = sessionsSnapshot.docs[0].data();
-      userId = sessionData.userId;
-      months = parseInt(sessionData.months) || 1;
-      await sessionsSnapshot.docs[0].ref.update({ expired: true });
+    // 1. Buscar sesión directamente por ID (xcod / sck / ref)
+    if (originSessionId) {
+      const sessionDoc = await db.collection('hotmart_sessions').doc(String(originSessionId)).get();
+      if (sessionDoc.exists && !sessionDoc.data().expired) {
+        const sessionData = sessionDoc.data();
+        userId = sessionData.userId;
+        months = parseInt(sessionData.months) || 1;
+        await sessionDoc.ref.update({ expired: true, transactionId });
+      }
+    }
+
+    // 2. Fallback: buscar por transactionId en hotmart_sessions
+    if (!userId && transactionId !== 'unknown') {
+      const sessionsSnapshot = await db.collection('hotmart_sessions')
+        .where('transactionId', '==', transactionId)
+        .where('expired', '==', false)
+        .limit(1)
+        .get();
+
+      if (!sessionsSnapshot.empty) {
+        const sessionData = sessionsSnapshot.docs[0].data();
+        userId = sessionData.userId;
+        months = parseInt(sessionData.months) || 1;
+        await sessionsSnapshot.docs[0].ref.update({ expired: true });
+      }
+    }
+
+    // 3. Fallback: buscar sesión reciente o usuario por email del comprador
+    if (!userId && buyer.email) {
+      const buyerEmail = String(buyer.email).toLowerCase().trim();
+      const emailSessionSnap = await db.collection('hotmart_sessions')
+        .where('email', '==', buyerEmail)
+        .where('expired', '==', false)
+        .limit(1)
+        .get();
+
+      if (!emailSessionSnap.empty) {
+        const sessionData = emailSessionSnap.docs[0].data();
+        userId = sessionData.userId;
+        months = parseInt(sessionData.months) || 1;
+        await emailSessionSnap.docs[0].ref.update({ expired: true, transactionId });
+      } else {
+        const userByEmailSnap = await db.collection('users')
+          .where('email', '==', buyerEmail)
+          .limit(1)
+          .get();
+        if (!userByEmailSnap.empty) {
+          userId = userByEmailSnap.docs[0].id;
+        }
+      }
     }
 
     if (userId) {
@@ -187,14 +245,15 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
         lastPaymentMethod: 'hotmart'
       });
 
-      console.log(`[Hotmart] ✅ Usuario ${userId} activado como Pro`);
+      console.log(`[Hotmart] ✅ Usuario ${userId} activado como Pro por ${months} meses`);
     } else {
       console.warn('[Hotmart] ⚠️ No se encontró userId para la transacción:', transactionId);
     }
 
-    const transactionRef = db.collection('hotmart_transactions').doc(transactionId);
+    const transactionRef = db.collection('hotmart_transactions').doc(String(transactionId));
     await transactionRef.set({
       userId: userId || 'unknown',
+      months,
       event,
       amount: parseFloat(amount),
       buyerEmail: buyer.email || '',
@@ -230,23 +289,27 @@ exports.createHotmartSession = functions.https.onRequest(async (req, res) => {
       return res.status(400).json({ error: 'userId es requerido' });
     }
 
-    const userDoc = await db.collection('users').doc(userId).get();
+    const userDoc = await db.collection('users').doc(String(userId)).get();
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    const userEmail = (userDoc.data()?.email || '').toLowerCase().trim();
     const sessionRef = db.collection('hotmart_sessions').doc();
     const sessionId = sessionRef.id;
 
     await sessionRef.set({
-      userId,
+      userId: String(userId),
+      email: userEmail,
       months: parseInt(months) || 1,
       productId: productId || 'O105879229W',
       createdAt: new Date().toISOString(),
       expired: false
     });
 
-    const hotmartUrl = `https://pay.hotmart.com/O105879229W?ref=${sessionId}`;
+    // Hotmart devuelve xcod y sck en purchase.origin dentro del webhook
+    const emailParam = userEmail ? `&email=${encodeURIComponent(userEmail)}` : '';
+    const hotmartUrl = `https://pay.hotmart.com/O105879229W?xcod=${sessionId}&sck=${sessionId}&ref=${sessionId}${emailParam}`;
 
     if (req.method === 'GET') {
       return res.redirect(hotmartUrl);
