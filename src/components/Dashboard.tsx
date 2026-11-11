@@ -132,11 +132,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
         year: newGoal.year
       });
       setShowGoalForm(false);
-      setNewGoal({ 
-        target: '', 
-        month: new Date().getMonth() + 1, 
-        year: new Date().getFullYear() 
-      });
+      setNewGoal({ target: '', month: new Date().getMonth() + 1, year: new Date().getFullYear(), category: 'Todas' });
     } catch (e: any) {
       alert(e.message || "Error al crear presupuesto");
     }

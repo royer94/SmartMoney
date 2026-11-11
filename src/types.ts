@@ -12,6 +12,7 @@ export interface UserProfile {
   currency?: string;
   name?: string;        // nombre del usuario
   birthdate?: string;   // fecha de nacimiento ISO: "1994-05-18"
+  birthDate?: string;
   onboardingDone?: boolean; // si ya completó el onboarding
   
   // ✅ Nuevos campos para el sistema de suscripción y límites

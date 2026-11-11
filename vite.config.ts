@@ -51,6 +51,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      target: 'es2022',
       outDir: 'dist',
       assetsDir: 'assets',
       emptyOutDir: true,

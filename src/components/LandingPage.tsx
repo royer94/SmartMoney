@@ -4,6 +4,7 @@ import { Smartphone, Zap, ShieldCheck, Download, Eye, FileSpreadsheet, FileText,
 
 interface LandingPageProps {
   onLogin: () => void;
+  isLoggingIn?: boolean;
 }
 
 // Icono oficial de Google (multicolor)
