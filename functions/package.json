@@ -2,6 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions para SmartMoney AI",
   "scripts": {
+    "test": "node --test",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
