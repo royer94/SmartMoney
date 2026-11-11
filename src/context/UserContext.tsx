@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { UserProfile } from '../types';
+import { UserProfile, TRIAL_DAYS } from '../types';
 
 interface UserContextType {
   user: UserProfile | null;
@@ -41,16 +41,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
         
-        // ✅ INFERIR estado de prueba desde trialEndDate si es futuro
+        // ✅ Verificar vigencia del período de prueba de 30 días desde trialEndDate
         let trialActive = data.isTrialActive === true;
         let trialEnd = data.trialEndDate ?? null;
         
-        if (!trialActive && trialEnd) {
+        if (trialEnd) {
           const endDate = trialEnd.toDate ? trialEnd.toDate() : new Date(trialEnd);
           if (endDate > new Date()) {
-            trialActive = true;
-            // Opcional: actualizar Firestore para futuras lecturas
-            await updateDoc(userRef, { isTrialActive: true }).catch(console.error);
+            if (!data.isPro && !data.isActive && !trialActive) {
+              trialActive = true;
+              await updateDoc(userRef, { isTrialActive: true }).catch(console.error);
+            }
+          } else if (trialActive) {
+            // El período de prueba de 30 días ya venció -> pasa a Plan Free reducido
+            trialActive = false;
+            await updateDoc(userRef, { isTrialActive: false }).catch(console.error);
           }
         }
         
@@ -60,35 +65,36 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin: (data as any).isAdmin || false,
           isActive: data.isActive ?? false,
           isPro: data.isPro ?? false,
-          isTrialActive: trialActive,
+          isTrialActive: (data.isPro || data.isActive) ? false : trialActive,
           trialEndDate: trialEnd,
           monthlyRecordCount: data.monthlyRecordCount ?? 0,
           monthlyVoiceCount: data.monthlyVoiceCount ?? 0,
           lastResetDate: data.lastResetDate ?? null,
           trialOfferLastShown: data.trialOfferLastShown ?? 0,
-          trialOfferAccepted: data.trialOfferAccepted ?? false,
+          trialOfferAccepted: data.trialOfferAccepted ?? true,
         };
         setUser(userData);
       } else {
-        // ✅ Nuevo usuario: 15 días de prueba
-        const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 15);
+        // ✅ Nuevo usuario: activar automáticamente 30 días de prueba al registrarse
+        const now = new Date();
+        const trialEnd = new Date(now);
+        trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
         const newUser: UserProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
           isPro: false,
           isActive: false,
           isTrialActive: true,
-          trialEndDate: trialEnd,
+          trialEndDate: trialEnd.toISOString(),
           monthlyRecordCount: 0,
           monthlyVoiceCount: 0,
-          lastResetDate: new Date(),
+          lastResetDate: now.toISOString(),
           freeRecordsCount: 0,
           onboardingDone: false,
           trialOfferLastShown: 0,
-          trialOfferAccepted: false,
+          trialOfferAccepted: true,
         };
-        await setDoc(userRef, newUser);
+        await setDoc(userRef, newUser, { merge: true });
         setUser(newUser);
       }
       setLoading(false);

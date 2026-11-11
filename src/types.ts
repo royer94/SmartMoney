@@ -17,14 +17,14 @@ export interface UserProfile {
   // ✅ Nuevos campos para el sistema de suscripción y límites
   isActive?: boolean;           // suscripción pagada activa
   isTrialActive?: boolean;      // trial en curso
-  trialEndDate?: any;           // fecha de fin del trial (Timestamp o Date)
+  trialEndDate?: any;           // fecha de fin del trial (Timestamp o Date o ISO string)
   monthlyRecordCount?: number;  // contador de registros de texto en el mes
   monthlyVoiceCount?: number;   // contador de registros de voz en el mes
   lastResetDate?: any;          // fecha del último reseteo de contadores
   
-  // ✅ Campos para la oferta del trial (activación manual)
-  trialOfferLastShown?: number;  // última transacción en que se mostró la oferta
-  trialOfferAccepted?: boolean;  // si el usuario ya aceptó el trial (para no volver a mostrar)
+  // ✅ Campos para la oferta del trial
+  trialOfferLastShown?: number;
+  trialOfferAccepted?: boolean;
 }
 
 export interface Transaction {
@@ -36,7 +36,7 @@ export interface Transaction {
   description: string;
   timestamp: any;
   isRecurring?: boolean;
-  // 🌟 Campo obligatorio para clasificar el origen y aplicar las restricciones en el plan Free
+  // 🌟 Campo obligatorio para clasificar el origen y aplicar las restricciones en Trial y Free
   inputMode: InputModeType;
 }
 
@@ -77,17 +77,22 @@ export const CURRENCIES: Currency[] = [
 export const DEFAULT_CURRENCY = 'COP';
 
 export const CATEGORIES = [
-  'Comida', 'Transporte', 'Vivienda', 'Entretenimiento', 'Salud', 'Educación',
+  'Comida', 'Supermercado', 'Transporte', 'Vivienda', 'Entretenimiento', 'Salud', 'Educación',
   'Ropa', 'Servicios', 'Regalos', 'Viajes', 'Mascotas', 'Hogar',
   'Gimnasio', 'Suscripciones', 'Inversiones', 'Ahorro', 'Seguros', 'Otros',
-  'Salario', 'Freelance', 'Ventas', 'Intereses', 'Dividendos', 'Bonos',
+  'Salario', 'Freelance', 'Ventas', 'Honorarios', 'Transferencias', 'Intereses', 'Dividendos', 'Bonos',
   'Lotería', 'Reembolso', 'Alquiler', 'Regalo recibido', 'Beca', 'Trabajos Extra',
   'Intercambios', 'Premios', 'Pensión', 'Comisiones', 'Donaciones', 'Varios'
 ];
 
-// 🌟 Reemplazo de FREE_LIMIT = 20 por los topes independientes del Backend:
-export const FREE_TEXT_LIMIT = 40;
-export const FREE_VOICE_LIMIT = 10;
+// 🌟 Configuración del Trial (30 días automáticos al registrarse) y Plan Free posterior:
+export const TRIAL_DAYS = 30;
+export const TRIAL_TEXT_LIMIT = 30;
+export const TRIAL_VOICE_LIMIT = 10;
+
+// Cupo mensual en Plan Free (cuando vencen los 30 días de prueba):
+export const FREE_TEXT_LIMIT = 15;
+export const FREE_VOICE_LIMIT = 3;
 
 export interface Command {
   name: string;

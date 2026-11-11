@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Check, X, ShieldCheck, Zap, Target, ArrowRight } from 'lucide-react';
+import { Sparkles, Check, X, Zap, Target, ArrowRight } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { UserProfile, Goal } from '../types';
+import {
+  UserProfile,
+  Goal,
+  TRIAL_DAYS,
+  TRIAL_TEXT_LIMIT,
+  TRIAL_VOICE_LIMIT,
+  FREE_TEXT_LIMIT,
+  FREE_VOICE_LIMIT
+} from '../types';
 
 interface WelcomeCardProps {
   user: UserProfile;
@@ -12,7 +20,6 @@ interface WelcomeCardProps {
 
 export function WelcomeCard({ user, goals, onConfigureBudget }: WelcomeCardProps) {
   const [isVisible, setIsVisible] = useState(() => {
-    // Show only if not explicitly dismissed before
     return !localStorage.getItem('welcome_card_dismissed');
   });
   
@@ -53,23 +60,21 @@ export function WelcomeCard({ user, goals, onConfigureBudget }: WelcomeCardProps
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900">Domina tus finanzas con inteligencia</h3>
                   <p className="text-slate-500 mt-2">
-                    Gestiona tus gastos, proyecta tu libertad financiera y obtén consejos personalizados de nuestra IA.
+                    Al registrarte tienes <strong>{TRIAL_DAYS} días de prueba Pro</strong> ({TRIAL_TEXT_LIMIT} textos y {TRIAL_VOICE_LIMIT} audios incluidos) para explorar todas las herramientas avanzadas.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* 🟢 PLAN FREE ACTUALIZADO A LAS NUEVAS REGLAS FREEMIUM */}
                   <div className="p-4 bg-white/60 rounded-2xl border border-indigo-50">
                     <h4 className="font-bold text-sm text-slate-800 mb-3 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Plan Free
+                      Plan Free (Tras los {TRIAL_DAYS} días)
                     </h4>
                     <ul className="space-y-2">
-                      <FeatureItem text="40 textos y 10 audios / mes" available />
+                      <FeatureItem text={`${FREE_TEXT_LIMIT} textos y ${FREE_VOICE_LIMIT} audios / mes`} available />
                       <FeatureItem text="1 Presupuesto (Meta)" available />
-                      <FeatureItem text="IA Advisor básico" available />
-                      <FeatureItem text="Control por Voz Inteligente" available={false} />
-                      <FeatureItem text="Reportes avanzados" available={false} />
+                      <FeatureItem text="Simulador de Libertad" available={false} />
+                      <FeatureItem text="Asesor IA y Reportes PDF/CSV" available={false} />
                     </ul>
                   </div>
                   
@@ -79,10 +84,10 @@ export function WelcomeCard({ user, goals, onConfigureBudget }: WelcomeCardProps
                       Plan Pro
                     </h4>
                     <ul className="space-y-2">
-                      <FeatureItem text="Registros ilimitados" isPro available />
+                      <FeatureItem text="Registros de texto y voz ilimitados" isPro available />
                       <FeatureItem text="Presupuestos ilimitados" isPro available />
                       <FeatureItem text="Simulador de Libertad" isPro available />
-                      <FeatureItem text="PDF/CSV e Historial" isPro available />
+                      <FeatureItem text="AI Advisor, PDF/CSV e Historial" isPro available />
                     </ul>
                   </div>
                 </div>

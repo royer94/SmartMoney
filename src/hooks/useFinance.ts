@@ -14,7 +14,16 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Transaction, UserProfile, Goal, FREE_TEXT_LIMIT, FREE_VOICE_LIMIT } from '../types';
+import {
+  Transaction,
+  UserProfile,
+  Goal,
+  TRIAL_DAYS,
+  TRIAL_TEXT_LIMIT,
+  TRIAL_VOICE_LIMIT,
+  FREE_TEXT_LIMIT,
+  FREE_VOICE_LIMIT
+} from '../types';
 
 enum OperationType {
   CREATE = 'create',
@@ -53,6 +62,20 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   }
   console.error("Firestore Error: ", JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+export function hasActiveTrial(user?: UserProfile | null): boolean {
+  if (!user) return false;
+  if (user.isPro === true || user.isActive === true) return false;
+  if (user.trialEndDate) {
+    const endDate = typeof user.trialEndDate.toDate === 'function'
+      ? user.trialEndDate.toDate()
+      : new Date(user.trialEndDate);
+    if (!isNaN(endDate.getTime())) {
+      return endDate > new Date();
+    }
+  }
+  return user.isTrialActive === true;
 }
 
 export function useFinance() {
@@ -100,6 +123,7 @@ export function useFinance() {
           console.log(`[useFinance] User profile loaded for ${userId}`);
           
           const isUserPro = data.isPro === true || data.isActive === true;
+          const trialValid = !isUserPro && hasActiveTrial(data);
           
           if (isUserPro && data.isTrialActive === true) {
             const userRef = doc(db, 'users', userId);
@@ -110,20 +134,33 @@ export function useFinance() {
 
           setUser({ 
             ...data, 
+            uid: userId,
             isAdmin: isSystemAdmin,
-            isTrialActive: isUserPro ? false : data.isTrialActive
+            isTrialActive: trialValid
           } as UserProfile);
 
         } else {
-          console.log(`[useFinance] Creating new user profile for ${userId}`);
-          const newData = {
+          console.log(`[useFinance] Creating new user profile with ${TRIAL_DAYS}-day trial for ${userId}`);
+          const now = new Date();
+          const trialEnd = new Date(now);
+          trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+          const newData: UserProfile = {
             uid: userId,
             email: authUser.email || '',
             isPro: false,
-            freeRecordsCount: 0
+            isActive: false,
+            isTrialActive: true,
+            trialEndDate: trialEnd.toISOString(),
+            monthlyRecordCount: 0,
+            monthlyVoiceCount: 0,
+            lastResetDate: now.toISOString(),
+            freeRecordsCount: 0,
+            onboardingDone: false,
+            trialOfferLastShown: 0,
+            trialOfferAccepted: true,
           };
           try {
-            await setDoc(doc(db, 'users', userId), newData);
+            await setDoc(doc(db, 'users', userId), newData, { merge: true });
             console.log(`[useFinance] User profile created successfully for ${userId}`);
             setUser({ ...newData, isAdmin: isSystemAdmin } as UserProfile);
           } catch (createError: any) {
@@ -188,30 +225,38 @@ export function useFinance() {
     };
   }, [authUser?.uid]);
 
-  // ✅ Función addTransaction correctamente unificada y asíncrona
+  // ✅ Función addTransaction con límites de Trial (30d: 30 texto / 10 voz) y Plan Free posterior (15 texto / 3 voz)
   const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
     const currentAuthId = auth.currentUser?.uid;
     if (!currentAuthId || !user) return;
 
-    // Validación de límites independientes para Plan Gratuito
-    if (!user.isPro) {
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      const currentMonthTransactions = transactions.filter(tx => {
-        const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
-        return txDate >= firstDayOfMonth;
-      });
+    const isPaidPro = Boolean(user.isPro || user.isActive);
+    const isTrial = !isPaidPro && hasActiveTrial(user);
+    const mode = t.inputMode === 'voice' ? 'voice' : 'text';
 
-      const textRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'text').length;
-      const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const currentMonthTransactions = transactions.filter(tx => {
+      const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+      return txDate >= firstDayOfMonth;
+    });
 
-      if (t.inputMode === 'text' && textRecordsCount >= FREE_TEXT_LIMIT) {
-        throw new Error(`Has alcanzado el límite de ${FREE_TEXT_LIMIT} registros de texto mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+    const textRecordsCount = currentMonthTransactions.filter(tx => (tx.inputMode || 'text') === 'text').length;
+    const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
+
+    // Validación de límites para usuarios en Trial (30 días) o Plan Free (día 31+)
+    if (!isPaidPro) {
+      const textLimit = isTrial ? TRIAL_TEXT_LIMIT : FREE_TEXT_LIMIT;
+      const voiceLimit = isTrial ? TRIAL_VOICE_LIMIT : FREE_VOICE_LIMIT;
+      const planName = isTrial ? 'período de prueba de 30 días' : 'plan gratuito';
+
+      if (mode === 'text' && textRecordsCount >= textLimit) {
+        throw new Error(`Has alcanzado el límite de ${textLimit} registros de texto en tu ${planName}. Pásate a Pro para registros ilimitados.`);
       }
 
-      if (t.inputMode === 'voice' && voiceRecordsCount >= FREE_VOICE_LIMIT) {
-        throw new Error(`Has alcanzado el límite de ${FREE_VOICE_LIMIT} registros de voz mensuales en el plan gratuito. Pásate a Pro para registros ilimitados.`);
+      if (mode === 'voice' && voiceRecordsCount >= voiceLimit) {
+        throw new Error(`Has alcanzado el límite de ${voiceLimit} registros de voz en tu ${planName}. Pásate a Pro para dictado por voz ilimitado.`);
       }
     }
 
@@ -222,6 +267,7 @@ export function useFinance() {
 
       const newTransaction = {
         ...cleanT,
+        inputMode: mode,
         userId: currentAuthId,
         timestamp: Timestamp.now()
       };
@@ -251,7 +297,12 @@ export function useFinance() {
       }
       
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { freeRecordsCount: (user.freeRecordsCount || 0) + 1 });
+      await updateDoc(userRef, {
+        freeRecordsCount: (user.freeRecordsCount || 0) + 1,
+        monthlyRecordCount: mode === 'text' ? textRecordsCount + 1 : textRecordsCount,
+        monthlyVoiceCount: mode === 'voice' ? voiceRecordsCount + 1 : voiceRecordsCount,
+        lastResetDate: now.toISOString(),
+      });
 
       return { id: docRef.id, alerts };
     } catch (e) {
@@ -287,7 +338,9 @@ export function useFinance() {
   const addGoal = async (g: Omit<Goal, 'id' | 'userId'>) => {
     if (!user) return;
 
-    if (!user.isPro && goals.length >= 1) {
+    const hasProAccess = Boolean(user.isPro || user.isActive || hasActiveTrial(user));
+
+    if (!hasProAccess && goals.length >= 1) {
       throw new Error("El plan gratuito solo permite establecer 1 presupuesto (meta). Actualiza a Pro para presupuestos ilimitados.");
     }
 
@@ -351,41 +404,41 @@ export function useFinance() {
   };
 
   const activatePro = async (targetUserId?: string, months: number = 1) => {
-  const uid = targetUserId || user?.uid;
-  if (!uid) return;
-  const path = `users/${uid}`;
-  try {
-    const userRef = doc(db, 'users', uid);
-    const expiry = new Date();
-    expiry.setMonth(expiry.getMonth() + months);
-    await updateDoc(userRef, { 
-      isPro: true,
-      isActive: true,          // Nuevo campo para indicar suscripción activa
-      isTrialActive: false,    // Limpiar trial
-      trialEndDate: null,      // Limpiar fecha de trial
-      proExpiresAt: expiry.toISOString() 
-    });
-  } catch (e) {
-    handleFirestoreError(e, OperationType.UPDATE, path);
-  }
-};
+    const uid = targetUserId || user?.uid;
+    if (!uid) return;
+    const path = `users/${uid}`;
+    try {
+      const userRef = doc(db, 'users', uid);
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + months);
+      await updateDoc(userRef, { 
+        isPro: true,
+        isActive: true,
+        isTrialActive: false,
+        trialEndDate: null,
+        proExpiresAt: expiry.toISOString() 
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  };
 
-const deactivatePro = async (targetUserId: string) => {
-  if (!user?.isAdmin) return;
-  const path = `users/${targetUserId}`;
-  try {
-    const userRef = doc(db, 'users', targetUserId);
-    await updateDoc(userRef, { 
-      isPro: false,
-      isActive: false,
-      isTrialActive: false,    // Limpiar trial
-      trialEndDate: null,
-      proExpiresAt: null 
-    });
-  } catch (e) {
-    handleFirestoreError(e, OperationType.UPDATE, path);
-  }
-};
+  const deactivatePro = async (targetUserId: string) => {
+    if (!user?.isAdmin) return;
+    const path = `users/${targetUserId}`;
+    try {
+      const userRef = doc(db, 'users', targetUserId);
+      await updateDoc(userRef, { 
+        isPro: false,
+        isActive: false,
+        isTrialActive: false,
+        trialEndDate: null,
+        proExpiresAt: null 
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  };
 
   const toggleRecurring = async (id: string, state: boolean) => {
     const path = `transactions/${id}`;

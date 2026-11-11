@@ -1,13 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Command as CommandIcon, ArrowRight } from 'lucide-react';
+import { Send, Mic, MicOff, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { parseTransaction, generateVoiceReport } from '../lib/gemini';
-import { Transaction, UserProfile, COMMANDS, FREE_LIMIT } from '../types';
+import { parseTransaction, transcribeAudio } from '../lib/gemini';
+import {
+  Transaction,
+  UserProfile,
+  COMMANDS,
+  InputModeType,
+  TRIAL_TEXT_LIMIT,
+  TRIAL_VOICE_LIMIT,
+  FREE_TEXT_LIMIT,
+  FREE_VOICE_LIMIT
+} from '../types';
 import { cn, formatCurrency } from '../lib/utils';
 import { FINANCE_TIPS } from '../lib/tips';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { useUser } from '../context/UserContext';
+import { hasActiveTrial } from '../hooks/useFinance';
 
 interface Message {
   id: string;
@@ -91,8 +100,8 @@ const palabrasANumero = (text: string): number | null => {
       } else {
         current += numeros[w];
       }
-    } else if (w === 'y' && i+1 < palabras.length && numeros[palabras[i+1]] && current >= 30) {
-      const next = numeros[palabras[i+1]];
+    } else if (w === 'y' && i + 1 < palabras.length && numeros[palabras[i + 1]] && current >= 30) {
+      const next = numeros[palabras[i + 1]];
       if (next && next < 10) current += next;
       i++;
     } else if (current > 0 && (w === 'mil' || w === 'millones')) {
@@ -217,7 +226,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Entretenimiento': [
     'cine', 'cerveza', 'rumba', 'fiesta', 'salida', 'viaje', 'hotel',
     'paseo', 'juego', 'consola', 'playstation', 'steam', 'bar', 'club',
-    'concierto', 'evento', 'regalo', 'regalos', 'tragos', 'licor', 'cerveza',
+    'concierto', 'evento', 'regalo', 'regalos', 'tragos', 'licor',
     'whisky', 'ron', 'tequila', 'discoteca', 'antros', 'videojuegos'
   ],
   'Salud': [
@@ -246,7 +255,6 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ]
 };
 
-// Helper para detectar si un texto es de supermercado (para sobreescribir categoría)
 const isSupermercadoText = (text: string): boolean => {
   if (!text) return false;
   const normalized = normalizeForNlp(text);
@@ -272,7 +280,6 @@ const parseLocalTransaction = (text: string) => {
     else if (expenseContext && !incomeContext) type = 'expense';
   }
   
-  // Prioridad especial: si hay palabra de supermercado, asignar directamente
   const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
   const isSupermercado = supermercadoKeywords.some(keyword => normalized.includes(keyword));
   
@@ -355,7 +362,6 @@ const sanitizeAndParseAIResponse = (result: any) => {
 };
 
 export function CommandBar({ user, addTransaction, transactions, addGoal, autoStartRecording, onUpgrade }: { user: UserProfile, addTransaction: any, transactions: Transaction[], addGoal: any, autoStartRecording?: boolean, onUpgrade?: () => void }) {
-  const { user: contextUser, refreshUser } = useUser();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = sessionStorage.getItem('smartmoney_chat_messages');
@@ -368,7 +374,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const isRecordingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showTrialOffer, setShowTrialOffer] = useState(false);
   const silenceTimer = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -376,6 +381,43 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const audioChunks = useRef<Blob[]>([]);
 
   useEffect(() => { if (messages.length > 0) sessionStorage.setItem('smartmoney_chat_messages', JSON.stringify(messages)); }, [messages]);
+
+  // Verifica si el usuario aún tiene cupo antes de consumir cuota de IA/Firestore
+  const checkQuotaAvailable = (mode: InputModeType): { allowed: boolean; reason?: string } => {
+    const isPaidPro = Boolean(user.isPro || user.isActive);
+    if (isPaidPro) return { allowed: true };
+
+    const isTrial = hasActiveTrial(user);
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthTransactions = transactions.filter(tx => {
+      const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+      return txDate >= firstDayOfMonth;
+    });
+
+    const textRecordsCount = currentMonthTransactions.filter(tx => (tx.inputMode || 'text') === 'text').length;
+    const voiceRecordsCount = currentMonthTransactions.filter(tx => tx.inputMode === 'voice').length;
+
+    const textLimit = isTrial ? TRIAL_TEXT_LIMIT : FREE_TEXT_LIMIT;
+    const voiceLimit = isTrial ? TRIAL_VOICE_LIMIT : FREE_VOICE_LIMIT;
+    const planLabel = isTrial ? 'tu prueba de 30 días' : 'el plan gratuito';
+
+    if (mode === 'text' && textRecordsCount >= textLimit) {
+      return {
+        allowed: false,
+        reason: `Has alcanzado tu límite de ${textLimit} registros por texto en ${planLabel}. ¡Pásate a SmartMone¥ Pro para tener registros ilimitados!`
+      };
+    }
+
+    if (mode === 'voice' && voiceRecordsCount >= voiceLimit) {
+      return {
+        allowed: false,
+        reason: `Has alcanzado tu límite de ${voiceLimit} registros por voz en ${planLabel}. ¡Pásate a SmartMone¥ Pro para dictado por voz ilimitado!`
+      };
+    }
+
+    return { allowed: true };
+  };
 
   const sendFriendlyHelpMessage = () => {
     const userName = user.name || user.email.split('@')[0];
@@ -397,7 +439,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setMessages(prev => [...prev, { id: Math.random().toString(), role, text, transaction, isSubscriptionCheck, isConfirmed: false }]);
   };
 
-  const normalizeTransaction = (tx: any) => {
+  const normalizeTransaction = (tx: any, defaultInputMode: InputModeType = 'text') => {
     if (!tx) return null;
     let description = '';
     if (typeof tx.description === 'string') description = tx.description;
@@ -406,7 +448,15 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     description = description.replace(/[{}[\]"'\\]/g, '').trim().substring(0, 60);
     const category = typeof tx.category === 'string' ? tx.category : 'Otros';
     if (!description) description = tx.type === 'expense' ? `Gasto en ${category}` : `Ingreso por ${category}`;
-    return { ...tx, description, amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount) || 0, type: tx.type === 'income' ? 'income' : 'expense', category };
+    const inputMode: InputModeType = tx.inputMode === 'voice' ? 'voice' : defaultInputMode;
+    return {
+      ...tx,
+      description,
+      amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount) || 0,
+      type: tx.type === 'income' ? 'income' : 'expense',
+      category,
+      inputMode
+    };
   };
 
   const handleCommand = async (cmd: string) => {
@@ -415,20 +465,98 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
       const parts = cleanCmd.split(' ');
       const action = parts[0];
       const now = new Date();
+      const hasProAccess = Boolean(user.isPro || user.isActive || hasActiveTrial(user));
+
       switch (action) {
-        case '/hoy': { const hoy = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d.getDate() === now.getDate() && d.getMonth() === now.getMonth(); }); const totalHoy = hoy.reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0); addMessage('ai', `Hoy has gastado ${formatCurrency(totalHoy)} en ${hoy.length} movimientos.`); break; }
-        case '/semana': { const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7); const semana = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d >= weekAgo; }); const exp = semana.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `En los últimos 7 días has gastado ${formatCurrency(exp)}.`); break; }
-        case '/mes': { const mes = transactions.filter(t => { const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp); return d.getMonth() === now.getMonth(); }); const exp = mes.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `Este mes llevas gastados ${formatCurrency(exp)}.`); break; }
-        case '/balance': { if (!user.isPro) { addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.", { isUpgrade: true }); break; } const exp = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); const inc = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); addMessage('ai', `Balance General:\nTotal Ingresos: ${formatCurrency(inc)}\nTotal Gastos: ${formatCurrency(exp)}\nNeto: ${formatCurrency(inc - exp)}`); break; }
-        case '/top': { const top = [...transactions].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5); addMessage('ai', `Tus mayores gastos:\n${top.map(t => `- ${t.description}: ${formatCurrency(t.amount)}`).join('\n')}`); break; }
-        case '/meta': { if (!user.isPro) { addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.", { isUpgrade: true }); break; } if (parts.length < 3) { addMessage('ai', "Uso correcto: /meta [nombre] [monto]. Ej: /meta Carro 50000000"); } else { const amount = parseFloat(parts[parts.length - 1]); const name = parts.slice(1, -1).join(' '); if (isNaN(amount)) { addMessage('ai', "Monto inválido. Ej: /meta Carro 50000000"); break; } addMessage('ai', `¿Confirmas crear la meta "${name}" por ${formatCurrency(amount)}?`, { isGoal: true, name, targetAmount: amount }); } break; }
-        case '/pro': addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y elimina el límite de 20 registros mensuales.`, { isUpgrade: true }); break;
-        case '/ayuda': addMessage('ai', `Comandos disponibles:\n${COMMANDS.map(c => `${c.usage}: ${c.description}`).join('\n')}\nNota: El plan gratuito está limitado a 20 registros por mes.`); break;
-        case '/start': addMessage('ai', `¡Hola ${user.name || user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo". El plan gratuito permite hasta 20 registros mensuales.`); break;
-        case '/libertad': addMessage('ai', "He habilitado el Simulador de Libertad Financiera en tu Dashboard. Puedes acceder desde la pestaña superior."); break;
-        case '/suscripciones': { const recurring = transactions.filter(t => t.isRecurring); const total = recurring.reduce((acc, t) => acc + t.amount, 0); if (recurring.length === 0) { addMessage('ai', "No tienes suscripciones activas marcadas. Ve a tu lista de movimientos y marca tus gastos fijos (como Spotify o Gym) como recurrentes."); } else { addMessage('ai', `Tienes ${recurring.length} suscripciones que suman ${formatCurrency(total)}/mes.\n${recurring.map(r => `• ${r.description}: ${formatCurrency(r.amount)}`).join('\n')}`); } break; }
-        case '/ocultar': addMessage('ai', "Modo de privacidad activado. Ahora los montos sensibles están ofuscados en la interfaz principal."); break;
-        default: addMessage('ai', `Comando no reconocido. Escribe /ayuda para ver la lista.`);
+        case '/hoy': {
+          const hoy = transactions.filter(t => {
+            const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+            return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          });
+          const totalHoy = hoy.reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0);
+          addMessage('ai', `Hoy has gastado ${formatCurrency(totalHoy)} en ${hoy.length} movimientos.`);
+          break;
+        }
+        case '/semana': {
+          const weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          const semana = transactions.filter(t => {
+            const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+            return d >= weekAgo;
+          });
+          const exp = semana.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+          addMessage('ai', `En los últimos 7 días has gastado ${formatCurrency(exp)}.`);
+          break;
+        }
+        case '/mes': {
+          const mes = transactions.filter(t => {
+            const d = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          });
+          const exp = mes.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+          addMessage('ai', `Este mes llevas gastados ${formatCurrency(exp)}.`);
+          break;
+        }
+        case '/balance': {
+          if (!hasProAccess) {
+            addMessage('ai', "El comando /balance es una función Pro. Pásate a Pro para ver tu balance detallado.", { isUpgrade: true });
+            break;
+          }
+          const exp = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+          const inc = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+          addMessage('ai', `Balance General:\nTotal Ingresos: ${formatCurrency(inc)}\nTotal Gastos: ${formatCurrency(exp)}\nNeto: ${formatCurrency(inc - exp)}`);
+          break;
+        }
+        case '/top': {
+          const top = [...transactions].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5);
+          addMessage('ai', `Tus mayores gastos:\n${top.map(t => `- ${t.description}: ${formatCurrency(t.amount)}`).join('\n')}`);
+          break;
+        }
+        case '/meta': {
+          if (!hasProAccess) {
+            addMessage('ai', "El comando /meta es una función Pro. Pásate a Pro para establecer presupuestos y metas financieras.", { isUpgrade: true });
+            break;
+          }
+          if (parts.length < 3) {
+            addMessage('ai', "Uso correcto: /meta [nombre] [monto]. Ej: /meta Carro 50000000");
+          } else {
+            const amount = parseFloat(parts[parts.length - 1]);
+            const name = parts.slice(1, -1).join(' ');
+            if (isNaN(amount)) {
+              addMessage('ai', "Monto inválido. Ej: /meta Carro 50000000");
+              break;
+            }
+            addMessage('ai', `¿Confirmas crear la meta "${name}" por ${formatCurrency(amount)}?`, { isGoal: true, name, targetAmount: amount });
+          }
+          break;
+        }
+        case '/pro':
+          addMessage('ai', `SmartMone¥ Pro desbloquea el simulador de libertad financiera, presupuestos ilimitados, reportes PDF y CSV detallados, y registros ilimitados por voz y texto.`, { isUpgrade: true });
+          break;
+        case '/ayuda':
+          addMessage('ai', `Comandos disponibles:\n${COMMANDS.map(c => `${c.usage}: ${c.description}`).join('\n')}\nNota: Tu prueba de 30 días incluye ${TRIAL_TEXT_LIMIT} textos y ${TRIAL_VOICE_LIMIT} audios (Plan Free posterior: ${FREE_TEXT_LIMIT} textos y ${FREE_VOICE_LIMIT} audios/mes).`);
+          break;
+        case '/start':
+          addMessage('ai', `¡Hola ${user.name || user.email.split('@')[0]}! Soy tu asistente financiero. Puedes registrar gastos e ingresos diciendo "Recibí 100 mil de salario" o "Gasté 50 mil en almuerzo".`);
+          break;
+        case '/libertad':
+          addMessage('ai', "Puedes abrir el Simulador de Libertad Financiera desde la pestaña 'Libertad' en tu Dashboard.");
+          break;
+        case '/suscripciones': {
+          const recurring = transactions.filter(t => t.isRecurring);
+          const total = recurring.reduce((acc, t) => acc + t.amount, 0);
+          if (recurring.length === 0) {
+            addMessage('ai', "No tienes suscripciones activas marcadas. Ve a tu lista de movimientos y marca tus gastos fijos (como Spotify o Gym) como recurrentes.");
+          } else {
+            addMessage('ai', `Tienes ${recurring.length} suscripciones que suman ${formatCurrency(total)}/mes.\n${recurring.map(r => `• ${r.description}: ${formatCurrency(r.amount)}`).join('\n')}`);
+          }
+          break;
+        }
+        case '/ocultar':
+          addMessage('ai', "Puedes activar el Modo Privacidad con el ícono del ojo en la esquina superior derecha de tu Dashboard.");
+          break;
+        default:
+          addMessage('ai', `Comando no reconocido. Escribe /ayuda para ver la lista.`);
       }
       return true;
     }
@@ -441,6 +569,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     setInput('');
     const wasCommand = await handleCommand(text);
     if (wasCommand) return;
+
+    // Verificar cupo antes de llamar a la API de IA
+    const quota = checkQuotaAvailable('text');
+    if (!quota.allowed) {
+      addMessage('ai', `⚠️ ${quota.reason}`, { isUpgrade: true });
+      return;
+    }
+
     setIsLoading(true);
     try {
       let finalTx = null;
@@ -458,7 +594,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         }
       }
       if (finalTx && finalTx.amount > 0) {
-        const normalizedTx = normalizeTransaction(finalTx);
+        const normalizedTx = normalizeTransaction(finalTx, 'text');
         addMessage('ai', `Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
       } else {
         sendFriendlyHelpMessage();
@@ -470,69 +606,20 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
     }
   };
 
-  const activateTrial = async () => {
-    if (!contextUser) return;
-    try {
-      const userRef = doc(db, 'users', contextUser.uid);
-      const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 15);
-      await updateDoc(userRef, {
-        isTrialActive: true,
-        trialEndDate: trialEnd,
-        trialOfferAccepted: true,
-        trialOfferLastShown: transactions.length + 1,
-      });
-      if (refreshUser) await refreshUser();
-      setShowTrialOffer(false);
-      addMessage('ai', '🎉 ¡Genial! Has activado tu prueba gratuita de 15 días de SmartMoney Pro. Disfruta de todas las funciones ilimitadas durante este período.');
-    } catch (error) {
-      console.error('Error activando trial:', error);
-      addMessage('ai', 'Hubo un error al activar tu prueba. Por favor, inténtalo de nuevo más tarde.');
-    }
-  };
-
-  const declineTrial = async () => {
-    if (!contextUser) return;
-    try {
-      const userRef = doc(db, 'users', contextUser.uid);
-      await updateDoc(userRef, {
-        trialOfferLastShown: transactions.length + 1,
-      });
-      if (refreshUser) await refreshUser();
-      setShowTrialOffer(false);
-      addMessage('ai', 'Está bien. Si cambias de opinión, puedes activar el plan Pro desde el menú de ajustes.');
-    } catch (error) {
-      console.error('Error al guardar rechazo de trial:', error);
-      setShowTrialOffer(false);
-    }
-  };
-
   const confirmTransaction = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      const normalizedTx = normalizeTransaction(tx);
+      const normalizedTx = normalizeTransaction(tx, tx.inputMode || 'text');
       const result = await addTransaction(normalizedTx);
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true } : m));
       addMessage('ai', `✅ ¡Listo! He registrado el movimiento: "${normalizedTx.description}" por ${formatCurrency(normalizedTx.amount)}.`);
       
-      // Lógica de oferta de trial después del registro exitoso
-      if (result?.id) {
-        const newCount = transactions.length + 1;
-        const shouldShow = !contextUser?.isTrialActive &&
-                   !contextUser?.isActive &&
-                   !contextUser?.trialOfferAccepted &&
-                   (newCount === 1 || (newCount - (contextUser?.trialOfferLastShown || 0)) >= 3);
-        if (shouldShow) {
-          setShowTrialOffer(true);
-        }
-      }
-      
       if (result?.alerts?.length) result.alerts.forEach((alert: any) => addMessage('ai', alert));
-      if (normalizedTx.type === 'expense' && normalizedTx.description) {
+      if (result?.id && normalizedTx.type === 'expense' && normalizedTx.description) {
         const desc = normalizedTx.description.toLowerCase();
         const subKeywords = ['spotify', 'netflix', 'prime', 'disney', 'hbo', 'apple', 'youtube', 'gym', 'gimnasio', 'suscripcion', 'crunchyroll', 'canva', 'microsoft'];
         if (subKeywords.some(k => desc.includes(k))) {
-          setTimeout(() => addMessage('ai', `🔍 Noté que "${normalizedTx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como recurrente?`, normalizedTx, true), 800);
+          setTimeout(() => addMessage('ai', `🔍 Noté que "${normalizedTx.description}" parece ser un servicio o suscripción periódica. ¿Quieres que lo marque como recurrente?`, { ...normalizedTx, createdId: result.id }, true), 800);
         }
       }
       const newCount = (parseInt(sessionStorage.getItem('reg_count') || '0')) + 1;
@@ -542,7 +629,7 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         setTimeout(() => addMessage('ai', `💡 Tip $martMone¥: ${randomTip}`), 1200);
       }
     } catch (error: any) {
-      addMessage('ai', `❌ Error: ${error.message}`);
+      addMessage('ai', `❌ Error: ${error.message}`, { isUpgrade: true });
     } finally {
       setIsLoading(false);
     }
@@ -551,9 +638,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const handleMarkAsRecurring = async (msgId: string, tx: any) => {
     try {
       setIsLoading(true);
-      const normalizedTx = normalizeTransaction(tx);
-      const updatedTx = { ...normalizedTx, isRecurring: true };
-      await addTransaction(updatedTx);
+      if (tx.createdId) {
+        // Actualizar el documento existente sin duplicarlo
+        await updateDoc(doc(db, 'transactions', tx.createdId), { isRecurring: true });
+      } else {
+        const normalizedTx = normalizeTransaction(tx, tx.inputMode || 'text');
+        await addTransaction({ ...normalizedTx, isRecurring: true });
+      }
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isConfirmed: true, isSubscriptionCheck: false } : m));
       addMessage('ai', `🌟 Perfecto. El gasto ha sido configurado como recurrente.`);
     } catch (error: any) {
@@ -564,6 +655,13 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   };
 
   const startRecording = async () => {
+    // 1. Verificar cupo de voz ANTES de usar el micrófono y gastar cuota de Whisper
+    const quota = checkQuotaAvailable('voice');
+    if (!quota.allowed) {
+      addMessage('ai', `🎙️ ${quota.reason}`, { isUpgrade: true });
+      return;
+    }
+
     setIsRecording(true);
     isRecordingRef.current = true;
     try {
@@ -583,50 +681,44 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           addMessage('user', '🎤 Procesando tu voz...');
           setIsLoading(true);
           try {
-            console.log("🎙️ Enviando audio a Groq...");
-            const transcriptionResult = await parseTransaction({ mimeType, data: base64Audio });
-            console.log("📦 transcriptionResult:", transcriptionResult);
-            
+            // ⚡ OPTIMIZACIÓN DE VOZ:
+            // Paso 1: Transcribir audio con Whisper (1 sola llamada)
+            console.log("🎙️ Transcribiendo audio con Whisper...");
+            const transcribedText = await transcribeAudio(mimeType, base64Audio);
+            if (!transcribedText || !transcribedText.trim()) {
+              throw new Error('No se detectó voz en el audio');
+            }
+            console.log("📝 Texto transcrito:", transcribedText);
+
+            // Paso 2: Intentar resolver con el parser NLP local (0 llamadas adicionales a Llama)
             let finalTx = null;
-            let transcribedText = '';
-            
-            if (transcriptionResult && typeof transcriptionResult === 'object' && transcriptionResult.amount && transcriptionResult.type) {
-              console.log("✅ Resultado directo de IA (objeto transacción)");
-              finalTx = transcriptionResult;
-              transcribedText = finalTx.description || '';
-            } 
-            else if (typeof transcriptionResult === 'string' && transcriptionResult.trim()) {
-              console.log("📝 Texto transcrito:", transcriptionResult);
-              transcribedText = transcriptionResult;
-              const localResult = parseLocalTransaction(transcriptionResult);
-              const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
-              if (isLocalConfident) {
-                finalTx = localResult;
-              } else {
-                try {
-                  const geminiParseResult = await parseTransaction(transcriptionResult);
-                  finalTx = sanitizeAndParseAIResponse(geminiParseResult) || localResult;
-                } catch (apiError) {
-                  console.error("Error llamando a IA para texto:", apiError);
-                  finalTx = localResult;
-                }
-              }
+            const localResult = parseLocalTransaction(transcribedText);
+            const isLocalConfident = localResult && localResult.amount > 0 && localResult.category !== 'Otros';
+
+            if (isLocalConfident) {
+              console.log("⚡ Voz resuelta localmente sin llamada extra al LLM:", localResult);
+              finalTx = localResult;
             } else {
-              throw new Error('No se pudo obtener una transacción válida del audio');
+              // Paso 3: Solo si el texto es ambiguo, consultar al LLM (Llama-3.3-70b)
+              try {
+                console.log("🤖 Texto ambiguo, consultando LLM...");
+                const llmResult = await parseTransaction(transcribedText);
+                finalTx = sanitizeAndParseAIResponse(llmResult) || localResult;
+              } catch (apiError) {
+                console.error("Error llamando a IA para texto transcrito:", apiError);
+                finalTx = localResult;
+              }
             }
             
             if (finalTx && (isSupermercadoText(transcribedText) || isSupermercadoText(finalTx.description))) {
-              console.log("🛒 Detectado supermercado, forzando categoría a 'Supermercado'");
               finalTx.category = 'Supermercado';
             }
             
-            console.log("🔍 Resultado finalTx:", finalTx);
-            
             if (finalTx && finalTx.amount > 0) {
-              const normalizedTx = normalizeTransaction(finalTx);
-              addMessage('ai', `🎤 Por voz: Detecté un ${normalizedTx.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx.amount)} en ${normalizedTx.category}. ¿Deseas registrarlo?`, normalizedTx);
+              const normalizedTx = normalizeTransaction({ ...finalTx, inputMode: 'voice' }, 'voice');
+              addMessage('ai', `🎤 Por voz ("${transcribedText}"): Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
             } else {
-              addMessage('ai', `No entendí bien lo que dijiste. Por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago"`);
+              addMessage('ai', `Escuché: "${transcribedText}", pero no identifiqué el monto. Intenta decir por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago".`);
             }
           } catch (error) {
             console.error("🔥 Error en procesamiento de voz:", error);
@@ -705,7 +797,26 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                     </>
                   ) : (
                     <>
-                      <button onClick={() => { if (msg.transaction.isGoal) { addGoal(msg.transaction.name, msg.transaction.targetAmount); setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m)); } else { confirmTransaction(msg.id, msg.transaction); } }} className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50">Confirmar</button>
+                      <button
+                        onClick={async () => {
+                          if (msg.transaction.isGoal) {
+                            const now = new Date();
+                            await addGoal({
+                              name: msg.transaction.name,
+                              targetAmount: msg.transaction.targetAmount,
+                              month: now.getMonth() + 1,
+                              year: now.getFullYear(),
+                              currentAmount: 0
+                            });
+                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m));
+                          } else {
+                            confirmTransaction(msg.id, msg.transaction);
+                          }
+                        }}
+                        className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
+                      >
+                        Confirmar
+                      </button>
                       <button onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))} className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors">Ignorar</button>
                     </>
                   )}
@@ -737,45 +848,6 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
           </button>
         </div>
       </div>
-
-      {/* Modal de oferta de trial */}
-      <AnimatePresence>
-        {showTrialOffer && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl"
-            >
-              <h3 className="text-xl font-bold text-slate-900 mb-2">🎁 Prueba SmartMoney Pro</h3>
-              <p className="text-slate-600 text-sm mb-4">
-                ¡Activa tu prueba gratuita de <strong>15 días</strong> y disfruta de:
-              </p>
-              <ul className="list-disc list-inside text-sm text-slate-600 space-y-1 mb-6">
-                <li>Registros ilimitados (texto y voz)</li>
-                <li>Simulador de libertad financiera</li>
-                <li>Reportes PDF/CSV avanzados</li>
-                <li>Presupuestos y metas ilimitadas</li>
-              </ul>
-              <div className="flex gap-3">
-                <button
-                  onClick={activateTrial}
-                  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
-                >
-                  Aceptar y probar
-                </button>
-                <button
-                  onClick={declineTrial}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition-all"
-                >
-                  Ahora no
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

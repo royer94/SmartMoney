@@ -10,8 +10,8 @@ const getCurrentCurrency = () => {
   return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 };
 
-// ─── Transcribir audio con Whisper ───────────────────────────────────────────
-const transcribeAudio = async (mimeType: string, base64Data: string): Promise<string> => {
+// ─── Transcribir audio con Whisper (Exportado para optimización local antes de llamar al LLM) ───
+export const transcribeAudio = async (mimeType: string, base64Data: string): Promise<string> => {
   const byteCharacters = atob(base64Data);
   const byteNumbers = new Uint8Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
@@ -66,7 +66,7 @@ const groqChat = async (messages: { role: string; content: string }[]): Promise<
   return data.choices[0].message.content;
 };
 
-// ─── Parsear transacción ─────────────────────────────────────────────────────
+// ─── Parsear transacción con IA (solo cuando el parser local no es suficiente) ───
 export const parseTransaction = async (
   input: string | { mimeType: string; data: string }
 ) => {
@@ -186,6 +186,7 @@ export const getFinancialInsights = async (
     const thresholds: Record<string, { max: number; min?: number }> = {
       Vivienda: { min: 0.25, max: 0.35 },
       Comida: { min: 0.10, max: 0.20 },
+      Supermercado: { min: 0.10, max: 0.20 },
       Transporte: { min: 0.05, max: 0.15 },
       Servicios: { min: 0.05, max: 0.10 },
       Suscripciones: { max: 0.05 },
@@ -217,30 +218,27 @@ export const getFinancialInsights = async (
     markdown += `💰 Ahorro: ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
 
     if (excesses.length === 0) {
-      // Todo bien: solo felicitación y consejo general
       markdown += `### ✅ ¡Excelente gestión financiera!\n`;
       markdown += `Todas tus categorías de gasto están dentro de los rangos saludables. Sigue así.\n\n`;
       markdown += `🎉 Sigue así – mantén el control y considera invertir tu excedente.\n`;
     } else {
-      // Hay excesos: mostrarlos y dar un tip
       markdown += `### ⚠️ Puntos a mejorar\n`;
       for (const exc of excesses) {
         markdown += `- **${exc.cat}**: ${fmt(exc.amount)} (${exc.percent.toFixed(0)}% del ingreso). El límite saludable es ≤ ${exc.max.toFixed(0)}%.\n`;
       }
       markdown += `\n`;
 
-      // Mencionar que el resto de categorías están bien (agrupadas)
       if (underControl.length > 0) {
         markdown += `✅ Categorías bien controladas: ${underControl.join(', ')}.\n\n`;
       }
 
-      // Tip práctico para la categoría con mayor desviación de exceso
       const worst = excesses.reduce((a, b) => ( (a.percent - a.max) > (b.percent - b.max) ? a : b ));
       let tip = "";
       switch (worst.cat) {
         case "Vivienda": tip = "revisar si puedes renegociar el arriendo o hipoteca, o buscar opciones más económicas.";
           break;
-        case "Comida": tip = "planificar menús semanales, evitar comidas fuera de casa y reducir gastos en supermercado.";
+        case "Comida":
+        case "Supermercado": tip = "planificar menús semanales, evitar comidas fuera de casa y comparar precios en supermercado.";
           break;
         case "Entretenimiento": tip = "sustituir salidas costosas por alternativas gratuitas o de bajo costo.";
           break;

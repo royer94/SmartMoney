@@ -3,6 +3,12 @@ import { useMemo } from 'react';
 import { useUser } from '../context/UserContext';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import {
+  TRIAL_TEXT_LIMIT,
+  TRIAL_VOICE_LIMIT,
+  FREE_TEXT_LIMIT,
+  FREE_VOICE_LIMIT
+} from '../types';
 
 export function useSubscription() {
   const { user, refreshUser } = useUser();
@@ -11,9 +17,12 @@ export function useSubscription() {
     if (!user) {
       return {
         isPro: false,
+        isPaidPro: false,
         isTrialActive: false,
         trialRemainingDays: null,
-        trialEndDate: null,          // ✅ añadido
+        trialEndDate: null,
+        maxTextRecords: 0,
+        maxVoiceRecords: 0,
         remainingTextRecords: 0,
         remainingVoiceRecords: 0,
         canAddTextRecord: false,
@@ -24,7 +33,7 @@ export function useSubscription() {
     const now = new Date();
     let trialRemainingDays = null;
     let trialIsActive = false;
-    let trialEndDate = null;          // ✅ declarado aquí
+    let trialEndDate: Date | null = null;
 
     // Manejo seguro de trialEndDate
     if (user.trialEndDate) {
@@ -36,16 +45,24 @@ export function useSubscription() {
         trialEndDate = new Date(user.trialEndDate);
       }
     }
-    if (trialEndDate && trialEndDate > now) {
+
+    const isPaidPro = user.isActive === true || user.isPro === true;
+
+    if (!isPaidPro && trialEndDate && trialEndDate > now) {
       trialIsActive = true;
       trialRemainingDays = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     }
 
-    // Soporte para campo antiguo isPro y nuevo isActive
-    const isPro = user.isActive === true || trialIsActive || user.isPro === true;
+    // Acceso a módulos Pro: Suscripción pagada O Trial de 30 días activo
+    const isPro = isPaidPro || trialIsActive;
 
-    const maxText = isPro ? Infinity : 40;
-    const maxVoice = isPro ? Infinity : 10;
+    // Topes de mensajes según el estado:
+    // - Pro Pagado: Ilimitado
+    // - Trial (30 días): 30 textos y 10 audios
+    // - Plan Free (día 31+): 15 textos y 3 audios al mes
+    const maxText = isPaidPro ? Infinity : trialIsActive ? TRIAL_TEXT_LIMIT : FREE_TEXT_LIMIT;
+    const maxVoice = isPaidPro ? Infinity : trialIsActive ? TRIAL_VOICE_LIMIT : FREE_VOICE_LIMIT;
+
     const currentText = user.monthlyRecordCount ?? 0;
     const currentVoice = user.monthlyVoiceCount ?? 0;
 
@@ -54,11 +71,14 @@ export function useSubscription() {
 
     return {
       isPro,
+      isPaidPro,
       isTrialActive: trialIsActive,
       trialRemainingDays,
-      trialEndDate,                 // ✅ devuelve la fecha (en formato Date o null)
-      remainingTextRecords: Math.max(0, maxText - currentText),
-      remainingVoiceRecords: Math.max(0, maxVoice - currentVoice),
+      trialEndDate,
+      maxTextRecords: maxText,
+      maxVoiceRecords: maxVoice,
+      remainingTextRecords: maxText === Infinity ? Infinity : Math.max(0, maxText - currentText),
+      remainingVoiceRecords: maxVoice === Infinity ? Infinity : Math.max(0, maxVoice - currentVoice),
       canAddTextRecord,
       canAddVoiceRecord,
     };

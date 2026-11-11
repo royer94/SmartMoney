@@ -3,6 +3,11 @@ import { Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { UserProfile } from '../types';
 
+interface TrialBannerProps {
+  user: UserProfile;
+  onUpgrade?: () => void;
+}
+
 // Reloj de arena con llenado y vaciado cíclico (sin rotación)
 const AnimatedHourglass = () => {
   return (
@@ -36,7 +41,7 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
 
   useEffect(() => {
     if (!user) return;
-    const isPro = user.isPro === true;
+    const isProPaid = user.isPro === true || user.isActive === true;
     let isTrial = user.isTrialActive === true;
     let trialEndDateObj: Date | null = null;
     if (user.trialEndDate) {
@@ -49,7 +54,7 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
         isTrial = true;
       }
     }
-    const shouldShow = isTrial && !isPro;
+    const shouldShow = isTrial && !isProPaid;
     if (!shouldShow || !trialEndDateObj) return;
     const updateTimer = () => {
       const now = new Date();
@@ -73,7 +78,6 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
 
   const { days, hours, minutes } = timeLeft;
 
-  // Formato compacto del contador
   const parts = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
@@ -87,20 +91,16 @@ export function TrialBanner({ user, onUpgrade }: TrialBannerProps) {
       className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl py-2 px-3 mb-4 shadow-md shadow-indigo-200"
     >
       <div className="flex flex-row items-center justify-between gap-2">
-        {/* Bloque izquierdo: reloj + texto */}
         <div className="flex items-center gap-2">
           <AnimatedHourglass />
-          <span className="font-bold text-white text-[11px] leading-tight">Período de prueba activo</span>
+          <span className="font-bold text-white text-[11px] leading-tight">Período de prueba Pro activo</span>
         </div>
 
-        {/* Bloque derecho: contador y botón (apilados verticalmente) */}
         <div className="flex flex-col items-end gap-1">
-          {/* Contador compacto */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 py-0.5">
             <span className="font-mono font-bold text-white text-sm tracking-wider">{counterText}</span>
           </div>
 
-          {/* Botón pulsante reducido */}
           {onUpgrade && (
             <motion.button
               onClick={onUpgrade}

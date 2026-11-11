@@ -157,6 +157,7 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
 
     // Buscar sesión temporal
     let userId = null;
+    let months = 1;
     const sessionsSnapshot = await db.collection('hotmart_sessions')
       .where('transactionId', '==', transactionId)
       .where('expired', '==', false)
@@ -166,11 +167,11 @@ exports.hotmartWebhook = functions.https.onRequest(async (req, res) => {
     if (!sessionsSnapshot.empty) {
       const sessionData = sessionsSnapshot.docs[0].data();
       userId = sessionData.userId;
+      months = parseInt(sessionData.months) || 1;
       await sessionsSnapshot.docs[0].ref.update({ expired: true });
     }
 
     if (userId) {
-      const months = 1;
       const expiry = new Date();
       expiry.setMonth(expiry.getMonth() + months);
 
@@ -264,12 +265,15 @@ exports.dailySubscriptionTasks = functions.pubsub
   .schedule('0 0 * * *')
   .timeZone('America/Bogota')
   .onRun(async (context) => {
-    console.log('[DailyTasks] Verificando suscripciones expiradas...');
+    console.log('[DailyTasks] Verificando suscripciones y períodos de prueba expirados...');
 
     const now = new Date();
+    const nowIso = now.toISOString();
+
+    // 1. Suscripciones pagadas vencidas
     const usersSnapshot = await db.collection('users')
       .where('isActive', '==', true)
-      .where('proExpiresAt', '<=', now.toISOString())
+      .where('proExpiresAt', '<=', nowIso)
       .get();
 
     let updatedCount = 0;
@@ -281,6 +285,20 @@ exports.dailySubscriptionTasks = functions.pubsub
       updatedCount++;
     }
 
-    console.log(`[DailyTasks] ✅ ${updatedCount} suscripciones expiradas desactivadas`);
+    // 2. Períodos de prueba (30 días) vencidos
+    const trialsSnapshot = await db.collection('users')
+      .where('isTrialActive', '==', true)
+      .where('trialEndDate', '<=', nowIso)
+      .get();
+
+    let expiredTrialsCount = 0;
+    for (const doc of trialsSnapshot.docs) {
+      await doc.ref.update({
+        isTrialActive: false
+      });
+      expiredTrialsCount++;
+    }
+
+    console.log(`[DailyTasks] ✅ ${updatedCount} suscripciones y ${expiredTrialsCount} trials expirados desactivados`);
     return null;
   });
