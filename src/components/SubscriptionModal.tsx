@@ -16,7 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { createEpaycoOrder, openEpaycoCheckout } from '../services/paymentService';
+import { createEpaycoOrder, openEpaycoCheckout, createHotmartSession, HOTMART_MONTHLY_PLAN } from '../services/paymentService';
 import { auth } from '../lib/firebase';
 
 interface SubscriptionModalProps {
@@ -35,6 +35,7 @@ const PLANS_COP = [
 export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'epayco' | 'hotmart'>('epayco');
   const plans = PLANS_COP;
   const selectedPlan = plans[selectedPlanIndex];
 
@@ -59,6 +60,24 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
       });
     } catch (error) {
       console.error('Error abriendo ePayco:', error);
+      window.alert('No fue posible iniciar el pago. Intenta de nuevo más tarde.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleHotmart = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      window.alert('Inicia sesión para continuar con el pago.');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const session = await createHotmartSession(await user.getIdToken());
+      window.location.assign(session.url);
+    } catch (error) {
+      console.error('Error abriendo Hotmart:', error);
       window.alert('No fue posible iniciar el pago. Intenta de nuevo más tarde.');
     } finally {
       setIsProcessing(false);
@@ -130,15 +149,19 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
 
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Elige tu plan</h3>
-            <p className="text-slate-500 text-sm">Planes disponibles en pesos colombianos.</p>
+            <p className="text-slate-500 text-sm">{paymentMethod === 'epayco' ? 'Planes disponibles en pesos colombianos.' : 'Suscripción mensual en dólares estadounidenses.'}</p>
           </div>
 
           {/* Payment Method Toggle */}
           <div className="flex gap-3 mb-6">
             <button
+              type="button"
+              onClick={() => setPaymentMethod('epayco')}
+              aria-pressed={paymentMethod === 'epayco'}
+              disabled={isProcessing}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 font-bold text-sm transition-all",
-                "border-indigo-600 bg-indigo-50 text-indigo-600"
+                paymentMethod === 'epayco' ? "border-indigo-600 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-600"
               )}
             >
               <CreditCard className="w-4 h-4" />
@@ -147,16 +170,33 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
             </button>
             <button
               type="button"
-              disabled
-              title="Hotmart estará disponible cuando se configure la verificación de productos y ofertas."
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 border-slate-200 bg-slate-100 text-slate-400 font-bold text-sm cursor-not-allowed"
+              onClick={() => setPaymentMethod('hotmart')}
+              aria-pressed={paymentMethod === 'hotmart'}
+              disabled={isProcessing}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 font-bold text-sm transition-all",
+                paymentMethod === 'hotmart' ? "border-indigo-600 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-600"
+              )}
             >
               <Globe className="w-4 h-4" />
-              Hotmart no disponible
+              Hotmart
+              <span className="text-[10px] font-normal opacity-70">(USD)</span>
             </button>
           </div>
 
           {/* Plans Grid */}
+          {paymentMethod === 'hotmart' ? (
+            <div className="mb-6 p-6 rounded-3xl bg-white border-2 border-indigo-600 shadow-xl shadow-indigo-100 ring-4 ring-indigo-50">
+              <h4 className="font-bold text-slate-900 text-lg">Mensual</h4>
+              <p className="text-xs text-slate-400 mb-4">Acceso Pro por 1 mes</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-black text-slate-900">${HOTMART_MONTHLY_PLAN.amount.toFixed(2)}</span>
+                <span className="text-xs font-bold text-slate-400">USD/mes</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-3">Se renueva automáticamente cada mes hasta que canceles en Hotmart.</p>
+              <p className="text-[10px] text-slate-400 mt-2">El total y los impuestos aplicables se confirman en Hotmart.</p>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {plans.map((plan, index) => {
               const monthlyPrice = Math.round(plan.amount / plan.months);
@@ -200,17 +240,18 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
               );
             })}
           </div>
+          )}
 
           {/* Payment info */}
           <div className="mb-4 p-4 rounded-2xl bg-white border border-slate-100 text-xs text-slate-500">
             <p><strong>ePayco:</strong> El Pro se activa después de que el servidor valida la transacción.</p>
-            <p className="mt-2"><strong>Hotmart:</strong> Temporalmente no disponible mientras se configura la validación de productos y ofertas.</p>
+            <p className="mt-2"><strong>Hotmart:</strong> El acceso se activa al confirmar el pago. Cada renovación aprobada añade 1 mes.</p>
           </div>
 
           {/* CTA Button */}
           <div className="mt-auto space-y-4">
             <button 
-              onClick={handleEpayco}
+              onClick={paymentMethod === 'hotmart' ? handleHotmart : handleEpayco}
               disabled={isProcessing}
               className={cn(
                 "w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-indigo-200",
@@ -221,7 +262,7 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
                 <RefreshCw className="w-6 h-6 animate-spin" />
               ) : (
                 <>
-                  Pagar con ePayco — {selectedPlan.label}
+                  {paymentMethod === 'hotmart' ? `Suscribirme con Hotmart — USD ${HOTMART_MONTHLY_PLAN.amount.toFixed(2)}/mes` : `Pagar con ePayco — ${selectedPlan.label}`}
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}

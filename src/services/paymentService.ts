@@ -74,3 +74,51 @@ export const openEpaycoCheckout = (data: {
     email_billing: data.email,
   });
 };
+
+// Solo esta oferta Hotmart está autorizada; el servidor determina sus condiciones.
+export const HOTMART_MONTHLY_PLAN = {
+  id: 'pro_1_month_usd',
+  months: 1,
+  amount: 5.99,
+  currency: 'USD',
+} as const;
+
+export interface HotmartSession {
+  url: string;
+  sessionId: string;
+  expiresAt: string;
+}
+
+export const createHotmartSession = async (idToken: string): Promise<HotmartSession> => {
+  const response = await fetch(`${PAYMENT_FUNCTIONS_BASE_URL}/createHotmartSession`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ planId: HOTMART_MONTHLY_PLAN.id }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || 'No se pudo crear la sesión Hotmart');
+  }
+  if (
+    typeof result.url !== 'string' ||
+    typeof result.sessionId !== 'string' || !/^[A-Za-z0-9]{20}$/.test(result.sessionId) ||
+    typeof result.expiresAt !== 'string' ||
+    !Number.isFinite(Date.parse(result.expiresAt)) || Date.parse(result.expiresAt) <= Date.now()
+  ) {
+    throw new Error('La sesión Hotmart recibida no es válida');
+  }
+  const checkoutUrl = new URL(result.url);
+  if (
+    checkoutUrl.origin !== 'https://pay.hotmart.com' ||
+    checkoutUrl.pathname !== '/O105879229W' ||
+    checkoutUrl.username || checkoutUrl.password ||
+    checkoutUrl.searchParams.get('off') !== 'wr2xnvzt' ||
+    checkoutUrl.searchParams.get('xcod') !== result.sessionId
+  ) {
+    throw new Error('El checkout recibido no coincide con la oferta mensual autorizada');
+  }
+  return { url: checkoutUrl.toString(), sessionId: result.sessionId, expiresAt: result.expiresAt };
+};

@@ -251,58 +251,87 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
         return res.status(200).send('Purchase not approved');
       }
 
-      const transactionId = String(purchase.transaction || '');
+      const transactionId = String(purchase.transaction || '').trim();
+      const subscriberCode = String(eventData?.subscription?.subscriber?.code || '').trim();
       const sessionId = String(purchase.origin?.xcod || '');
-      if (!transactionId || !/^[A-Za-z0-9]{20}$/.test(sessionId)) {
-        console.warn('[Hotmart] Evento aprobado sin referencia de orden válida');
-        return res.status(200).send('Order reference missing');
+      if (!transactionId || transactionId.length > 200 || !subscriberCode || subscriberCode.length > 200) {
+        console.warn('[Hotmart] Evento aprobado sin referencia de transacción o suscriptor');
+        return res.status(200).send('Transaction or subscriber reference missing');
       }
-
-      const sessionRef = db.collection('hotmart_sessions').doc(sessionId);
-      const sessionSnapshot = await sessionRef.get();
-      if (!sessionSnapshot.exists) {
-        console.warn('[Hotmart] No existe una sesión autorizada para esta compra');
-        return res.status(200).send('Unknown order');
+      const matchingPlans = Object.entries(plans).filter(([, plan]) => hotmartPurchaseMatches(plan, product, purchase));
+      if (matchingPlans.length !== 1) {
+        return res.status(200).send('Purchase does not match an authorized offer');
       }
-
-      const session = sessionSnapshot.data();
-      const plan = plans[session.planId];
-      const expiresAt = session.expiresAt?.toDate?.();
-      if (
-        session.schemaVersion !== 2 ||
-        session.status !== 'pending' ||
-        !plan ||
-        !session.userId ||
-        session.months !== plan.months ||
-        !amountsMatch(session.amount, plan.amount) ||
-        normalizedCurrency(session.currency) !== plan.currency ||
-        String(session.productId) !== plan.productId ||
-        String(session.offerCode) !== plan.offerCode ||
-        !expiresAt || expiresAt.getTime() <= Date.now() ||
-        !hotmartPurchaseMatches(plan, product, purchase)
-      ) {
-        console.warn('[Hotmart] Compra no coincide con una sesión y oferta autorizadas');
-        return res.status(200).send('Purchase does not match an authorized order');
-      }
-
+      const [authorizedPlanId, authorizedPlan] = matchingPlans[0];
+      const productId = authorizedPlan.productId;
+      const bindingRef = db.collection('hotmart_subscriptions').doc(hashIdentifier(`${productId}:${subscriberCode}`));
       const transactionRef = db.collection('hotmart_transactions').doc(hashIdentifier(transactionId));
-      const userRef = db.collection('users').doc(session.userId);
+      const sessionRef = /^[A-Za-z0-9]{20}$/.test(sessionId)
+        ? db.collection('hotmart_sessions').doc(sessionId)
+        : null;
       const applied = await db.runTransaction(async (transaction) => {
-        const [existingTransaction, currentSession, userSnapshot] = await Promise.all([
+        // Leer cada registro que pueda influir en la autorización antes de escribir.
+        const [existingTransaction, bindingSnapshot, sessionSnapshot] = await Promise.all([
           transaction.get(transactionRef),
-          transaction.get(sessionRef),
-          transaction.get(userRef),
+          transaction.get(bindingRef),
+          sessionRef ? transaction.get(sessionRef) : Promise.resolve({ exists: false }),
         ]);
-
         if (existingTransaction.exists) return 'duplicate';
-        if (!currentSession.exists || currentSession.data().status !== 'pending') return 'order-used';
-        if (!userSnapshot.exists) throw new Error('Payment order user no longer exists');
+
+        let binding;
+        let isFirstPurchase = false;
+        if (bindingSnapshot.exists) {
+          binding = bindingSnapshot.data();
+          const plan = plans[binding.planId];
+          if (
+            !plan || binding.planId !== authorizedPlanId || binding.schemaVersion !== 1 || !binding.userId ||
+            (sessionSnapshot.exists && sessionSnapshot.data().userId !== binding.userId) ||
+            String(binding.productId) !== plan.productId ||
+            String(binding.offerCode) !== plan.offerCode ||
+            binding.months !== plan.months || !amountsMatch(binding.amount, plan.amount) ||
+            normalizedCurrency(binding.currency) !== plan.currency ||
+            plan.productId !== productId ||
+            !hotmartPurchaseMatches(plan, product, purchase) ||
+            String(purchase.offer?.code || '') !== binding.offerCode
+          ) return 'invalid';
+        } else {
+          // Solo un checkout vigente y pendiente puede crear el vínculo inmutable inicial.
+          if (!sessionRef || !sessionSnapshot.exists) return 'unknown-subscriber';
+          const session = sessionSnapshot.data();
+          const plan = plans[session.planId];
+          const expiresAt = session.expiresAt?.toDate?.();
+          if (
+            session.schemaVersion !== 2 || session.status !== 'pending' || !plan || session.planId !== authorizedPlanId || !session.userId ||
+            session.months !== plan.months || !amountsMatch(session.amount, plan.amount) ||
+            normalizedCurrency(session.currency) !== plan.currency ||
+            String(session.productId) !== plan.productId || String(session.offerCode) !== plan.offerCode ||
+            !expiresAt || expiresAt.getTime() <= Date.now() ||
+            plan.productId !== productId || !hotmartPurchaseMatches(plan, product, purchase)
+          ) return 'invalid';
+          binding = {
+            schemaVersion: 1,
+            userId: session.userId,
+            planId: session.planId,
+            months: plan.months,
+            amount: plan.amount,
+            currency: plan.currency,
+            productId: plan.productId,
+            offerCode: plan.offerCode,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+          isFirstPurchase = true;
+        }
+
+        const plan = plans[binding.planId];
+        const userRef = db.collection('users').doc(binding.userId);
+        const userSnapshot = await transaction.get(userRef);
+        if (!userSnapshot.exists) return 'invalid';
+        if (isFirstPurchase && (!sessionSnapshot.exists || sessionSnapshot.data().status !== 'pending')) return 'order-used';
 
         const now = new Date();
         const currentExpiry = new Date(userSnapshot.data().proExpiresAt || 0);
         const expiry = Number.isFinite(currentExpiry.getTime()) && currentExpiry > now ? currentExpiry : now;
         expiry.setMonth(expiry.getMonth() + plan.months);
-
         transaction.update(userRef, {
           isPro: true,
           isActive: true,
@@ -314,31 +343,38 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
           lastPaymentMonths: plan.months,
           lastPaymentMethod: 'hotmart',
         });
-        transaction.update(sessionRef, {
-          status: 'paid',
-          transactionId,
-          eventId: String(payload.id || ''),
-          paidAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        if (isFirstPurchase) {
+          transaction.create(bindingRef, binding);
+          transaction.update(sessionRef, {
+            status: 'paid',
+            transactionId,
+            eventId: String(payload.id || ''),
+            paidAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
         transaction.create(transactionRef, {
-          userId: session.userId,
-          sessionId,
-          planId: session.planId,
+          userId: binding.userId,
+          sessionId: isFirstPurchase ? sessionId : null,
+          planId: binding.planId,
           months: plan.months,
           amount: plan.amount,
           currency: plan.currency,
           productId: plan.productId,
           offerCode: plan.offerCode,
           transactionId,
+          subscriberCodeHash: bindingRef.id,
           eventId: String(payload.id || ''),
           status: 'approved',
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         return 'applied';
       });
-
       if (applied === 'duplicate' || applied === 'order-used') {
         return res.status(200).send('Already processed');
+      }
+      if (applied !== 'applied') {
+        console.warn('[Hotmart] Compra sin vínculo de suscripción autorizado:', applied);
+        return res.status(200).send('Purchase does not match an authorized subscription');
       }
       return res.status(200).send('OK');
     } catch (error) {

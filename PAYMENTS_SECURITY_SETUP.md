@@ -6,34 +6,28 @@ El navegador solo puede solicitar uno de los cuatro planes definidos en `functio
 
 Configura `EPAYCO_CUSTOMER_ID` como parámetro de Functions y `EPAYCO_P_KEY` como secreto de Functions. El checkout apunta al endpoint HTTPS `epaycoWebhook` del proyecto configurado en el código. No despliegues pagos reales sin validar el flujo completo en el sandbox de ePayco.
 
-## Hotmart
+## Hotmart: única oferta autorizada
 
-El webhook ahora exige el encabezado `X-HOTMART-HOTTOK`; no procesa el valor enviado en el cuerpo ni continúa si falta el secreto. La creación de sesión requiere POST con `Authorization: Bearer <Firebase ID token>`, y el UID siempre se obtiene del token. La concesión solo ocurre si la sesión pendiente, el producto, la oferta, el estado `APPROVED`, el importe y la moneda coinciden, con idempotencia atómica por transacción.
+La configuración `HOTMART_PLAN_CONFIG` del proyecto contiene únicamente `pro_1_month_usd`: acceso de 1 mes por USD 5.99, producto `7758152`, oferta `wr2xnvzt` y checkout `https://pay.hotmart.com/O105879229W?off=wr2xnvzt`. No están habilitados otros planes Hotmart. Los cuatro planes ePayco permanecen sin cambios.
 
-Antes de habilitar Hotmart, configura:
+El secreto `HOTMART_HOTTOK` no está en el repositorio. El webhook exige que coincida con el encabezado `X-HOTMART-HOTTOK`; no acepta el token enviado en el cuerpo ni continúa si falta el secreto. La configuración del proveedor debe enviar los eventos de compra aprobada, versión 2.0, a `https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/hotmartWebhook`.
 
-- `HOTMART_HOTTOK` como secreto de Functions.
-- `HOTMART_PLAN_CONFIG` como parámetro JSON, con una entrada por plan autorizado. Cada entrada debe llevar `months` (solo 1, 3, 6 o 12), `amount`, `currency` ISO 4217, `productId` (igual a `product.id` o `product.ucode` del webhook), `offerCode` (igual a `purchase.offer.code`) y el `checkoutUrl` HTTPS real de `pay.hotmart.com` para esa oferta.
+### Primera compra y renovaciones
 
-Ejemplo de **estructura**, no de valores para copiar o desplegar:
+La creación de sesión requiere POST con `Authorization: Bearer <Firebase ID token>`; el UID siempre proviene de Firebase, no del navegador ni del webhook. El navegador solicita solo el identificador del plan y el servidor determina precio, moneda, producto, oferta y duración. La interfaz valida el checkout recibido y redirige a la oferta autorizada con el `xcod` de la sesión.
 
-```json
-{
-  "plan_id_confirmado": {
-    "months": 1,
-    "amount": 0,
-    "currency": "USD",
-    "productId": "ID_REAL_DEL_PRODUCTO",
-    "offerCode": "CODIGO_REAL_DE_OFERTA",
-    "checkoutUrl": "https://pay.hotmart.com/URL_REAL_DE_LA_OFERTA"
-  }
-}
-```
+La primera compra solo concede acceso si `PURCHASE_APPROVED`, el estado `APPROVED`, el producto, la oferta, el importe y la moneda coinciden con una sesión pendiente y vigente. En la misma transacción de Firestore se marca la sesión pagada, se registra la transacción y se vincula el usuario al hash del producto y de `subscription.subscriber.code`. No se permite transferir ese vínculo a otra cuenta.
 
-Reemplaza cada valor por los datos reales de la cuenta y comprueba que `purchase.price` del webhook use exactamente ese importe y moneda. Si el checkout incluye descuentos o precios distintos, no se concederá acceso hasta que el catálogo/configuración los represente de forma explícita. No uses un nombre de producto o una URL fija como sustituto de la validación.
+Las siguientes compras aprobadas del suscriptor ya vinculado renuevan un mes sin requerir que el `xcod` original siga vigente o vuelva a enviarse. Cada `purchase.transaction` se aplica una sola vez. Se vuelven a comprobar el plan autorizado, producto, oferta, precio y moneda; un suscriptor desconocido no obtiene acceso sin una primera sesión válida. Los eventos no aprobados, cancelados o retrasados no amplían el acceso. El acceso ya pagado conserva su fecha `proExpiresAt`.
 
-Hotmart permanece temporalmente deshabilitado en la interfaz porque el repositorio no contiene los códigos de producto/oferta ni los precios reales para verificar. Tras completar la configuración y validar una compra de prueba, el método de Hotmart requiere una habilitación intencional en la UI.
+Hotmart documenta que el objeto `subscription` se envía tanto al contratar como al cobrar una recurrencia, y que `subscription.subscriber.code` identifica al suscriptor: [eventos de compra](https://developers.hotmart.com/docs/en/2.0.0/webhook/purchase-webhook/) y [webhooks para suscripciones](https://developers.hotmart.com/docs/en/tutorials/use-webhook-for-subscriptions/).
+
+Las colecciones `hotmart_sessions`, `hotmart_subscriptions` y `hotmart_transactions` son solo de servidor por las reglas de denegación predeterminada. El webhook nunca asocia cuentas por el email ni por un UID recibido de Hotmart.
+
+### Condiciones visibles
+
+La interfaz ofrece únicamente USD 5.99/mes mediante Hotmart e informa de la renovación automática hasta que el cliente cancele en Hotmart. El total y los impuestos aplicables se confirman en ese checkout. Los descuentos, otros importes u otras monedas no conceden acceso con esta configuración.
 
 ## Alcance de las pruebas
 
-Ejecuta `cd functions && npm test` para comprobar validación de firmas, correlación con órdenes, montos/monedas, productos/ofertas y estados. Estas pruebas no sustituyen una compra de sandbox ni una prueba de webhook desde cada proveedor. Este cambio no despliega Functions ni modifica secretos o configuración de producción.
+Ejecuta `cd functions && npm test` para comprobar firmas, autenticación, primera compra, correlación con suscriptor, renovaciones, idempotencia, rechazo de datos incorrectos y estados. Ejecuta `npm run lint` y `npm run build` en la raíz para validar la interfaz. Estas pruebas no generan compras ni sustituyen una prueba de webhook desde el proveedor o una compra de sandbox. No es necesario leer ni cambiar los valores de los secretos para ejecutarlas.
