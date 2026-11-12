@@ -3,9 +3,10 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   Cell, CartesianGrid, LabelList
 } from 'recharts';
-import { Transaction, UserProfile, Goal, EXPENSE_CATEGORIES } from '../types';
+import { Transaction, UserProfile, Goal, EXPENSE_CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTheme } from '../context/ThemeContext';
 import { 
   TrendingUp, 
   Eye,
@@ -20,7 +21,9 @@ import {
   FileText,
   Download,
   Lock,
-  Settings
+  Settings,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { generateReportPDF } from '../lib/pdfGenerator';
 import { exportTransactionsToCSV } from '../lib/exportUtils';
@@ -34,33 +37,34 @@ import { TrialBanner } from './TrialBanner';
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
 const compactCurrency = (value: number): string => {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    return `${millions.toFixed(1).replace(/\.0$/, '')}M`;
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    return `${thousands.toFixed(0)}K`;
-  }
-  return formatCurrency(value);
+  const code = localStorage.getItem('currency') || DEFAULT_CURRENCY;
+  const currency = CURRENCIES.find(item => item.code === code) || CURRENCIES[0];
+  return new Intl.NumberFormat(currency.locale, {
+    style: 'currency',
+    currency: code,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
 };
 
 function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, interactive = false }: any) {
   return (
-    <div className={cn("glass p-6 rounded-3xl border-slate-100 flex flex-col justify-between h-full transition-all", interactive && "hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100")}>
-      <div className="flex justify-between items-start mb-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-        <div className={cn("p-2.5 rounded-xl", bg, color)}>
-          <Icon className="w-4 h-4" />
+    <div className={cn("bg-white p-3 md:p-5 rounded-2xl md:rounded-3xl border border-slate-200 shadow-md flex min-h-[76px] md:min-h-[124px] items-center transition-all", interactive && "hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/70")}>
+      <div className="flex w-full items-center justify-between gap-2 md:h-full md:items-start md:flex-col md:justify-between md:gap-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={cn("p-1.5 md:p-2 rounded-lg shrink-0", bg, color)}>
+            <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </div>
+          <span className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase tracking-normal leading-tight">{label}</span>
         </div>
-      </div>
-      <div>
-        <h4 className={cn("text-2xl font-bold text-slate-900 tracking-tight mb-1", privacyMode && "tracking-widest text-slate-300")}>
-          {privacyMode ? '••••••' : formatCurrency(amount)}
+        <div className="flex shrink-0 items-center gap-2 md:mt-1 md:flex-col md:items-start md:gap-0">
+        <h4 className={cn("text-sm sm:text-base md:text-xl font-bold text-slate-900 tracking-tight md:mb-1 truncate", privacyMode && "tracking-widest text-slate-300")} title={formatCurrency(amount)}>
+          {privacyMode ? '••••••' : <><span className="sm:hidden">{compactCurrency(amount)}</span><span className="hidden sm:inline">{formatCurrency(amount)}</span></>}
         </h4>
-        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", trend.includes('-') || trend.includes('Déficit') ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>
+        <span className={cn("text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap", trend.includes('-') || trend.includes('Déficit') ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>
           {trend}
         </span>
+        </div>
       </div>
     </div>
   );
@@ -83,6 +87,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
   
   // ✅ Copia del usuario con isPro = true para que los componentes hijos (SubscriptionManager, AIAdvisor, etc.) funcionen en trial
   const proUser = { ...user, isPro: hasProAccess };
+  const { theme, toggleTheme } = useTheme();
 
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'liberty'>(initialSubTab || 'overview');
@@ -294,7 +299,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
 
   // ==================== RENDER ====================
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-32 transition-colors">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pb-32 transition-colors">
       <TrialBanner user={user} onUpgrade={onUpgrade} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -322,7 +327,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
             <button 
               onClick={() => setActiveTab('overview')}
               className={cn(
-                "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+                "px-4 sm:px-6 py-2 rounded-xl text-sm font-bold transition-all",
                 activeTab === 'overview' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -331,7 +336,7 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
             <button 
               onClick={() => setActiveTab('liberty')}
               className={cn(
-                "px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+                "px-4 sm:px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
                 activeTab === 'liberty' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -356,6 +361,19 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
             title="Modo Privacidad"
           >
             {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className={cn(
+              "p-2.5 rounded-xl transition-all border",
+              theme === 'dark'
+                ? "bg-slate-800 text-amber-300 border-slate-700 hover:bg-slate-700"
+                : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+            )}
+            title={theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
+            aria-label={theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -388,32 +406,31 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
             exit={{ opacity: 0, x: 20 }}
             className="space-y-8"
           >
-            <WelcomeCard 
-              user={user} 
-              goals={goals} 
-              onConfigureBudget={() => {
-                setShowGoalForm(true);
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-              }} 
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-3 md:gap-6">
               <div onClick={() => {
                 if (!hasProAccess) { alert("Los detalles de gastos son una función Pro."); return; }
                 setShowExpenseDetails(true);
               }} className="cursor-pointer">
-                <StatCard label="Total Gastos (este mes)" amount={currentMonthExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
+                <StatCard label="Total gastos" amount={currentMonthExpenses} icon={ArrowDownRight} color="text-red-500" bg="bg-red-50" trend={expenseTrend} privacyMode={privacyMode} interactive />
               </div>
               <div onClick={() => {
                 if (!hasProAccess) { alert("Los detalles de ingresos son una función Pro."); return; }
                 setShowIncomeDetails(true);
               }} className="cursor-pointer">
-                <StatCard label="Total Ingresos (este mes)" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
+                <StatCard label="Total ingresos" amount={currentMonthIncome} icon={ArrowUpRight} color="text-green-500" bg="bg-green-50" trend={incomeTrend} privacyMode={privacyMode} interactive />
               </div>
               <div className="h-full">
-                <StatCard label="Balance Neto (este mes)" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
+                <StatCard label="Balance neto" amount={currentMonthBalance} icon={TrendingUp} color="text-blue-500" bg="bg-blue-50" trend={currentMonthBalance >= 0 ? 'Positivo' : 'Déficit'} privacyMode={privacyMode} />
               </div>
             </div>
+            <WelcomeCard
+              user={user}
+              goals={goals}
+              onConfigureBudget={() => {
+                setShowGoalForm(true);
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+              }}
+            />
 {(user as any).monthlyBudget > 0 && !goals.some(g => g.month === currentMonth + 1 && g.year === currentYear && (!g.category || g.category === 'Todas')) && (
   <div className="glass p-6 rounded-[2rem] bg-white border border-slate-100">
     <div className="flex items-center justify-between mb-3">

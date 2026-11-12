@@ -32,6 +32,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 const LoaderFallback = () => (
   <div className="p-10 text-center flex justify-center">
@@ -419,11 +420,13 @@ function AuthenticatedApp() {
 
 export default function App() {
   return (
-    <UserProvider>
-      <CurrencyProvider>
-        <AuthenticatedApp />
-      </CurrencyProvider>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <CurrencyProvider>
+          <AuthenticatedApp />
+        </CurrencyProvider>
+      </UserProvider>
+    </ThemeProvider>
   );
 }
 

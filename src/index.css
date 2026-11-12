@@ -33,6 +33,98 @@
   @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-lg;
 }
 
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+}
+
+/* Shared dark surfaces and legible slate text across the app. */
+html.dark,
+html.dark body {
+  color-scheme: dark;
+  background-color: #020617;
+  color: #e2e8f0;
+}
+html.dark [class~="bg-white"],
+html.dark [class~="bg-white/80"],
+html.dark [class~="bg-white/90"],
+html.dark [class~="bg-white/50"] {
+  background-color: #0f172a !important;
+}
+html.dark [class~="bg-slate-50"] {
+  background-color: #0b1220 !important;
+}
+html.dark [class~="bg-slate-100"] {
+  background-color: #1e293b !important;
+}
+html.dark [class~="bg-slate-200"] {
+  background-color: #334155 !important;
+}
+html.dark [class~="text-slate-900"] {
+  color: #f8fafc !important;
+}
+html.dark [class~="text-slate-800"] {
+  color: #e2e8f0 !important;
+}
+html.dark [class~="text-slate-700"],
+html.dark [class~="text-slate-600"] {
+  color: #cbd5e1 !important;
+}
+html.dark [class~="text-slate-500"],
+html.dark [class~="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+html.dark [class~="border-slate-50"],
+html.dark [class~="border-slate-100"],
+html.dark [class~="border-slate-200"],
+html.dark [class~="border-white/20"] {
+  border-color: #334155 !important;
+}
+html.dark .glass {
+  background-color: rgba(15, 23, 42, 0.96);
+  border-color: #334155;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+html.dark [class~="bg-blue-50"] {
+  background-color: #172554 !important;
+}
+html.dark [class~="bg-blue-100"] {
+  background-color: #1e3a8a !important;
+}
+html.dark [class~="bg-indigo-100"] {
+  background-color: #312e81 !important;
+}
+html.dark [class~="bg-red-50"] {
+  background-color: #450a0a !important;
+}
+html.dark [class~="bg-green-50"],
+html.dark [class~="bg-emerald-50"] {
+  background-color: #064e3b !important;
+}
+html.dark [class~="text-blue-600"] {
+  color: #93c5fd !important;
+}
+html.dark [class~="text-indigo-600"] {
+  color: #c4b5fd !important;
+}
+html.dark [class~="text-red-600"] {
+  color: #fca5a5 !important;
+}
+html.dark [class~="text-green-600"],
+html.dark [class~="text-emerald-600"] {
+  color: #6ee7b7 !important;
+}
+html.dark [class~="hover:bg-slate-100"]:hover {
+  background-color: #334155 !important;
+}
+html.dark [class~="hover:bg-slate-200"]:hover {
+  background-color: #475569 !important;
+}
+
 .card-hover {
   @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
 }

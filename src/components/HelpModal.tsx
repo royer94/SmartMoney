@@ -57,6 +57,32 @@ export function HelpModal({ onClose }: HelpModalProps) {
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-10">
 
+          <section id="install-smartmoney" className="p-5 bg-blue-50 border border-blue-100 rounded-3xl space-y-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-blue-600" />
+              Instala SmartMoney en tu móvil
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                <h4 className="font-bold text-sm text-slate-800 mb-1">iPhone / iPad · Safari</h4>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 leading-relaxed">
+                  <li>Abre SmartMoney en Safari.</li>
+                  <li>Toca Compartir ↑ y selecciona «Agregar a pantalla de inicio».</li>
+                  <li>Toca «Agregar» para confirmar.</li>
+                </ol>
+              </div>
+              <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                <h4 className="font-bold text-sm text-slate-800 mb-1">Android · Chrome</h4>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 leading-relaxed">
+                  <li>Abre SmartMoney en Chrome.</li>
+                  <li>Toca el menú de tres puntos y elige «Instalar app» o «Agregar a pantalla de inicio».</li>
+                  <li>Confirma con «Instalar» o «Agregar».</li>
+                </ol>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600">Después, abre SmartMoney desde el ícono que aparecerá en tu pantalla de inicio.</p>
+          </section>
+
           {/* Section: Core Functions */}
           <section className="space-y-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -165,7 +191,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <TableRow label="Registros mensuales" free="20" pro="Ilimitados" />
+                  <TableRow label="Registros por texto al mes" free="15" pro="Ilimitados" />
+                  <TableRow label="Registros por voz al mes" free="3" pro="Ilimitados" />
                   <TableRow label="Presupuestos" free="1" pro="Ilimitados" />
                   <TableRow label="IA Advisor" free="Básico" pro="Avanzado" />
                   <TableRow label="Exportar datos" free="No" pro="Sí" />
@@ -175,67 +202,6 @@ export function HelpModal({ onClose }: HelpModalProps) {
             </div>
           </section>
 
-          {/* Section: PWA Install */}
-          <section className="space-y-4">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-slate-600" />
-              Instala SmartMone¥ en tu móvil
-            </h3>
-            <div className="space-y-4">
-
-              {/* iPhone */}
-              <div className="p-5 bg-slate-900 rounded-3xl text-white">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-lg">🍎</div>
-                  <div>
-                    <p className="font-bold text-sm">iPhone / iPad</p>
-                    <p className="text-xs text-slate-400">Requiere Safari</p>
-                  </div>
-                </div>
-                <ol className="space-y-3">
-                  {[
-                    'Abre la app en Safari (no en Chrome ni otro navegador)',
-                    'Toca el ícono de compartir ↑ en la barra inferior de Safari',
-                    'Desplázate hacia abajo en el menú y toca "Agregar a pantalla de inicio"',
-                    'Toca "Agregar" en la esquina superior derecha para confirmar',
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-start gap-3 text-xs text-slate-300 leading-relaxed">
-                      <span className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">{i + 1}</span>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {/* Android */}
-              <div className="p-5 bg-slate-900 rounded-3xl text-white">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-lg">🤖</div>
-                  <div>
-                    <p className="font-bold text-sm">Android</p>
-                    <p className="text-xs text-slate-400">Requiere Chrome</p>
-                  </div>
-                </div>
-                <ol className="space-y-3">
-                  {[
-                    'Abre la app en Chrome',
-                    'Toca los 3 puntos ⋮ en la esquina superior derecha',
-                    'Toca "Agregar a pantalla de inicio" o "Instalar app"',
-                    'Confirma tocando "Instalar" en el mensaje que aparece',
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-start gap-3 text-xs text-slate-300 leading-relaxed">
-                      <span className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">{i + 1}</span>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <p className="text-xs text-slate-400 text-center px-4 leading-relaxed">
-                Una vez instalada, SmartMone¥ funciona como una app nativa y recibirás notificaciones con recordatorios financieros.
-              </p>
-            </div>
-          </section>
 
         </div>
 
