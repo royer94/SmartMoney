@@ -2,18 +2,36 @@ const {
   EPAYCO_PLANS,
   amountsMatch,
   constantTimeEqual,
+  exactAmountsMatch,
   epaycoValidationMatches,
   hashIdentifier,
   hotmartPurchaseMatches,
+  isEpaycoTestTransaction,
   isEpaycoApproved,
   makeEpaycoSignature,
   normalizedCurrency,
   parseHotmartPlanConfig,
 } = require('./paymentSecurity');
+const {
+  getEpaycoTransactionDetail,
+  isApprovedEpaycoDetail,
+  normalizeEpaycoTransactionDetail,
+} = require('./epaycoProvider');
 
-function createPaymentHandlers({ functions, admin, db, defineString, defineSecret }) {
+function createPaymentHandlers({
+  functions,
+  admin,
+  db,
+  defineString,
+  defineSecret,
+  fetchImpl = (...args) => fetch(...args),
+  epaycoTransactionDetailImpl = getEpaycoTransactionDetail,
+}) {
   const epaycoCustomerId = defineString('EPAYCO_CUSTOMER_ID');
   const epaycoPKey = defineSecret('EPAYCO_P_KEY');
+  const epaycoApiPublicKey = defineString('EPAYCO_API_PUBLIC_KEY');
+  const epaycoApiPrivateKey = defineSecret('EPAYCO_API_PRIVATE_KEY');
+  const epaycoConfirmationUrl = defineString('EPAYCO_CONFIRMATION_URL', { default: '' });
   const hotmartHottok = defineSecret('HOTMART_HOTTOK');
   const hotmartPlanConfig = defineString('HOTMART_PLAN_CONFIG', { default: '' });
 
@@ -38,7 +56,97 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
     return parseHotmartPlanConfig(hotmartPlanConfig.value());
   }
 
-  const createEpaycoOrder = functions.runWith({ secrets: [epaycoPKey] }).https.onRequest(async (req, res) => {
+  function getEpaycoResponseUrl(originHeader) {
+    const value = String(originHeader || '').trim();
+    if (!value) return undefined;
+    try {
+      const origin = new URL(value);
+      const normalizedValue = value.replace(/\/+$/, '');
+      const secureOrigin = origin.protocol === 'https:';
+      const localOrigin = origin.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(origin.hostname);
+      if (origin.username || origin.password || origin.origin !== normalizedValue || (!secureOrigin && !localOrigin)) {
+        return undefined;
+      }
+      return new URL('/payment/response', origin.origin).toString();
+    } catch {
+      return undefined;
+    }
+  }
+
+  async function authenticateEpaycoApi() {
+    const publicKey = String(epaycoApiPublicKey.value() || '').trim();
+    const privateKey = String(epaycoApiPrivateKey.value() || '');
+    if (!publicKey || !privateKey) throw new Error('ePayco APIFY credentials are incomplete');
+
+    const response = await fetchImpl('https://apify.epayco.co/login', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${Buffer.from(`${publicKey}:${privateKey}`, 'utf8').toString('base64')}`,
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    const result = await response.json().catch(() => null);
+    const accessToken = String(result?.token || '').trim();
+    if (!response.ok || !accessToken) {
+      throw new Error(`ePayco Smart Checkout authentication failed (${response.status})`);
+    }
+    return accessToken;
+  }
+
+  async function createEpaycoSmartCheckoutSession({ plan, orderId, email, originHeader }) {
+    const confirmationUrl = String(epaycoConfirmationUrl.value() || '').trim();
+    let parsedConfirmationUrl;
+    try {
+      parsedConfirmationUrl = new URL(confirmationUrl);
+    } catch {
+      throw new Error('ePayco confirmation URL is invalid');
+    }
+    if (
+      parsedConfirmationUrl.protocol !== 'https:' || parsedConfirmationUrl.username || parsedConfirmationUrl.password ||
+      parsedConfirmationUrl.pathname !== '/epaycoWebhook' || parsedConfirmationUrl.search || parsedConfirmationUrl.hash
+    ) {
+      throw new Error('ePayco confirmation URL is not a secure webhook URL');
+    }
+
+    const accessToken = await authenticateEpaycoApi();
+    const sessionPayload = {
+      checkout_version: '2',
+      name: 'SmartMoney Pro',
+      currency: plan.currency,
+      amount: plan.amount,
+      description: `Plan Pro SmartMoney por ${plan.label}`,
+      lang: 'ES',
+      country: 'CO',
+      invoice: orderId,
+      confirmation: confirmationUrl,
+      method: 'POST',
+      extras: { extra1: orderId },
+    };
+    const responseUrl = getEpaycoResponseUrl(originHeader);
+    if (responseUrl) sessionPayload.response = responseUrl;
+    if (email) sessionPayload.billing = { email: String(email).trim() };
+
+    const response = await fetchImpl('https://apify.epayco.co/payment/session/create', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(sessionPayload),
+      signal: AbortSignal.timeout(10000),
+    });
+    const result = await response.json().catch(() => null);
+    const sessionId = String(result?.data?.sessionId || '').trim();
+    if (!response.ok || result?.success !== true || !/^[A-Za-z0-9]{20,64}$/.test(sessionId)) {
+      throw new Error(`ePayco Smart Checkout session creation failed (${response.status})`);
+    }
+    return sessionId;
+  }
+
+  const createEpaycoOrder = functions.runWith({ secrets: [epaycoPKey, epaycoApiPrivateKey] }).https.onRequest(async (req, res) => {
     setCors(res, 'POST, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
@@ -46,7 +154,10 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
     try {
       const decodedToken = await verifyFirebaseUser(req);
       if (!decodedToken) return res.status(401).json({ error: 'No autorizado' });
-      if (!epaycoCustomerId.value() || !epaycoPKey.value()) {
+      if (
+        !epaycoCustomerId.value() || !epaycoPKey.value() ||
+        !epaycoApiPublicKey.value() || !epaycoApiPrivateKey.value() || !epaycoConfirmationUrl.value()
+      ) {
         return res.status(503).json({ error: 'ePayco no está configurado para recibir pagos' });
       }
 
@@ -59,19 +170,36 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
       if (!userSnapshot.exists) return res.status(404).json({ error: 'Usuario no encontrado' });
 
       const orderRef = db.collection('epayco_orders').doc();
+      let sessionId;
+      try {
+        const userEmail = String(userSnapshot.data()?.email || decodedToken.email || '').trim();
+        sessionId = await createEpaycoSmartCheckoutSession({
+          plan,
+          orderId: orderRef.id,
+          email: userEmail,
+          originHeader: req.headers.origin,
+        });
+      } catch (error) {
+        console.error('[createEpaycoOrder] No se pudo crear la sesión Smart Checkout:', error.message);
+        return res.status(502).json({ error: 'No se pudo crear la sesión de checkout ePayco' });
+      }
+
       await orderRef.create({
-        schemaVersion: 1,
+        schemaVersion: 2,
         userId: decodedToken.uid,
         planId,
         months: plan.months,
         amount: plan.amount,
         currency: plan.currency,
+        checkoutVersion: 2,
+        checkoutSessionId: sessionId,
         status: 'pending',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return res.status(201).json({
         orderId: orderRef.id,
+        sessionId,
         planId,
         amount: plan.amount,
         currency: plan.currency,
@@ -83,14 +211,14 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
     }
   });
 
-  const epaycoWebhook = functions.runWith({ secrets: [epaycoPKey] }).https.onRequest(async (req, res) => {
+  const epaycoWebhook = functions.runWith({ secrets: [epaycoPKey, epaycoApiPrivateKey] }).https.onRequest(async (req, res) => {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     try {
       const customerId = epaycoCustomerId.value();
       const pKey = epaycoPKey.value();
-      if (!customerId || !pKey) {
-        console.error('[ePayco] Configuración de firma incompleta');
+      if (!customerId || !pKey || !epaycoApiPublicKey.value() || !epaycoApiPrivateKey.value()) {
+        console.error('[ePayco] Configuración de firma o APIFY incompleta');
         return res.status(503).send('Payment verification unavailable');
       }
 
@@ -109,23 +237,32 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
         return res.status(401).send('Invalid signature');
       }
 
-      const reference = encodeURIComponent(String(data.x_ref_payco));
-      const validationResponse = await fetch(`https://secure.epayco.co/validation/v1/reference/${reference}`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!validationResponse.ok) {
-        console.error('[ePayco] No se pudo consultar la transacción en el proveedor');
+      let accessToken;
+      let detailResponse;
+      try {
+        accessToken = await authenticateEpaycoApi();
+        detailResponse = await epaycoTransactionDetailImpl({
+          accessToken,
+          referencePayco: String(data.x_ref_payco),
+        });
+      } catch (error) {
+        console.error('[ePayco] No fue posible consultar el detalle autenticado:', error.message);
+        return res.status(503).send('Provider verification unavailable');
+      }
+      if (!detailResponse?.ok) {
+        console.error('[ePayco] No fue posible consultar el detalle de transacción');
         return res.status(503).send('Provider verification unavailable');
       }
 
-      const validationResult = await validationResponse.json().catch(() => null);
-      if (!validationResult?.success || !validationResult?.data) {
-        console.warn('[ePayco] Referencia no validada por el proveedor');
-        return res.status(400).send('Provider transaction not found');
+      const providerData = normalizeEpaycoTransactionDetail(detailResponse);
+      if (!providerData) {
+        console.warn('[ePayco] El detalle autenticado no coincide con una transacción verificable');
+        return res.status(400).send('Provider transaction not verified');
       }
-
-      const providerData = validationResult.data;
+      if (isEpaycoTestTransaction(providerData)) {
+        console.warn('[ePayco] Se rechazó una transacción marcada como prueba en producción');
+        return res.status(400).send('Test transactions are not accepted');
+      }
       const orderId = String(providerData.x_extra1 ?? providerData.extra1 ?? '');
       if (!/^[A-Za-z0-9]{20}$/.test(orderId)) return res.status(400).send('Invalid order reference');
 
@@ -136,11 +273,13 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
       const order = { id: orderSnapshot.id, ...orderSnapshot.data() };
       const approvedPlan = EPAYCO_PLANS[order.planId];
       if (
-        order.schemaVersion !== 1 ||
-        order.status !== 'pending' ||
+        order.schemaVersion !== 2 ||
+        !['pending', 'paid'].includes(order.status) ||
+        order.checkoutVersion !== 2 ||
+        !/^[A-Za-z0-9]{20,64}$/.test(String(order.checkoutSessionId || '')) ||
         !approvedPlan ||
         order.months !== approvedPlan.months ||
-        !amountsMatch(order.amount, approvedPlan.amount) ||
+        !exactAmountsMatch(order.amount, approvedPlan.amount) ||
         normalizedCurrency(order.currency) !== approvedPlan.currency ||
         !epaycoValidationMatches(order, data, providerData)
       ) {
@@ -148,7 +287,7 @@ function createPaymentHandlers({ functions, admin, db, defineString, defineSecre
         return res.status(400).send('Order does not match provider transaction');
       }
 
-      if (!isEpaycoApproved(providerData)) {
+      if (!isEpaycoApproved(providerData) || !isApprovedEpaycoDetail(providerData)) {
         // Los estados rechazados o pendientes no activan Pro. Se confirma la recepción
         // para que el proveedor no reintente una notificación que no debe conceder acceso.
         return res.status(200).send('Transaction not approved');

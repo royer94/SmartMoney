@@ -2,13 +2,9 @@
 
 const PAYMENT_FUNCTIONS_BASE_URL = 'https://us-central1-gen-lang-client-0987361888.cloudfunctions.net';
 
-export const EPAYCO_CONFIG = {
-  PUBLIC_KEY: import.meta.env.VITE_EPAYCO_PUBLIC_KEY || 'e489c30da23a3b0c82d37b7c3a0f578a',
-  TEST_MODE: import.meta.env.VITE_EPAYCO_TEST === 'true',
-};
-
 export interface EpaycoOrder {
   orderId: string;
+  sessionId: string;
   planId: string;
   amount: number;
   currency: 'COP';
@@ -29,50 +25,32 @@ export const createEpaycoOrder = async (planId: string, idToken: string): Promis
   if (!response.ok) {
     throw new Error(result.error || 'No se pudo crear la orden ePayco');
   }
+  if (
+    typeof result.orderId !== 'string' || !/^[A-Za-z0-9]{20}$/.test(result.orderId) ||
+    typeof result.sessionId !== 'string' || !/^[A-Za-z0-9]{20,64}$/.test(result.sessionId) ||
+    typeof result.planId !== 'string' || !Number.isFinite(result.amount) ||
+    result.currency !== 'COP' || typeof result.label !== 'string'
+  ) {
+    throw new Error('La sesión de checkout ePayco recibida no es válida');
+  }
   return result as EpaycoOrder;
 };
 
-export const openEpaycoCheckout = (data: {
-  orderId: string;
-  amount: number;
-  label: string;
-  email: string;
-}) => {
+export const openEpaycoCheckout = (data: { sessionId: string }) => {
+  if (typeof data.sessionId !== 'string' || !/^[A-Za-z0-9]{20,64}$/.test(data.sessionId)) {
+    throw new Error('La sesión de checkout ePayco no es válida');
+  }
   const epayco = (window as any).ePayco;
   if (!epayco?.checkout?.configure) {
     throw new Error('El checkout de ePayco no está disponible');
   }
 
-  const handler = epayco.checkout.configure({
-    key: EPAYCO_CONFIG.PUBLIC_KEY,
-    test: EPAYCO_CONFIG.TEST_MODE,
+  const checkout = epayco.checkout.configure({
+    sessionId: data.sessionId,
+    type: 'standard',
   });
-
-  const webhookUrl = `${PAYMENT_FUNCTIONS_BASE_URL}/epaycoWebhook`;
-  const responseUrl = `${window.location.origin}/payment/response`;
-
-  handler.open({
-    name: `SmartMoney Pro — ${data.label}`,
-    description: `Plan Pro SmartMoney por ${data.label}`,
-    currency: 'cop',
-    amount: String(data.amount),
-    tax_base: '0',
-    tax: '0',
-    country: 'co',
-    lang: 'es',
-    external: 'false',
-    // Este valor identifica la orden pendiente creada en backend; no contiene UID ni meses.
-    extra1: data.orderId,
-    response: responseUrl,
-    confirmation: webhookUrl,
-    method_confirmation: 'POST',
-    name_billing: '',
-    address_billing: '',
-    type_doc_billing: 'cc',
-    mobile_billing: '',
-    number_doc_billing: '',
-    email_billing: data.email,
-  });
+  if (!checkout?.open) throw new Error('El checkout de ePayco no está disponible');
+  checkout.open();
 };
 
 // Solo esta oferta Hotmart está autorizada; el servidor determina sus condiciones.

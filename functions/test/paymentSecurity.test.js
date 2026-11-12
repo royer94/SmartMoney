@@ -3,8 +3,10 @@ const assert = require('node:assert/strict');
 const {
   EPAYCO_PLANS,
   constantTimeEqual,
+  exactAmountsMatch,
   epaycoValidationMatches,
   hotmartPurchaseMatches,
+  isEpaycoTestTransaction,
   isEpaycoApproved,
   makeEpaycoSignature,
   parseHotmartPlanConfig,
@@ -57,6 +59,15 @@ test('ePayco validation result must match the callback and server-created order'
   assert.equal(epaycoValidationMatches(order, callback, { ...providerData, x_amount: '20000' }), false);
   assert.equal(epaycoValidationMatches(order, callback, { ...providerData, x_transaction_id: 'other-tx' }), false);
   assert.equal(epaycoValidationMatches(order, { ...callback, x_currency_code: 'USD' }, providerData), false);
+});
+
+test('ePayco production comparisons are exact and test detection is opt-in', () => {
+  assert.equal(exactAmountsMatch('019900.000', 19900), true);
+  assert.equal(exactAmountsMatch('19900.001', 19900), false);
+  assert.equal(exactAmountsMatch('1e4', 10000), false);
+  assert.equal(isEpaycoTestTransaction({ x_test_request: ' TRUE ' }), true);
+  assert.equal(isEpaycoTestTransaction({ x_test_request: 'FALSE' }), false);
+  assert.equal(isEpaycoTestTransaction({}), false);
 });
 
 test('only an explicitly approved ePayco transaction can grant access', () => {

@@ -49,14 +49,14 @@ export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps
     try {
       const idToken = await user.getIdToken();
       const order = await createEpaycoOrder(selectedPlan.id, idToken);
-      if (order.planId !== selectedPlan.id || order.currency !== 'COP' || !Number.isFinite(order.amount)) {
+      if (
+        order.planId !== selectedPlan.id || order.amount !== selectedPlan.amount || order.currency !== 'COP' ||
+        !/^[A-Za-z0-9]{20,64}$/.test(order.sessionId)
+      ) {
         throw new Error('La orden recibida no coincide con el plan seleccionado');
       }
       openEpaycoCheckout({
-        orderId: order.orderId,
-        amount: order.amount,
-        label: order.label,
-        email: user.email || '',
+        sessionId: order.sessionId,
       });
     } catch (error) {
       console.error('Error abriendo ePayco:', error);

@@ -3,7 +3,15 @@ const assert = require('node:assert/strict');
 const { createPaymentHandlers } = require('../paymentHandlers');
 const { hashIdentifier } = require('../paymentSecurity');
 
-function createHarness({ config = {}, users = {} } = {}) {
+function createHarness({ config = {}, users = {}, fetchImpl = async (url) => {
+  if (url === 'https://apify.epayco.co/login') {
+    return { ok: true, status: 200, json: async () => ({ token: 'unit-test-apify-token' }) };
+  }
+  if (url === 'https://apify.epayco.co/payment/session/create') {
+    return { ok: true, status: 200, json: async () => ({ success: true, data: { sessionId: 'abcdef1234567890abcdef12' } }) };
+  }
+  return { ok: false, status: 404, json: async () => null };
+} } = {}) {
   const documents = { users: { ...users } };
   let nextId = 0;
   const parameter = (name, options = {}) => ({ value: () => config[name] ?? options.default ?? '' });
@@ -65,6 +73,7 @@ function createHarness({ config = {}, users = {} } = {}) {
     db,
     defineString: parameter,
     defineSecret: (name) => parameter(name),
+    fetchImpl,
   });
 
   return { handlers, documents };
@@ -88,7 +97,13 @@ function request(method, body = {}, headers = {}) {
 
 test('ePayco order requires a Firebase ID token and ignores client-supplied UID/months', async () => {
   const { handlers, documents } = createHarness({
-    config: { EPAYCO_CUSTOMER_ID: 'customer', EPAYCO_P_KEY: 'private' },
+    config: {
+      EPAYCO_CUSTOMER_ID: 'customer',
+      EPAYCO_P_KEY: 'private',
+      EPAYCO_API_PUBLIC_KEY: 'api-public-key',
+      EPAYCO_API_PRIVATE_KEY: 'api-private-key',
+      EPAYCO_CONFIRMATION_URL: 'https://functions.example/epaycoWebhook',
+    },
     users: { 'authenticated-user': { email: 'owner@example.test' } },
   });
 

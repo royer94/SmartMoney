@@ -25,8 +25,30 @@ function amountsMatch(actual, expected) {
   return actualCents !== null && expectedCents !== null && actualCents === expectedCents;
 }
 
+function canonicalAmount(value) {
+  const text = typeof value === 'number' && Number.isFinite(value)
+    ? String(value)
+    : typeof value === 'string' ? value.trim() : '';
+  if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+  const [whole, fraction = ''] = text.split('.');
+  const canonicalWhole = whole.replace(/^0+(?=\d)/, '');
+  const canonicalFraction = fraction.replace(/0+$/, '');
+  return canonicalFraction ? `${canonicalWhole}.${canonicalFraction}` : canonicalWhole;
+}
+
+function exactAmountsMatch(actual, expected) {
+  const actualAmount = canonicalAmount(actual);
+  const expectedAmount = canonicalAmount(expected);
+  return actualAmount !== null && expectedAmount !== null && actualAmount === expectedAmount;
+}
+
 function normalizedCurrency(value) {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function isEpaycoTestTransaction(transaction) {
+  return typeof transaction?.x_test_request === 'string' &&
+    transaction.x_test_request.trim().toUpperCase() === 'TRUE';
 }
 
 function makeEpaycoSignature(customerId, pKey, transaction) {
@@ -55,8 +77,8 @@ function epaycoValidationMatches(order, callback, providerData) {
     String(callback.x_transaction_id || '') &&
     String(providerReference || '') === String(callback.x_ref_payco) &&
     String(providerTransactionId || '') === String(callback.x_transaction_id) &&
-    amountsMatch(providerAmount, order.amount) &&
-    amountsMatch(callback.x_amount, order.amount) &&
+    exactAmountsMatch(providerAmount, order.amount) &&
+    exactAmountsMatch(callback.x_amount, order.amount) &&
     normalizedCurrency(providerCurrency) === order.currency &&
     normalizedCurrency(callback.x_currency_code) === order.currency &&
     String(providerOrderId || '') === String(order.id) &&
@@ -139,10 +161,12 @@ module.exports = {
   EPAYCO_PLANS,
   amountInCents,
   amountsMatch,
+  exactAmountsMatch,
   constantTimeEqual,
   epaycoValidationMatches,
   hashIdentifier,
   hotmartPurchaseMatches,
+  isEpaycoTestTransaction,
   isEpaycoApproved,
   makeEpaycoSignature,
   normalizedCurrency,
