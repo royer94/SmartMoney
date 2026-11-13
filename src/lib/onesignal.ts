@@ -10,6 +10,26 @@ declare global {
   }
 }
 
+export async function callCloudFunction(endpoint: string, init: RequestInit): Promise<Response> {
+  const isLocal =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  if (!isLocal) {
+    try {
+      const sameOriginRes = await fetch(`/api/fn/${endpoint}`, init);
+      const contentType = sameOriginRes.headers.get('content-type') || '';
+      if (sameOriginRes.status !== 404 && !contentType.includes('text/html')) {
+        return sameOriginRes;
+      }
+    } catch {
+      // Fallback a URL directa de Cloud Functions
+    }
+  }
+
+  return fetch(`${FUNCTIONS_BASE_URL}/${endpoint}`, init);
+}
+
 function runWithOneSignal<T>(fn: (OneSignal: any) => Promise<T> | T, fallback: T): Promise<T> {
   if (typeof window === 'undefined') return Promise.resolve(fallback);
 
@@ -77,33 +97,44 @@ export async function getOneSignalPushStatus(): Promise<PushStatus> {
   );
 }
 
-export async function requestOneSignalPermission(): Promise<PushStatus> {
+export async function requestOneSignalPermission(uid?: string): Promise<PushStatus> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return { supported: false, permission: 'unsupported', optedIn: false };
   }
 
+  // En iOS PWA el permiso nativo debe solicitarse directamente en el gesto del usuario
+  if (Notification.permission === 'default' && typeof Notification.requestPermission === 'function') {
+    try {
+      await Notification.requestPermission();
+    } catch {
+      // Continuar con el flujo de OneSignal
+    }
+  }
+
   return runWithOneSignal<PushStatus>(
     async (OneSignal) => {
-      if (typeof OneSignal.Notifications?.requestPermission === 'function') {
+      if (Notification.permission !== 'granted' && typeof OneSignal.Notifications?.requestPermission === 'function') {
         await OneSignal.Notifications.requestPermission();
-      } else if (typeof Notification.requestPermission === 'function') {
-        await Notification.requestPermission();
       }
 
       if (Notification.permission === 'granted' && OneSignal.User?.PushSubscription?.optIn) {
         await OneSignal.User.PushSubscription.optIn();
       }
 
+      if (uid && typeof OneSignal.login === 'function') {
+        await OneSignal.login(uid);
+      }
+
       return {
         supported: true,
         permission: Notification.permission,
-        optedIn: Boolean(OneSignal.User?.PushSubscription?.optedIn),
+        optedIn: Boolean(OneSignal.User?.PushSubscription?.optedIn) || Notification.permission === 'granted',
       };
     },
     {
       supported: 'PushManager' in window,
       permission: Notification.permission,
-      optedIn: false,
+      optedIn: Notification.permission === 'granted',
     }
   );
 }
@@ -124,8 +155,34 @@ export async function setOneSignalOptIn(enabled: boolean): Promise<boolean> {
   }, false);
 }
 
+export async function showLocalTestNotification(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+    return false;
+  }
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && typeof reg.showNotification === 'function') {
+        await reg.showNotification('🔔 ¡Notificaciones activas en SmartMoney!', {
+          body: 'Todo listo. Te avisaremos al final del día si te falta registrar algún gasto.',
+          icon: '/SM_icon.png',
+          badge: '/SM_icon.png',
+        });
+        return true;
+      }
+    }
+    new Notification('🔔 ¡Notificaciones activas en SmartMoney!', {
+      body: 'Todo listo. Te avisaremos al final del día si te falta registrar algún gasto.',
+      icon: '/SM_icon.png',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendTestPushNotification(idToken: string): Promise<{ ok: boolean; id?: string }> {
-  const response = await fetch(`${FUNCTIONS_BASE_URL}/sendTestPush`, {
+  const response = await callCloudFunction('sendTestPush', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

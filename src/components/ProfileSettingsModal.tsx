@@ -6,9 +6,11 @@ import { auth, db } from '../lib/firebase';
 import { NotificationPrefs, UserProfile } from '../types';
 import {
   getOneSignalPushStatus,
+  loginOneSignal,
   requestOneSignalPermission,
   setOneSignalOptIn,
   sendTestPushNotification,
+  showLocalTestNotification,
 } from '../lib/onesignal';
 
 interface ProfileSettingsModalProps {
@@ -68,7 +70,7 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota';
       if (!pushOptedIn) {
-        const status = await requestOneSignalPermission();
+        const status = await requestOneSignalPermission(user.uid);
         setPermissionState(status.permission);
         const enabled = status.permission === 'granted' && status.optedIn;
         setPushOptedIn(enabled);
@@ -105,11 +107,17 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onUpdateProfile }:
     setPushMessage(null);
     setError(null);
     try {
+      await loginOneSignal(currentUser.uid);
       const idToken = await currentUser.getIdToken();
       await sendTestPushNotification(idToken);
       setPushMessage('Notificación de prueba enviada. Deberías recibirla en unos segundos.');
     } catch (err: any) {
-      setError(err.message || 'No se pudo enviar la notificación de prueba.');
+      const shownLocal = await showLocalTestNotification();
+      if (shownLocal) {
+        setPushMessage('Notificación de prueba mostrada en tu dispositivo (sincronizando suscripción push...).');
+      } else {
+        setError(err.message || 'No se pudo enviar la notificación de prueba.');
+      }
     } finally {
       setIsSendingTest(false);
     }

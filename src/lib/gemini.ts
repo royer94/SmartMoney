@@ -1,5 +1,6 @@
 import { CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from "../types";
 import { auth } from "./firebase";
+import { callCloudFunction } from "./onesignal";
 import { formatCurrency } from "./utils";
 
 const GROQ_PROXY_URL = "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/groqProxy";
@@ -16,7 +17,7 @@ export const transcribeAudio = async (mimeType: string, base64Data: string): Pro
   }
 
   const idToken = await auth.currentUser.getIdToken();
-  const proxyRes = await fetch(GROQ_PROXY_URL, {
+  const proxyRes = await callCloudFunction('groqProxy', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -41,7 +42,7 @@ const groqChat = async (messages: { role: string; content: string }[]): Promise<
   }
 
   const idToken = await auth.currentUser.getIdToken();
-  const proxyRes = await fetch(GROQ_PROXY_URL, {
+  const proxyRes = await callCloudFunction('groqProxy', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

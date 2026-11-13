@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/fn/:path*",
+      "destination": "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
