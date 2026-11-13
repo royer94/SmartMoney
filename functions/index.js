@@ -7,6 +7,7 @@ const db = admin.firestore();
 db.settings({ databaseId: 'ai-studio-4d598d16-d332-49e9-9157-502087392356' });
 
 // ==================== PAGOS: ÓRDENES Y WEBHOOKS ====================
+const { applyCors } = require('./cors');
 const { createPaymentHandlers } = require('./paymentHandlers');
 const paymentHandlers = createPaymentHandlers({
   functions,
@@ -43,9 +44,7 @@ function hasActiveTrialServer(userData) {
 }
 
 exports.groqProxy = functions.runWith({ secrets: [groqApiKey] }).https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).send('');

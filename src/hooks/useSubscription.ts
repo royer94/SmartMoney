@@ -1,7 +1,7 @@
 // src/hooks/useSubscription.ts
 import { useMemo } from 'react';
 import { useUser } from '../context/UserContext';
-import { updateDoc, doc } from 'firebase/firestore';
+import { updateDoc, doc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
   TRIAL_TEXT_LIMIT,
@@ -87,8 +87,7 @@ export function useSubscription() {
   const consumeRecord = async (type: 'text' | 'voice') => {
     if (!user) return;
     const field = type === 'text' ? 'monthlyRecordCount' : 'monthlyVoiceCount';
-    const newValue = (user[field] ?? 0) + 1;
-    await updateDoc(doc(db, 'users', user.uid), { [field]: newValue });
+    await updateDoc(doc(db, 'users', user.uid), { [field]: increment(1) });
     if (refreshUser) await refreshUser();
   };
 

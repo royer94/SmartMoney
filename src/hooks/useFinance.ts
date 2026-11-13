@@ -10,7 +10,8 @@ import {
   updateDoc, 
   getDoc, 
   Timestamp,
-  orderBy
+  orderBy,
+  increment
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useUser } from '../context/UserContext';
@@ -234,9 +235,8 @@ export function useFinance() {
       
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
-        freeRecordsCount: (user.freeRecordsCount || 0) + 1,
-        monthlyRecordCount: mode === 'text' ? textRecordsCount + 1 : textRecordsCount,
-        monthlyVoiceCount: mode === 'voice' ? voiceRecordsCount + 1 : voiceRecordsCount,
+        freeRecordsCount: increment(1),
+        ...(mode === 'text' ? { monthlyRecordCount: increment(1) } : { monthlyVoiceCount: increment(1) }),
         lastResetDate: now.toISOString(),
       });
 

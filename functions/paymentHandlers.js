@@ -12,6 +12,7 @@ const {
   normalizedCurrency,
   parseHotmartPlanConfig,
 } = require('./paymentSecurity');
+const { applyCors } = require('./cors');
 const {
   getEpaycoTransactionDetail,
   isApprovedEpaycoDetail,
@@ -35,10 +36,8 @@ function createPaymentHandlers({
   const hotmartHottok = defineSecret('HOTMART_HOTTOK');
   const hotmartPlanConfig = defineString('HOTMART_PLAN_CONFIG', { default: '' });
 
-  function setCors(res, methods, headers = 'Content-Type, Authorization') {
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', methods);
-    res.set('Access-Control-Allow-Headers', headers);
+  function setCors(req, res, methods, headers = 'Content-Type, Authorization') {
+    applyCors(req, res, methods, headers);
   }
 
   async function verifyFirebaseUser(req) {
@@ -147,7 +146,7 @@ function createPaymentHandlers({
   }
 
   const createEpaycoOrder = functions.runWith({ secrets: [epaycoPKey, epaycoApiPrivateKey] }).https.onRequest(async (req, res) => {
-    setCors(res, 'POST, OPTIONS');
+    setCors(req, res, 'POST, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
@@ -355,7 +354,7 @@ function createPaymentHandlers({
   });
 
   const hotmartWebhook = functions.runWith({ secrets: [hotmartHottok] }).https.onRequest(async (req, res) => {
-    setCors(res, 'POST, OPTIONS', 'Content-Type, X-HOTMART-HOTTOK');
+    setCors(req, res, 'POST, OPTIONS', 'Content-Type, X-HOTMART-HOTTOK');
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
@@ -523,7 +522,7 @@ function createPaymentHandlers({
   });
 
   const createHotmartSession = functions.runWith({ secrets: [hotmartHottok] }).https.onRequest(async (req, res) => {
-    setCors(res, 'POST, OPTIONS');
+    setCors(req, res, 'POST, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
