@@ -14,7 +14,7 @@ import {
   ChevronRight,
   MessageSquare,
 } from 'lucide-react';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
 import { CURRENCIES } from '../types';
 import { cn, formatCurrency } from '../lib/utils';
@@ -53,7 +53,7 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
   const [direction, setDirection] = useState(1);
 
   // Paso 1: Perfil y moneda
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => auth.currentUser?.displayName || '');
   const [selectedCurrency, setSelectedCurrency] = useState('COP');
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [birthdate, setBirthdate] = useState('');
@@ -99,6 +99,7 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
       setError('Por favor ingresa tu nombre.');
       return;
     }
+    localStorage.setItem('currency', selectedCurrency);
     goNext();
   };
 
@@ -301,6 +302,7 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
                               type="button"
                               onClick={() => {
                                 setSelectedCurrency(c.code);
+                                localStorage.setItem('currency', c.code);
                                 setCurrencyOpen(false);
                               }}
                               className={cn(
