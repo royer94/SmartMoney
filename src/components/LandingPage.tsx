@@ -26,7 +26,6 @@ import {
 import {
   ModuleGalleryPreviews,
   ReportsPreview,
-  VoiceAssistantPreview,
 } from './LandingPreviews';
 
 interface LandingPageProps {
@@ -156,17 +155,22 @@ export function LandingPage({ onLogin, isLoggingIn = false }: LandingPageProps) 
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN: ASISTENTE DE VOZ EN VIVO --- */}
+      {/* --- SECCIÓN: ASISTENTE DE VOZ (FOTO HUMANA) --- */}
       <section className="max-w-5xl mx-auto px-4 py-12 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-3 md:p-5 backdrop-blur-md shadow-2xl flex justify-center"
+          className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/40 p-2 md:p-4 backdrop-blur-md shadow-2xl flex justify-center"
         >
           <div className="absolute inset-0 bg-blue-500/5 pointer-events-none blur-xl rounded-3xl" />
-          <VoiceAssistantPreview />
+          <img
+            src="/screenshots/usuario_voz2.jpg"
+            alt="Persona usando el Asistente de Voz Financiero SmartMoney AI"
+            className="w-full h-auto max-w-4xl rounded-2xl object-cover border border-slate-900/80 shadow-inner"
+            loading="eager"
+          />
         </motion.div>
       </section>
 
@@ -195,8 +199,18 @@ export function LandingPage({ onLogin, isLoggingIn = false }: LandingPageProps) 
               whileHover={{ y: -6 }}
               className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/60 p-4 flex flex-col items-center text-center w-full transition-all"
             >
-              <div className="w-full aspect-[9/14] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 relative mb-4">
-                {card.preview}
+              <div className="w-full aspect-[9/16] rounded-[2rem] bg-slate-900 p-1.5 border border-slate-700/80 shadow-2xl mb-4 flex flex-col">
+                <div className="w-full h-full rounded-[1.6rem] overflow-hidden bg-slate-950 border border-slate-800/90 flex flex-col relative">
+                  <div className="pt-2 pb-1 flex justify-center shrink-0 bg-slate-950">
+                    <div className="w-14 h-3 rounded-full bg-slate-800/90 border border-slate-700/60" />
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    {card.preview}
+                  </div>
+                  <div className="py-1.5 flex justify-center shrink-0 bg-slate-950">
+                    <div className="w-14 h-1 rounded-full bg-slate-700/80" />
+                  </div>
+                </div>
               </div>
               <h3 className="text-white font-semibold text-sm mb-1 flex items-center gap-1 justify-center">
                 {card.icon}
