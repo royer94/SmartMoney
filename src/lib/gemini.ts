@@ -2,6 +2,7 @@ import { CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from "../types";
 import { auth } from "./firebase";
 import { callCloudFunction } from "./onesignal";
 import { formatCurrency } from "./utils";
+import { buildFinancialInsights } from "./financialInsights";
 
 const GROQ_PROXY_URL = "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/groqProxy";
 
@@ -36,7 +37,10 @@ export const transcribeAudio = async (mimeType: string, base64Data: string): Pro
 };
 
 // ─── Chat con Llama vía proxy seguro en Cloud Functions ──────────────────
-const groqChat = async (messages: { role: string; content: string }[]): Promise<string> => {
+const groqChat = async (
+  messages: { role: string; content: string }[],
+  action: 'chat' | 'advisor' = 'chat'
+): Promise<string> => {
   if (!auth.currentUser) {
     throw new Error('Debes iniciar sesión para usar el asistente de IA.');
   }
@@ -48,7 +52,7 @@ const groqChat = async (messages: { role: string; content: string }[]): Promise<
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${idToken}`
     },
-    body: JSON.stringify({ action: 'chat', messages })
+    body: JSON.stringify({ action, messages })
   });
 
   if (!proxyRes.ok) {
@@ -132,136 +136,35 @@ export const getFinancialInsights = async (
   currencyCode?: string
 ): Promise<string> => {
   try {
-    console.log('[getFinancialInsights] Análisis enfocado en excesos (solo > límite)');
-
-    // 1. Formateo consistente con la moneda del usuario
-    const fmt = (amount: number) => formatCurrency(amount, currencyCode);
-
-    // 2. Filtrar activas (no eliminadas) y del mes actual
-    const active = transactions.filter(t => !t.deleted);
-    if (active.length === 0) {
-      return "No hay movimientos activos para analizar. Registra algunos gastos e ingresos.";
-    }
-    
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const period = active.filter(t => {
-      let d;
-      try {
-        if (t.timestamp?.toDate) d = t.timestamp.toDate();
-        else if (t.timestamp) d = new Date(t.timestamp);
-        else d = new Date();
-      } catch { d = new Date(); }
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-    
-    if (period.length === 0) {
-      return "Aún no hay movimientos en el mes actual. Registra ingresos y gastos para obtener análisis.";
-    }
-
-    const totalIncome = period.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
-    if (!totalIncome) {
-      return "No se registraron ingresos en el mes actual. El análisis requiere al menos un ingreso.";
-    }
-
-    // 3. Gastos por categoría
-    const expensesByCat: Record<string, number> = {};
-    period.filter(t => t.type === 'expense').forEach(t => {
-      const cat = t.category || 'Otros';
-      expensesByCat[cat] = (expensesByCat[cat] || 0) + (t.amount || 0);
-    });
-    const totalExpenses = Object.values(expensesByCat).reduce((a, b) => a + b, 0);
-    const savings = totalIncome - totalExpenses;
-    const savingsPercent = (savings / totalIncome) * 100;
-
-    // 4. Umbrales saludables (% del ingreso) – valores máximos tolerables
-    const thresholds: Record<string, { max: number; min?: number }> = {
-      Vivienda: { min: 0.25, max: 0.35 },
-      Comida: { min: 0.10, max: 0.20 },
-      Supermercado: { min: 0.10, max: 0.20 },
-      Transporte: { min: 0.05, max: 0.15 },
-      Servicios: { min: 0.05, max: 0.10 },
-      Suscripciones: { max: 0.05 },
-      Entretenimiento: { max: 0.10 },
-      Salud: { max: 0.10 },
-      Educación: { max: 0.15 },
-      Ropa: { max: 0.08 },
-      Mascotas: { max: 0.05 },
-      Otros: { max: 0.10 },
-    };
-
-    // 5. Clasificar: exceso ESTRICTO (percent > th.max * 100)
-    const excesses: { cat: string; percent: number; amount: number; max: number }[] = [];
-    const underControl: string[] = [];
-
-    for (const [cat, amount] of Object.entries(expensesByCat)) {
-      const percent = (amount / totalIncome) * 100;
-      const th = thresholds[cat] || thresholds.Otros;
-      if (percent > th.max * 100) {
-        excesses.push({ cat, percent, amount, max: th.max * 100 });
-      } else {
-        underControl.push(cat);
-      }
-    }
-
-    // 6. Construir el mensaje
-    let markdown = `## Resumen del mes (${now.toLocaleString('es', { month: 'long', year: 'numeric' })})\n\n`;
-    markdown += `📊 Ingresos: ${fmt(totalIncome)} | 💸 Gastos: ${fmt(totalExpenses)} (${((totalExpenses/totalIncome)*100).toFixed(0)}%)\n`;
-    markdown += `💰 Ahorro: ${fmt(savings)} (${savingsPercent.toFixed(0)}%)\n\n`;
-
-    if (excesses.length === 0) {
-      markdown += `### ✅ ¡Excelente gestión financiera!\n`;
-      markdown += `Todas tus categorías de gasto están dentro de los rangos saludables. Sigue así.\n\n`;
-      markdown += `🎉 Sigue así – mantén el control y considera invertir tu excedente.\n`;
-    } else {
-      markdown += `### ⚠️ Puntos a mejorar\n`;
-      for (const exc of excesses) {
-        markdown += `- **${exc.cat}**: ${fmt(exc.amount)} (${exc.percent.toFixed(0)}% del ingreso). El límite saludable es ≤ ${exc.max.toFixed(0)}%.\n`;
-      }
-      markdown += `\n`;
-
-      if (underControl.length > 0) {
-        markdown += `✅ Categorías bien controladas: ${underControl.join(', ')}.\n\n`;
-      }
-
-      const worst = excesses.reduce((a, b) => ( (a.percent - a.max) > (b.percent - b.max) ? a : b ));
-      let tip = "";
-      switch (worst.cat) {
-        case "Vivienda": tip = "revisar si puedes renegociar el arriendo o hipoteca, o buscar opciones más económicas.";
-          break;
-        case "Comida":
-        case "Supermercado": tip = "planificar menús semanales, evitar comidas fuera de casa y comparar precios en supermercado.";
-          break;
-        case "Entretenimiento": tip = "sustituir salidas costosas por alternativas gratuitas o de bajo costo.";
-          break;
-        case "Suscripciones": tip = "cancelar suscripciones que no uses y compartir cuentas familiares.";
-          break;
-        case "Transporte": tip = "usar transporte público, compartir vehículo o revisar mantenimiento.";
-          break;
-        case "Ropa": tip = "comprar en temporada de rebajas o priorizar necesidades reales.";
-          break;
-        default: tip = "revisar tus hábitos y buscar formas de reducir este gasto.";
-      }
-      markdown += `💡 **Tip para ${worst.cat}:** ${tip}\n`;
-    }
-
-    // 7. Información del presupuesto (si existe meta para el mes)
-    const currentGoal = goals.find(g => g.month === currentMonth + 1 && g.year === currentYear && (!g.category || g.category === 'Todas'));
-    if (currentGoal && currentGoal.targetAmount > 0) {
-      const goalPercent = (totalExpenses / currentGoal.targetAmount) * 100;
-      if (totalExpenses > currentGoal.targetAmount) {
-        markdown += `\n📉 Presupuesto: Superaste tu meta de ${fmt(currentGoal.targetAmount)} (${goalPercent.toFixed(0)}%). Intenta ajustar los gastos excedentes.`;
-      } else {
-        markdown += `\n📊 Presupuesto: Usaste ${goalPercent.toFixed(0)}% de tu presupuesto de ${fmt(currentGoal.targetAmount)}. ¡Bien!`;
-      }
-    }
-
-    return markdown;
+    return buildFinancialInsights(transactions, goals, currencyCode, new Date(), (amt) => formatCurrency(amt, currencyCode)).markdown;
   } catch (error: any) {
     console.error('[getFinancialInsights] Error:', error);
     return "❌ No se pudo generar el análisis. Intenta de nuevo más tarde.";
   }
+};
+
+export const getDeepAIInsights = async (
+  transactions: any[],
+  goals: any[],
+  currencyCode?: string
+): Promise<string> => {
+  const local = buildFinancialInsights(transactions, goals, currencyCode, new Date(), (amt) => formatCurrency(amt, currencyCode));
+  if (!local.hasData || !local.promptSummary) {
+    return local.markdown;
+  }
+
+  const content = await groqChat([
+    {
+      role: 'system',
+      content: 'Eres SmartMoney AI, un asesor financiero personal cercano, práctico y directo en español. Responde en Markdown claro y conciso (máximo 180 palabras) con: 1) diagnóstico breve de su ritmo actual y proyección de fin de mes, 2) 2 acciones concretas y accionables para ahorrar o optimizar sus categorías/suscripciones este mes, usando exactamente las cifras y moneda entregadas sin inventar números.'
+    },
+    {
+      role: 'user',
+      content: `Analiza este resumen financiero del usuario y dale una estrategia personalizada:\n${local.promptSummary}`
+    }
+  ], 'advisor');
+
+  return content.trim();
 };
 
 // ─── Detectar tipo de transacción ─────────────────────────────────────────────

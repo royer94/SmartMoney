@@ -140,8 +140,12 @@ exports.groqProxy = functions.runWith({ secrets: [groqApiKey] }).https.onRequest
       return res.json({ text });
     }
 
-    if (action === 'chat') {
-      if (!isPaidPro) {
+    if (action === 'chat' || action === 'advisor') {
+      if (action === 'advisor') {
+        if (!isPaidPro && !isTrial) {
+          return res.status(403).json({ error: 'El Asesor IA profundo requiere SmartMoney Pro' });
+        }
+      } else if (!isPaidPro) {
         const textLimit = isTrial ? 30 : 15;
         if ((userData.monthlyRecordCount || 0) >= textLimit) {
           return res.status(403).json({ error: 'Has alcanzado tu límite mensual de registros de texto' });
@@ -171,9 +175,9 @@ exports.groqProxy = functions.runWith({ secrets: [groqApiKey] }).https.onRequest
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages,
-          temperature: 0.1,
-          max_tokens: 500,
-          response_format: { type: 'json_object' }
+          temperature: action === 'advisor' ? 0.4 : 0.1,
+          max_tokens: action === 'advisor' ? 900 : 500,
+          ...(action === 'chat' ? { response_format: { type: 'json_object' } } : {})
         })
       });
 

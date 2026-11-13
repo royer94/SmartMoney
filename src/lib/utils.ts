@@ -7,7 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, currencyCode?: string) {
-  const code = currencyCode || localStorage.getItem('currency') || DEFAULT_CURRENCY;
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('currency') : null;
+  const code = currencyCode || saved || DEFAULT_CURRENCY;
   const currency = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 
   return new Intl.NumberFormat(currency.locale, {
@@ -22,7 +23,8 @@ export function formatDate(date: any, currencyCode?: string) {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);
 
-  const code = currencyCode || localStorage.getItem('currency') || DEFAULT_CURRENCY;
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('currency') : null;
+  const code = currencyCode || saved || DEFAULT_CURRENCY;
   const currency = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 
   return new Intl.DateTimeFormat(currency.locale, {
