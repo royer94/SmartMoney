@@ -50,3 +50,21 @@ test('extractTransactionDate resolves ayer, antier, and hace N dias', () => {
   assert.ok(hace3);
   assert.equal(new Date(hace3).getDate(), 9);
 });
+
+test('parseLocalTransaction parses unformatted 5-digit amounts and explicit Spanish dates', () => {
+  const res = parseLocalTransaction('Gasté 25737 en luz del 8 de noviembre');
+  assert.ok(res);
+  assert.equal(res.type, 'expense');
+  assert.equal(res.amount, 25737);
+  assert.equal(res.category, 'Servicios');
+  assert.equal(res.description, 'Luz');
+  assert.ok(res.timestamp);
+  const d = new Date(res.timestamp);
+  assert.equal(d.getMonth(), 10);
+  assert.equal(d.getDate(), 8);
+
+  const resDateFirst = parseLocalTransaction('el 8 de noviembre gasté 25737 en luz');
+  assert.ok(resDateFirst);
+  assert.equal(resDateFirst.amount, 25737);
+  assert.equal(resDateFirst.category, 'Servicios');
+});

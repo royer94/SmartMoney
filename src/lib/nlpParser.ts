@@ -138,7 +138,7 @@ const parseMoneyValue = (text: string): number | null => {
     const amount = parseLocalizedNumber(mMatch[1]);
     if (!isNaN(amount)) return amount * 1000000;
   }
-  const numMatch = text.match(/\b(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)\b/);
+  const numMatch = text.match(/\b(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\b/);
   if (numMatch) {
     const amount = parseLocalizedNumber(numMatch[1]);
     if (!isNaN(amount) && amount > 0) return amount;
@@ -146,8 +146,22 @@ const parseMoneyValue = (text: string): number | null => {
   return null;
 };
 
+const MONTHS_ES: Record<string, number> = {
+  enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+  julio: 6, agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
+};
+
+const DATE_PHRASE_REGEX = /\b(?:del|el)?\s*\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+(?:de|del)\s+\d{4})?\b/gi;
+
+const stripDatePhrasesForAmount = (text: string): string =>
+  text
+    .replace(DATE_PHRASE_REGEX, ' ')
+    .replace(/\bhace\s+\d+\s+d[ií]as?\b/gi, ' ')
+    .replace(/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/g, ' ');
+
 export const extractAmount = (text: string): number | null => {
-  const slangMatch = text.match(/(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\s*(lucas|palos|varos|pavos|guita|kilos|euros|pesos)/i);
+  const cleanedForAmount = stripDatePhrasesForAmount(text);
+  const slangMatch = cleanedForAmount.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(lucas|palos|varos|pavos|guita|kilos|euros|pesos)/i);
   if (slangMatch) {
     let amount = parseLocalizedNumber(slangMatch[1]);
     if (!isNaN(amount)) {
@@ -158,22 +172,22 @@ export const extractAmount = (text: string): number | null => {
     }
   }
   const patterns = [
-    /(?:gast[ée]|pag[ué]|compr[ée]|invert[ée]|perd[ée]|clavaron|fund[íi]|rompieron|ching[ué]|me\s+fui)\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
-    /(?:recib[íi]|gan[ée]|cay[óo]|factur[ée]|vend[íi]|cobr[ée]|ingres[óo])\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
-    /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)/i,
-    /(?:me\s+)?(?:cay[óo]|lleg[óo])\s+(?:la\s+)?(?:n[óo]mina|plata)\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)/i,
-    /(?:vend[íi]|factur[ée])\s+(?:una\s+)?(?:compu|carro|moto|casa)\s+(?:en\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)/i
+    /(?:gast[ée]|pag[ué]|compr[ée]|invert[ée]|perd[ée]|clavaron|fund[íi]|rompieron|ching[ué]|me\s+fui)\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
+    /(?:recib[íi]|gan[ée]|cay[óo]|factur[ée]|vend[íi]|cobr[ée]|ingres[óo])\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)?/i,
+    /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:lucas|varos|pavos|kilos|palos|euros|pesos)/i,
+    /(?:me\s+)?(?:cay[óo]|lleg[óo])\s+(?:la\s+)?(?:n[óo]mina|plata)\s+(?:de\s+)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)/i,
+    /(?:vend[íi]|factur[ée])\s+(?:una\s+)?(?:compu|carro|moto|casa)\s+(?:en\s+)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)/i
   ];
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match = cleanedForAmount.match(pattern);
     if (match) {
       const amount = parseLocalizedNumber(match[1]);
       if (!isNaN(amount)) return amount;
     }
   }
-  const palabrasNum = palabrasANumero(text);
+  const palabrasNum = palabrasANumero(cleanedForAmount);
   if (palabrasNum && palabrasNum > 0) return palabrasNum;
-  return parseMoneyValue(text);
+  return parseMoneyValue(cleanedForAmount);
 };
 
 const EXPENSE_PHRASES = [
@@ -299,6 +313,39 @@ export const extractTransactionDate = (text: string, referenceNow: Date = new Da
     return daysAgo(diff);
   }
 
+  const monthDateMatch = normalized.match(
+    /\b(?:del|el)?\s*(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+(?:de|del)\s+(\d{4}))?\b/
+  );
+  if (monthDateMatch) {
+    const day = parseInt(monthDateMatch[1], 10);
+    const month = MONTHS_ES[monthDateMatch[2]];
+    let year = monthDateMatch[3] ? parseInt(monthDateMatch[3], 10) : referenceNow.getFullYear();
+    if (day >= 1 && day <= 31 && month !== undefined) {
+      let candidate = new Date(year, month, day, 12, 0, 0);
+      if (!monthDateMatch[3] && candidate > referenceNow) {
+        year -= 1;
+        candidate = new Date(year, month, day, 12, 0, 0);
+      }
+      if (!Number.isNaN(candidate.getTime()) && candidate.getMonth() === month) {
+        return candidate.toISOString();
+      }
+    }
+  }
+
+  const slashDateMatch = normalized.match(/\b(\d{1,2})\s+(\d{1,2})(?:\s+(\d{2,4}))?\b/);
+  if (slashDateMatch && /\b(?:del|el|fecha)\b/.test(normalized)) {
+    const day = parseInt(slashDateMatch[1], 10);
+    const month = parseInt(slashDateMatch[2], 10) - 1;
+    let year = slashDateMatch[3] ? parseInt(slashDateMatch[3], 10) : referenceNow.getFullYear();
+    if (year < 100) year += 2000;
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+      const candidate = new Date(year, month, day, 12, 0, 0);
+      if (!Number.isNaN(candidate.getTime()) && candidate.getMonth() === month) {
+        return candidate.toISOString();
+      }
+    }
+  }
+
   return undefined;
 };
 
@@ -358,17 +405,18 @@ export const parseLocalTransaction = (text: string): ParsedLocalTransaction | nu
 
   let description = originalText;
   const wordsToRemove = [
-    'gaste en', 'gasté en', 'pague', 'pagué', 'compre', 'compré',
+    'gaste en', 'gasté en', 'gaste', 'gasté', 'pague', 'pagué', 'compre', 'compré',
     'recibi', 'recibí', 'ingreso de', 'gasto de', 'de', 'en', 'por',
     'un', 'una', 'unos', 'unas', 'ayer', 'hoy', 'el', 'la', 'los', 'las',
     'del', 'al', 'con', 'para', 'me', 'te', 'se', 'nos', 'les',
     'clavaron', 'fundí', 'rompieron', 'chingué', 'cayó', 'facturé',
     'fui', 'fuimos', 'estuvo', 'estuvimos'
   ];
-  let cleanDesc = description;
+  let cleanDesc = description.replace(DATE_PHRASE_REGEX, ' ');
   wordsToRemove.forEach(word => {
-    const regex = new RegExp(`\\b${word}\\b`, 'gi');
-    cleanDesc = cleanDesc.replace(regex, '');
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?:^|\\s)${escaped}(?=\\s|$)`, 'gi');
+    cleanDesc = cleanDesc.replace(regex, ' ');
   });
   cleanDesc = cleanDesc.replace(/\b\d+(?:[.,]\d+)?\s*(lucas|varos|pavos|kilos|palos|euros|pesos)?\b/gi, '');
   cleanDesc = cleanDesc.replace(/[$€£¥\s,.]/g, ' ');
