@@ -34,6 +34,7 @@ import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { TrialBanner } from './TrialBanner';
 import { SavingsGoalsCard } from './SavingsGoalsCard';
+import { MonthComparisonCard } from './MonthComparisonCard';
 
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
@@ -582,6 +583,12 @@ export function Dashboard({ user, transactions, goals, savingsGoals = [], addTra
                 onRemoveGoal={removeSavingsGoal}
               />
             )}
+
+            <MonthComparisonCard
+              transactions={transactions}
+              months={MONTHS}
+              formatAmount={formatHidable}
+            />
 
             <div className="grid grid-cols-1 gap-6">
               <div className="glass p-8 rounded-[2.5rem] transition-colors">

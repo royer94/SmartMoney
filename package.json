@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist build",
     "lint": "tsc --noEmit",
-    "test": "node --test src/lib/nlpParser.test.ts"
+    "test": "node --test src/lib/nlpParser.test.ts src/lib/monthComparison.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
