@@ -131,6 +131,7 @@ export async function sendTestPushNotification(idToken: string): Promise<{ ok: b
       'Content-Type': 'application/json',
       Authorization: `Bearer ${idToken}`,
     },
+    body: JSON.stringify({}),
   });
 
   const data = await response.json().catch(() => ({}));
