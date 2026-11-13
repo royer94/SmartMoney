@@ -23,7 +23,8 @@ import {
   Lock,
   Settings,
   Moon,
-  Sun
+  Sun,
+  Bell
 } from 'lucide-react';
 import { exportTransactionsToCSV } from '../lib/exportUtils';
 import { AIAdvisor } from './AIAdvisor';
@@ -379,6 +380,23 @@ export function Dashboard({ user, transactions, goals, savingsGoals = [], addTra
             aria-label={theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsProfileSettingsOpen(true)}
+            className={cn(
+              "relative p-2.5 rounded-xl transition-all border",
+              user.pushEnabled
+                ? "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+            )}
+            title={user.pushEnabled ? 'Notificaciones push activas (configurar)' : 'Activar notificaciones push'}
+            aria-label="Configurar notificaciones push"
+          >
+            <Bell className="w-4 h-4" />
+            {!user.pushEnabled && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500" />
+            )}
           </button>
         </div>
       </div>

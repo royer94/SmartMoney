@@ -2,6 +2,14 @@ export type TransactionType = 'expense' | 'income';
 // 🌟 Nuevo tipo para diferenciar si el registro se creó por texto o dictado por voz
 export type InputModeType = 'text' | 'voice';
 
+export interface NotificationPrefs {
+  dailyReminder: boolean;
+  dailyReminderHour?: number; // 0-23 hora local (por defecto 20 = 8:00 PM)
+  weeklySummary: boolean;
+  monthlySummary: boolean;
+  recurringAlerts: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -26,6 +34,11 @@ export interface UserProfile {
   // ✅ Campos para la oferta del trial
   trialOfferLastShown?: number;
   trialOfferAccepted?: boolean;
+
+  // 🔔 Preferencias de notificaciones push (OneSignal)
+  pushEnabled?: boolean;
+  timezone?: string;
+  notificationPrefs?: NotificationPrefs;
 }
 
 export interface Transaction {

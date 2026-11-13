@@ -22,6 +22,18 @@ exports.epaycoWebhook = paymentHandlers.epaycoWebhook;
 exports.hotmartWebhook = paymentHandlers.hotmartWebhook;
 exports.createHotmartSession = paymentHandlers.createHotmartSession;
 
+// ==================== NOTIFICACIONES PUSH (ONESIGNAL) ====================
+const { createNotificationHandlers } = require('./notifications');
+const notificationHandlers = createNotificationHandlers({
+  functions,
+  admin,
+  db,
+  defineSecret,
+});
+
+exports.dispatchScheduledNotifications = notificationHandlers.dispatchScheduledNotifications;
+exports.sendTestPush = notificationHandlers.sendTestPush;
+
 // ==================== PROXY SEGURO DE IA (GROQ WHISPER + LLAMA 3.3) ====================
 const groqApiKey = defineSecret('GROQ_API_KEY');
 const MAX_AUDIO_BASE64_LENGTH = 10 * 1024 * 1024; // ~7.5 MB de audio

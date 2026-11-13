@@ -3,12 +3,21 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onSnapshot, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { UserProfile, TRIAL_DAYS } from '../types';
+import { loginOneSignal, logoutOneSignal } from '../lib/onesignal';
 
 interface UserContextType {
   user: UserProfile | null;
   loading: boolean;
   refreshUser: () => void;
 }
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  dailyReminder: true,
+  dailyReminderHour: 20,
+  weeklySummary: true,
+  monthlySummary: true,
+  recurringAlerts: true,
+};
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -21,8 +30,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribeAuth = auth.onAuthStateChanged(async (firebaseUser) => {
       setUserId(firebaseUser?.uid || null);
       if (!firebaseUser) {
+        void logoutOneSignal();
         setUser(null);
         setLoading(false);
+      } else {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota';
+        void loginOneSignal(firebaseUser.uid, { timezone: tz });
       }
     });
     return () => unsubscribeAuth();
@@ -48,13 +61,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onSnapshot(userRef, async (snap) => {
       await adminCheckPromise;
 
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota';
+
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
-        
+
         // ✅ Verificar vigencia del período de prueba de 30 días desde trialEndDate
         let trialActive = data.isTrialActive === true;
         let trialEnd = data.trialEndDate ?? null;
-        
+
         if (trialEnd) {
           const endDate = trialEnd.toDate ? trialEnd.toDate() : new Date(trialEnd);
           if (endDate > new Date()) {
@@ -68,7 +83,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await updateDoc(userRef, { isTrialActive: false }).catch(console.error);
           }
         }
-        
+
+        if (!data.timezone) {
+          await updateDoc(userRef, { timezone: detectedTimezone }).catch(console.error);
+        }
+
         const userData: UserProfile = {
           ...data,
           uid: userId,
@@ -82,6 +101,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastResetDate: data.lastResetDate ?? null,
           trialOfferLastShown: data.trialOfferLastShown ?? 0,
           trialOfferAccepted: data.trialOfferAccepted ?? true,
+          pushEnabled: data.pushEnabled ?? false,
+          timezone: data.timezone || detectedTimezone,
+          notificationPrefs: {
+            dailyReminder: data.notificationPrefs?.dailyReminder ?? DEFAULT_NOTIFICATION_PREFS.dailyReminder,
+            dailyReminderHour: data.notificationPrefs?.dailyReminderHour ?? DEFAULT_NOTIFICATION_PREFS.dailyReminderHour,
+            weeklySummary: data.notificationPrefs?.weeklySummary ?? DEFAULT_NOTIFICATION_PREFS.weeklySummary,
+            monthlySummary: data.notificationPrefs?.monthlySummary ?? DEFAULT_NOTIFICATION_PREFS.monthlySummary,
+            recurringAlerts: data.notificationPrefs?.recurringAlerts ?? DEFAULT_NOTIFICATION_PREFS.recurringAlerts,
+          },
         };
         setUser(userData);
       } else {
@@ -104,6 +132,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           onboardingDone: false,
           trialOfferLastShown: 0,
           trialOfferAccepted: true,
+          pushEnabled: false,
+          timezone: detectedTimezone,
+          notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
         };
         await setDoc(userRef, newUser, { merge: true });
         setUser(newUser);
