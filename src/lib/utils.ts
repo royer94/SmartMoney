@@ -10,14 +10,11 @@ export function formatCurrency(amount: number, currencyCode?: string) {
   const code = currencyCode || localStorage.getItem('currency') || DEFAULT_CURRENCY;
   const currency = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 
-  const noDecimals = ['COP', 'CLP', 'PYG', 'CRC'];
-  const minimumFractionDigits = noDecimals.includes(code) ? 0 : 2;
-
   return new Intl.NumberFormat(currency.locale, {
     style: 'currency',
     currency: code,
-    minimumFractionDigits,
-    maximumFractionDigits: minimumFractionDigits,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
