@@ -25,7 +25,6 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
-import { generateReportPDF } from '../lib/pdfGenerator';
 import { exportTransactionsToCSV } from '../lib/exportUtils';
 import { AIAdvisor } from './AIAdvisor';
 import { FreedomSimulator } from './FreedomSimulator';
@@ -238,8 +237,9 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
     return { filtered, periodLabel, periodGoals };
   };
 
-  const handleDownloadReport = (action: 'save' | 'print' = 'save') => {
+  const handleDownloadReport = async (action: 'save' | 'print' = 'save') => {
     const { filtered, periodLabel, periodGoals } = getFilteredForReport();
+    const { generateReportPDF } = await import('../lib/pdfGenerator');
     generateReportPDF(filtered, periodLabel, user.email, action, periodGoals);
   };
 
