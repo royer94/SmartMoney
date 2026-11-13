@@ -128,13 +128,14 @@ export const generateVoiceReport = async (
 // ==================== INSIGHTS FINANCIEROS (VERSIÓN DEFINITIVA: SOLO EXCESOS ESTRICTOS) ====================
 export const getFinancialInsights = async (
   transactions: any[],
-  goals: any[]
+  goals: any[],
+  currencyCode?: string
 ): Promise<string> => {
   try {
     console.log('[getFinancialInsights] Análisis enfocado en excesos (solo > límite)');
 
     // 1. Formateo consistente con la moneda del usuario
-    const fmt = (amount: number) => formatCurrency(amount);
+    const fmt = (amount: number) => formatCurrency(amount, currencyCode);
 
     // 2. Filtrar activas (no eliminadas) y del mes actual
     const active = transactions.filter(t => !t.deleted);

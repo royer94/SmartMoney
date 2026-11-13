@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { useCurrency } from '../context/CurrencyContext';
 import { Trash2, ShoppingBag, Coffee, Car, Home, Heart, CreditCard, Utensils, RefreshCcw, Pencil, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -42,6 +43,7 @@ export function TransactionList({
   onUpdate?: (id: string, updates: Partial<Pick<Transaction, 'description' | 'amount' | 'category' | 'type'>>) => Promise<void>;
   key?: string;
 }) {
+  const { currency } = useCurrency();
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
@@ -296,7 +298,7 @@ export function TransactionList({
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] sm:text-xs text-slate-500 mt-0.5">
                         <span className="font-medium px-2 py-0.5 bg-slate-100 rounded-lg shrink-0 transition-colors uppercase tracking-tight">{t.category}</span>
                         <span className="hidden xs:inline text-slate-300">•</span>
-                        <span className="truncate">{formatDate(t.timestamp)}</span>
+                        <span className="truncate">{formatDate(t.timestamp, currency.code)}</span>
                       </div>
                     </div>
 
@@ -305,7 +307,7 @@ export function TransactionList({
                         "font-bold text-base sm:text-lg leading-tight",
                         t.type === 'expense' ? "text-slate-900" : "text-green-600"
                       )}>
-                        {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                        {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount, currency.code)}
                       </p>
                       <div className="flex items-center gap-1">
                         {onUpdate && (

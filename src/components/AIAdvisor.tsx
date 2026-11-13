@@ -5,9 +5,11 @@ import { getFinancialInsights } from '../lib/gemini';
 import { UserProfile, Transaction, Goal } from '../types';
 import Markdown from 'react-markdown';
 import { useSubscription } from '../hooks/useSubscription';
+import { useCurrency } from '../context/CurrencyContext';
 
 export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: UserProfile, transactions: Transaction[], goals: Goal[], onUpgrade?: () => void }) {
   const { isPro } = useSubscription(); // ✅ usamos el estado real Pro (incluye trial)
+  const { currency } = useCurrency();
   const [insights, setInsights] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -16,7 +18,7 @@ export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: User
     if (!isPro) return;
     setLoading(true);
     try {
-      const result = await getFinancialInsights(transactions, goals);
+      const result = await getFinancialInsights(transactions, goals, currency.code);
       setInsights(result || "No hay suficientes datos para darte un consejo Pro todavía.");
     } catch (e) {
       setInsights("Error obteniendo asesoría IA.");
@@ -26,10 +28,13 @@ export function AIAdvisor({ user, transactions, goals, onUpgrade }: { user: User
   };
 
   useEffect(() => {
-    if (isPro && transactions.length > 0 && !insights) {
+    if (isPro && transactions.length > 0) {
       fetchInsights();
     }
-  }, [isPro]);
+    else if (!isPro || transactions.length === 0) {
+      setInsights(null);
+    }
+  }, [isPro, transactions, goals, currency.code]);
 
   if (!isPro) {
     return (

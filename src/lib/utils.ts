@@ -18,11 +18,11 @@ export function formatCurrency(amount: number, currencyCode?: string) {
   }).format(amount);
 }
 
-export function formatDate(date: any) {
+export function formatDate(date: any, currencyCode?: string) {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);
 
-  const code = localStorage.getItem('currency') || DEFAULT_CURRENCY;
+  const code = currencyCode || localStorage.getItem('currency') || DEFAULT_CURRENCY;
   const currency = CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 
   return new Intl.DateTimeFormat(currency.locale, {
