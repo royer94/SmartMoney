@@ -2,110 +2,63 @@ import { CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from "../types";
 import { auth } from "./firebase";
 
 const GROQ_PROXY_URL = "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/groqProxy";
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GROQ_WHISPER_MODEL = "whisper-large-v3-turbo";
 
 const getCurrentCurrency = () => {
   const code = localStorage.getItem('currency') || DEFAULT_CURRENCY;
   return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 };
 
-// ─── Transcribir audio con Whisper (Primero intenta el proxy seguro en Cloud Functions) ───
+// ─── Transcribir audio con Whisper vía proxy seguro en Cloud Functions ───
 export const transcribeAudio = async (mimeType: string, base64Data: string): Promise<string> => {
-  if (auth.currentUser) {
-    try {
-      const idToken = await auth.currentUser.getIdToken();
-      const proxyRes = await fetch(GROQ_PROXY_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ action: 'transcribe', mimeType, base64Data })
-      });
-      if (proxyRes.ok) {
-        const data = await proxyRes.json();
-        return (data.text || '').trim();
-      }
-    } catch (e) {
-      // Fallback silencioso a cliente si el proxy aún no tiene GROQ_API_KEY
-    }
+  if (!auth.currentUser) {
+    throw new Error('Debes iniciar sesión para usar la transcripción por voz.');
   }
 
-  const byteCharacters = atob(base64Data);
-  const byteNumbers = new Uint8Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const audioBlob = new Blob([byteNumbers], { type: mimeType });
-  const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('aac') ? 'aac' : 'webm';
-
-  const formData = new FormData();
-  formData.append('file', audioBlob, `audio.${ext}`);
-  formData.append('model', GROQ_WHISPER_MODEL);
-  formData.append('language', 'es');
-  formData.append('response_format', 'text');
-
-  const response = await fetch(GROQ_WHISPER_URL, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}` },
-    body: formData
-  });
-
-  if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error?.message || 'Error transcribiendo audio');
-  }
-
-  return (await response.text()).trim();
-};
-
-// ─── Chat con Llama (Primero intenta el proxy seguro en Cloud Functions) ──────────────────
-const groqChat = async (messages: { role: string; content: string }[]): Promise<string> => {
-  if (auth.currentUser) {
-    try {
-      const idToken = await auth.currentUser.getIdToken();
-      const proxyRes = await fetch(GROQ_PROXY_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ action: 'chat', messages })
-      });
-      if (proxyRes.ok) {
-        const data = await proxyRes.json();
-        if (data.content) return data.content;
-      }
-    } catch (e) {
-      // Fallback silencioso a cliente si el proxy aún no tiene GROQ_API_KEY
-    }
-  }
-
-  const response = await fetch(GROQ_API_URL, {
+  const idToken = await auth.currentUser.getIdToken();
+  const proxyRes = await fetch(GROQ_PROXY_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+      'Authorization': `Bearer ${idToken}`
     },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages,
-      temperature: 0.1,
-      max_tokens: 500,
-      response_format: { type: 'json_object' }
-    })
+    body: JSON.stringify({ action: 'transcribe', mimeType, base64Data })
   });
 
-  if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error?.message || 'Groq API Error');
+  if (!proxyRes.ok) {
+    const err = await proxyRes.json().catch(() => ({}));
+    throw new Error(err.error || 'Error transcribiendo audio');
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  const data = await proxyRes.json();
+  return (data.text || '').trim();
+};
+
+// ─── Chat con Llama vía proxy seguro en Cloud Functions ──────────────────
+const groqChat = async (messages: { role: string; content: string }[]): Promise<string> => {
+  if (!auth.currentUser) {
+    throw new Error('Debes iniciar sesión para usar el asistente de IA.');
+  }
+
+  const idToken = await auth.currentUser.getIdToken();
+  const proxyRes = await fetch(GROQ_PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${idToken}`
+    },
+    body: JSON.stringify({ action: 'chat', messages })
+  });
+
+  if (!proxyRes.ok) {
+    const err = await proxyRes.json().catch(() => ({}));
+    throw new Error(err.error || 'Error procesando solicitud de IA');
+  }
+
+  const data = await proxyRes.json();
+  if (!data.content) {
+    throw new Error('Respuesta vacía del servidor de IA');
+  }
+  return data.content;
 };
 
 // ─── Parsear transacción con IA (solo cuando el parser local no es suficiente) ───

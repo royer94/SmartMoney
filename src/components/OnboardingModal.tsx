@@ -146,10 +146,10 @@ export function OnboardingModal({ userId, email, onComplete }: OnboardingModalPr
         onboardingDone: true,
         currency: selectedCurrency,
       };
-      const parsedIncome = monthlyIncome ? parseFloat(monthlyIncome.replace(/\./g, '').replace(',', '.')) : 0;
-      const parsedBudget = monthlyBudget ? parseFloat(monthlyBudget.replace(/\./g, '').replace(',', '.')) : 0;
-      if (parsedIncome > 0) updateData.monthlyIncome = parsedIncome;
-      if (parsedBudget > 0) updateData.monthlyBudget = parsedBudget;
+      const parsedIncome = monthlyIncome ? Number(monthlyIncome) : 0;
+      const parsedBudget = monthlyBudget ? Number(monthlyBudget) : 0;
+      if (Number.isFinite(parsedIncome) && parsedIncome > 0) updateData.monthlyIncome = parsedIncome;
+      if (Number.isFinite(parsedBudget) && parsedBudget > 0) updateData.monthlyBudget = parsedBudget;
 
       await updateDoc(doc(db, 'users', userId), updateData);
 

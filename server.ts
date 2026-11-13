@@ -21,7 +21,17 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd());
+    const distPath =
+      path.basename(process.cwd()) === "dist"
+        ? process.cwd()
+        : path.resolve(process.cwd(), "dist");
+
+    app.use((req, res, next) => {
+      if (req.path === "/server.cjs" || req.path === "/server.cjs.map") {
+        return res.status(404).end();
+      }
+      next();
+    });
     app.use(express.static(distPath));
     app.get('/sitemap.xml', (req, res) => {
       res.sendFile(path.join(distPath, 'sitemap.xml'));

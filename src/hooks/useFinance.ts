@@ -383,6 +383,7 @@ export function useFinance() {
   };
 
   const activatePro = async (targetUserId?: string, months: number = 1) => {
+    if (!user?.isAdmin) return;
     const uid = targetUserId || user?.uid;
     if (!uid) return;
     const path = `users/${uid}`;

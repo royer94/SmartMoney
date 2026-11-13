@@ -22,7 +22,27 @@ exports.hotmartWebhook = paymentHandlers.hotmartWebhook;
 exports.createHotmartSession = paymentHandlers.createHotmartSession;
 
 // ==================== PROXY SEGURO DE IA (GROQ WHISPER + LLAMA 3.3) ====================
-exports.groqProxy = functions.https.onRequest(async (req, res) => {
+const groqApiKey = defineSecret('GROQ_API_KEY');
+const MAX_AUDIO_BASE64_LENGTH = 10 * 1024 * 1024; // ~7.5 MB de audio
+const MAX_CHAT_MESSAGES = 10;
+const MAX_MESSAGE_CONTENT_LENGTH = 8000;
+const ALLOWED_CHAT_ROLES = new Set(['system', 'user', 'assistant']);
+
+function hasActiveTrialServer(userData) {
+  if (!userData) return false;
+  if (userData.isPro === true || userData.isActive === true) return false;
+  if (userData.trialEndDate) {
+    const endDate = typeof userData.trialEndDate.toDate === 'function'
+      ? userData.trialEndDate.toDate()
+      : new Date(userData.trialEndDate);
+    if (!Number.isNaN(endDate.getTime())) {
+      return endDate > new Date();
+    }
+  }
+  return userData.isTrialActive === true;
+}
+
+exports.groqProxy = functions.runWith({ secrets: [groqApiKey] }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -42,20 +62,47 @@ exports.groqProxy = functions.https.onRequest(async (req, res) => {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const idToken = authHeader.slice(7);
-    await admin.auth().verifyIdToken(idToken);
+    const idToken = authHeader.slice(7).trim();
+    if (!idToken) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
 
-    // 2. Obtener API Key de Groq desde el entorno del servidor
-    const apiKey = process.env.GROQ_API_KEY;
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch {
+      return res.status(401).json({ error: 'Token inválido o expirado' });
+    }
+
+    // 2. Obtener API Key de Groq desde Secret Manager / entorno del servidor
+    const apiKey = groqApiKey.value() || process.env.GROQ_API_KEY;
     if (!apiKey) {
       return res.status(503).json({ error: 'GROQ_API_KEY no configurada en el servidor' });
     }
 
+    // 3. Verificar existencia del usuario y cuotas del plan
+    const userSnap = await db.collection('users').doc(decodedToken.uid).get();
+    if (!userSnap.exists) {
+      return res.status(403).json({ error: 'Perfil de usuario no encontrado' });
+    }
+
+    const userData = userSnap.data() || {};
+    const isPaidPro = userData.isPro === true || userData.isActive === true;
+    const isTrial = !isPaidPro && hasActiveTrialServer(userData);
     const { action, messages, mimeType, base64Data } = req.body || {};
 
     if (action === 'transcribe') {
-      if (!base64Data) {
+      if (!isPaidPro) {
+        const voiceLimit = isTrial ? 10 : 3;
+        if ((userData.monthlyVoiceCount || 0) >= voiceLimit) {
+          return res.status(403).json({ error: 'Has alcanzado tu límite mensual de registros por voz' });
+        }
+      }
+      if (typeof base64Data !== 'string' || !base64Data) {
         return res.status(400).json({ error: 'Audio base64Data requerido' });
+      }
+      if (base64Data.length > MAX_AUDIO_BASE64_LENGTH) {
+        return res.status(413).json({ error: 'El archivo de audio excede el tamaño máximo permitido' });
       }
       const buffer = Buffer.from(base64Data, 'base64');
       const ext = (mimeType || '').includes('mp4') ? 'mp4' : (mimeType || '').includes('aac') ? 'aac' : 'webm';
@@ -83,8 +130,25 @@ exports.groqProxy = functions.https.onRequest(async (req, res) => {
     }
 
     if (action === 'chat') {
-      if (!Array.isArray(messages)) {
-        return res.status(400).json({ error: 'messages requerido' });
+      if (!isPaidPro) {
+        const textLimit = isTrial ? 30 : 15;
+        if ((userData.monthlyRecordCount || 0) >= textLimit) {
+          return res.status(403).json({ error: 'Has alcanzado tu límite mensual de registros de texto' });
+        }
+      }
+      if (
+        !Array.isArray(messages) ||
+        messages.length === 0 ||
+        messages.length > MAX_CHAT_MESSAGES ||
+        messages.some((m) =>
+          !m ||
+          !ALLOWED_CHAT_ROLES.has(m.role) ||
+          typeof m.content !== 'string' ||
+          m.content.length === 0 ||
+          m.content.length > MAX_MESSAGE_CONTENT_LENGTH
+        )
+      ) {
+        return res.status(400).json({ error: 'Formato o tamaño de messages inválido' });
       }
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {

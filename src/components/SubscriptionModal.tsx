@@ -21,7 +21,6 @@ import { auth } from '../lib/firebase';
 
 interface SubscriptionModalProps {
   onClose: () => void;
-  onUpgrade: (months: number) => void;
 }
 
 // Precios en COP (pesos colombianos)
@@ -32,7 +31,7 @@ const PLANS_COP = [
   { id: 'pro_12_months', months: 12, amount: 166800, label: '1 Año', desc: 'Plan Anual', discount: 30, badge: 'Mejor Valor' },
 ];
 
-export function SubscriptionModal({ onClose, onUpgrade }: SubscriptionModalProps) {
+export function SubscriptionModal({ onClose }: SubscriptionModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'epayco' | 'hotmart'>('epayco');

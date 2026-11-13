@@ -17,15 +17,13 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, addTr
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(`dismissed_suggestions_${user?.uid}`);
+    const saved = user?.uid ? localStorage.getItem(`dismissed_suggestions_${user.uid}`) : null;
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  if (!user || !user.uid) return null;
-
   const activeTransactions = transactions.filter(t => !(t as any).deleted);
   const recurringItems = activeTransactions.filter(t => t.isRecurring);
-  const hasProAccess = user.isPro || user.isTrialActive || user.isActive;
+  const hasProAccess = Boolean(user?.isPro || user?.isTrialActive || user?.isActive);
 
   const monthlyTotal = recurringItems.reduce((acc, t) => acc + t.amount, 0);
   
@@ -143,6 +141,8 @@ export function SubscriptionManager({ user, transactions, toggleRecurring, addTr
     }
     setSelectedItems(newSet);
   };
+
+  if (!user || !user.uid) return null;
 
   if (!hasProAccess) {
     return (

@@ -32,38 +32,63 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isValidTransaction(data) {
+      return data.type in ['expense', 'income']
+        && data.amount is number && data.amount > 0
+        && data.description is string && data.description.size() > 0 && data.description.size() <= 500
+        && data.category is string && data.category.size() > 0 && data.category.size() <= 100;
+    }
+
+    function isValidGoal(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && data.targetAmount is number && data.targetAmount > 0
+        && data.get('currentAmount', 0) is number && data.get('currentAmount', 0) >= 0;
+    }
+
     // --- 1. Users Collection ---
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      
+
       allow create: if isOwner(userId) && isValidId(userId)
         && incoming().get('isPro', false) == false
         && incoming().get('isActive', false) == false
-        && incoming().get('isAdmin', false) == false;
+        && incoming().get('isAdmin', false) == false
+        && incoming().get('freeRecordsCount', 0) == 0
+        && incoming().get('monthlyRecordCount', 0) == 0
+        && incoming().get('monthlyVoiceCount', 0) == 0;
 
-      // Solo un admin (o Firebase Admin SDK desde Cloud Functions) puede activar isPro, isActive, proExpiresAt o isAdmin
+      // Solo un admin (o Firebase Admin SDK desde Cloud Functions) puede activar isPro, isActive, proExpiresAt, isAdmin o extender trialEndDate/isTrialActive.
+      // Los contadores de uso del propietario no pueden decrementarse desde el cliente.
       allow update: if isAdmin() || (
-        isOwner(userId) &&
-        !incoming().diff(existing()).affectedKeys().hasAny(['isPro', 'isActive', 'proExpiresAt', 'isAdmin'])
+        isOwner(userId)
+        && !incoming().diff(existing()).affectedKeys().hasAny(['isPro', 'isActive', 'proExpiresAt', 'isAdmin', 'trialEndDate'])
+        && (!incoming().diff(existing()).affectedKeys().hasAny(['isTrialActive']) || incoming().isTrialActive == false)
+        && incoming().get('freeRecordsCount', 0) >= existing().get('freeRecordsCount', 0)
+        && incoming().get('monthlyRecordCount', 0) >= existing().get('monthlyRecordCount', 0)
+        && incoming().get('monthlyVoiceCount', 0) >= existing().get('monthlyVoiceCount', 0)
       );
     }
 
     // --- 2. Admins Collection ---
     match /admins/{adminId} {
-      allow read: if isSignedIn();
+      allow get: if isOwner(adminId);
     }
 
     // --- 3. Transactions Collection ---
     match /transactions/{transactionId} {
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
 
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid
-        && incoming().userId == existing().userId;
-        
+      allow create: if isSignedIn()
+        && incoming().userId == request.auth.uid
+        && isValidTransaction(incoming());
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && isValidTransaction(incoming());
+
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
@@ -71,12 +96,16 @@ service cloud.firestore {
     match /goals/{goalId} {
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid
-        && incoming().userId == existing().userId;
-        
+
+      allow create: if isSignedIn()
+        && incoming().userId == request.auth.uid
+        && isValidGoal(incoming());
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && isValidGoal(incoming());
+
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }

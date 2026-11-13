@@ -392,7 +392,7 @@ function AuthenticatedApp() {
       <AnimatePresence>
         {showSubscription && (
           <Suspense fallback={null}>
-            <SubscriptionModal onClose={() => setShowSubscription(false)} onUpgrade={(months) => activatePro(undefined, months)} />
+            <SubscriptionModal onClose={() => setShowSubscription(false)} />
           </Suspense>
         )}
         {showHelp && (
