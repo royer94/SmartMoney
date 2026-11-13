@@ -52,6 +52,16 @@ export interface Goal {
   category?: string; // 'Todas' o nombre de categoría específica
 }
 
+export interface SavingsGoal {
+  id?: string;
+  userId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+  createdAt?: any;
+}
+
 export interface Currency {
   code: string;
   symbol: string;

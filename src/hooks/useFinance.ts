@@ -19,6 +19,7 @@ import {
   Transaction,
   UserProfile,
   Goal,
+  SavingsGoal,
   TRIAL_TEXT_LIMIT,
   TRIAL_VOICE_LIMIT,
   FREE_TEXT_LIMIT,
@@ -87,6 +88,7 @@ export function useFinance() {
   const { user, loading: userLoading } = useUser();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
@@ -97,6 +99,7 @@ export function useFinance() {
     if (!userId) {
       setTransactions([]);
       setGoals([]);
+      setSavingsGoals([]);
       setAllUsers([]);
       setDataLoading(false);
       return;
@@ -144,6 +147,17 @@ export function useFinance() {
       handleFirestoreError(error, OperationType.GET, pathGoals);
     });
 
+    // Savings Goals subscription
+    const qSavingsGoals = query(
+      collection(db, 'savings_goals'),
+      where('userId', '==', userId)
+    );
+    const unsubSavingsGoals = onSnapshot(qSavingsGoals, (snapshot) => {
+      setSavingsGoals(snapshot.docs.map(d => ({ ...d.data() as SavingsGoal, id: d.id })));
+    }, (error) => {
+      console.error('Error cargando metas de ahorro:', error);
+    });
+
     // Admin: Subscription to all users if user is admin
     let unsubAllUsers: () => void = () => {};
     if (isAdmin) {
@@ -156,6 +170,7 @@ export function useFinance() {
     return () => {
       unsubTransactions();
       unsubGoals();
+      unsubSavingsGoals();
       unsubAllUsers();
     };
   }, [userId, isAdmin]);
@@ -462,10 +477,45 @@ export function useFinance() {
     }
   };
 
+  const addSavingsGoal = async (g: Omit<SavingsGoal, 'id' | 'userId'>) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'savings_goals'), {
+        ...g,
+        currentAmount: Math.max(0, Number(g.currentAmount) || 0),
+        targetAmount: Number(g.targetAmount),
+        userId: user.uid,
+        createdAt: Timestamp.now(),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'savings_goals');
+    }
+  };
+
+  const contributeSavingsGoal = async (id: string, amount: number) => {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    try {
+      await updateDoc(doc(db, 'savings_goals', id), {
+        currentAmount: increment(amount),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `savings_goals/${id}`);
+    }
+  };
+
+  const removeSavingsGoal = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'savings_goals', id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `savings_goals/${id}`);
+    }
+  };
+
   return { 
     user, 
     transactions, 
-    goals, 
+    goals,
+    savingsGoals,
     loading: userLoading || dataLoading, 
     allUsers,
     addTransaction,
@@ -473,6 +523,9 @@ export function useFinance() {
     removeTransaction, 
     addGoal, 
     removeGoal,
+    addSavingsGoal,
+    contributeSavingsGoal,
+    removeSavingsGoal,
     updateGoal,
     recalculateGoal,
     activatePro,

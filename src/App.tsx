@@ -42,7 +42,7 @@ const LoaderFallback = () => (
 
 function AuthenticatedApp() {
   const { user, loading: userLoading } = useUser();
-  const { transactions, goals, loading: financeLoading, allUsers, addTransaction, updateTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, toggleRecurring, recalculateGoal } = useFinance();
+  const { transactions, goals, savingsGoals, loading: financeLoading, allUsers, addTransaction, updateTransaction, removeTransaction, activatePro, deactivatePro, addGoal, removeGoal, addSavingsGoal, contributeSavingsGoal, removeSavingsGoal, toggleRecurring, recalculateGoal } = useFinance();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'dash' | 'list' | 'chat' | 'settings'>('dash');
   const [dashboardSubTab, setDashboardSubTab] = useState<'overview' | 'liberty'>('overview');
@@ -227,9 +227,13 @@ function AuthenticatedApp() {
                   user={userAdapter}
                   transactions={transactions}
                   goals={goals}
+                  savingsGoals={savingsGoals}
                   addTransaction={addTransaction}
                   addGoal={addGoal}
                   removeGoal={removeGoal}
+                  addSavingsGoal={addSavingsGoal}
+                  contributeSavingsGoal={contributeSavingsGoal}
+                  removeSavingsGoal={removeSavingsGoal}
                   toggleRecurring={toggleRecurring}
                   recalculateGoal={recalculateGoal}
                   onUpgrade={() => setShowSubscription(true)}

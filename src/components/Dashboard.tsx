@@ -3,7 +3,7 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   Cell, CartesianGrid, LabelList
 } from 'recharts';
-import { Transaction, UserProfile, Goal, EXPENSE_CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from '../types';
+import { Transaction, UserProfile, Goal, SavingsGoal, EXPENSE_CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
@@ -32,6 +32,7 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeCard } from './WelcomeCard';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { TrialBanner } from './TrialBanner';
+import { SavingsGoalsCard } from './SavingsGoalsCard';
 
 const notDeleted = (t: Transaction) => (t as any).deleted !== true;
 
@@ -69,13 +70,17 @@ function StatCard({ label, amount, icon: Icon, color, bg, trend, privacyMode, in
   );
 }
 
-export function Dashboard({ user, transactions, goals, addTransaction, addGoal, removeGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile, initialSubTab }: { 
+export function Dashboard({ user, transactions, goals, savingsGoals = [], addTransaction, addGoal, removeGoal, addSavingsGoal, contributeSavingsGoal, removeSavingsGoal, toggleRecurring, recalculateGoal, onUpgrade, onUpdateProfile, initialSubTab }: { 
   user: UserProfile, 
   transactions: Transaction[], 
   goals: Goal[], 
-  addTransaction?: any,
+  savingsGoals?: SavingsGoal[],
+  addTransaction?: any, 
   addGoal?: any, 
   removeGoal?: any, 
+  addSavingsGoal?: any,
+  contributeSavingsGoal?: any,
+  removeSavingsGoal?: any,
   toggleRecurring?: any, 
   recalculateGoal?: any, 
   onUpgrade?: () => void, 
@@ -549,6 +554,16 @@ export function Dashboard({ user, transactions, goals, addTransaction, addGoal, 
                 </div>
               </div>
             </div>
+
+            {addSavingsGoal && contributeSavingsGoal && removeSavingsGoal && (
+              <SavingsGoalsCard
+                savingsGoals={savingsGoals}
+                formatAmount={formatHidable}
+                onAddGoal={addSavingsGoal}
+                onContribute={contributeSavingsGoal}
+                onRemoveGoal={removeSavingsGoal}
+              />
+            )}
 
             <div className="grid grid-cols-1 gap-6">
               <div className="glass p-8 rounded-[2.5rem] transition-colors">
