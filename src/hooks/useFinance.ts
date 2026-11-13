@@ -160,7 +160,7 @@ export function useFinance() {
   }, [userId, isAdmin]);
 
   // ✅ Función addTransaction con límites de Trial (30d: 30 texto / 10 voz) y Plan Free posterior (15 texto / 3 voz)
-  const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'>) => {
+  const addTransaction = async (t: Omit<Transaction, 'id' | 'userId' | 'timestamp'> & { timestamp?: Date | string | number }) => {
     const currentAuthId = auth.currentUser?.uid;
     if (!currentAuthId || !user) return;
 
@@ -199,18 +199,20 @@ export function useFinance() {
       const { ...cleanT } = t as any;
       if (cleanT.id) delete cleanT.id;
 
+      const parsedTxDate = cleanT.timestamp ? new Date(cleanT.timestamp) : new Date();
+      const txDate = !Number.isNaN(parsedTxDate.getTime()) ? parsedTxDate : new Date();
+
       const newTransaction = {
         ...cleanT,
         inputMode: mode,
         userId: currentAuthId,
-        timestamp: Timestamp.now()
+        timestamp: Timestamp.fromDate(txDate)
       };
 
       const docRef = await addDoc(collection(db, pathTx), newTransaction);
       let alerts: string[] = [];
 
       if (t.type === 'expense') {
-        const txDate = new Date();
         const txMonth = txDate.getMonth() + 1;
         const txYear = txDate.getFullYear();
 

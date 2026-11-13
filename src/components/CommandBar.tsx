@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, ArrowRight } from 'lucide-react';
+import { Send, Mic, MicOff, ArrowRight, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { parseTransaction, transcribeAudio } from '../lib/gemini';
 import {
   Transaction,
   UserProfile,
+  CATEGORIES,
   COMMANDS,
   InputModeType,
   TRIAL_TEXT_LIMIT,
@@ -282,6 +283,51 @@ const isSupermercadoText = (text: string): boolean => {
   return supermercadoKeywords.some(keyword => hasKeyword(normalized, keyword));
 };
 
+const extractTransactionDate = (text: string): string | undefined => {
+  if (!text) return undefined;
+  const normalized = normalizeForNlp(text);
+  const now = new Date();
+  const daysAgo = (days: number) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12, 0, 0);
+    return d.toISOString();
+  };
+
+  if (/\b(antier|anteayer)\b/.test(normalized)) return daysAgo(2);
+  if (/\bayer\b/.test(normalized)) return daysAgo(1);
+
+  const haceNumMatch = normalized.match(/\bhace\s+(\d+)\s+dias?\b/);
+  if (haceNumMatch) {
+    const n = parseInt(haceNumMatch[1], 10);
+    if (n > 0 && n <= 365) return daysAgo(n);
+  }
+
+  const wordDays: Record<string, number> = {
+    un: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5,
+    seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  };
+  const haceWordMatch = normalized.match(/\bhace\s+(un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+dias?\b/);
+  if (haceWordMatch) return daysAgo(wordDays[haceWordMatch[1]]);
+
+  const weekdays: Record<string, number> = {
+    domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
+  };
+  const weekdayMatch = normalized.match(/\bel\s+(domingo|lunes|martes|miercoles|jueves|viernes|sabado)\b/);
+  if (weekdayMatch) {
+    const targetDay = weekdays[weekdayMatch[1]];
+    const diff = (now.getDay() - targetDay + 7) % 7 || 7;
+    return daysAgo(diff);
+  }
+
+  return undefined;
+};
+
+const formatShortDate = (isoDate?: string): string => {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+};
+
 const parseLocalTransaction = (text: string) => {
   if (!text || typeof text !== 'string') return null;
   const originalText = text;
@@ -394,6 +440,14 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
   const isRecordingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    type: 'expense' | 'income';
+    amount: string;
+    category: string;
+    description: string;
+    date: string;
+  } | null>(null);
   const silenceTimer = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -614,8 +668,10 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
         }
       }
       if (finalTx && finalTx.amount > 0) {
-        const normalizedTx = normalizeTransaction(finalTx, 'text');
-        addMessage('ai', `Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
+        const detectedDate = finalTx.timestamp || extractTransactionDate(text);
+        const normalizedTx = normalizeTransaction({ ...finalTx, ...(detectedDate ? { timestamp: detectedDate } : {}) }, 'text');
+        const dateNote = normalizedTx?.timestamp ? ` (fecha: ${formatShortDate(normalizedTx.timestamp)})` : '';
+        addMessage('ai', `Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}${dateNote}. ¿Deseas registrarlo?`, normalizedTx);
       } else {
         sendFriendlyHelpMessage();
       }
@@ -735,8 +791,10 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
             }
             
             if (finalTx && finalTx.amount > 0) {
-              const normalizedTx = normalizeTransaction({ ...finalTx, inputMode: 'voice' }, 'voice');
-              addMessage('ai', `🎤 Por voz ("${transcribedText}"): Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}. ¿Deseas registrarlo?`, normalizedTx);
+              const detectedDate = finalTx.timestamp || extractTransactionDate(transcribedText);
+              const normalizedTx = normalizeTransaction({ ...finalTx, inputMode: 'voice', ...(detectedDate ? { timestamp: detectedDate } : {}) }, 'voice');
+              const dateNote = normalizedTx?.timestamp ? ` (fecha: ${formatShortDate(normalizedTx.timestamp)})` : '';
+              addMessage('ai', `🎤 Por voz ("${transcribedText}"): Detecté un ${normalizedTx!.type === 'expense' ? 'gasto' : 'ingreso'} de ${formatCurrency(normalizedTx!.amount)} en ${normalizedTx!.category}${dateNote}. ¿Deseas registrarlo?`, normalizedTx);
             } else {
               addMessage('ai', `Escuché: "${transcribedText}", pero no identifiqué el monto. Intenta decir por ejemplo: "Gasté 20 mil en comida" o "Recibí 50 mil de un pago".`);
             }
@@ -817,27 +875,139 @@ export function CommandBar({ user, addTransaction, transactions, addGoal, autoSt
                     </>
                   ) : (
                     <>
-                      <button
-                        onClick={async () => {
-                          if (msg.transaction.isGoal) {
-                            const now = new Date();
-                            await addGoal({
-                              name: msg.transaction.name,
-                              targetAmount: msg.transaction.targetAmount,
-                              month: now.getMonth() + 1,
-                              year: now.getFullYear(),
-                              currentAmount: 0
-                            });
-                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m));
-                          } else {
-                            confirmTransaction(msg.id, msg.transaction);
-                          }
-                        }}
-                        className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
-                      >
-                        Confirmar
-                      </button>
-                      <button onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))} className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors">Ignorar</button>
+                      {editingMsgId === msg.id && editDraft ? (
+                        <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditDraft({ ...editDraft, type: 'expense' })}
+                              className={cn("flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors", editDraft.type === 'expense' ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-600")}
+                            >
+                              Gasto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditDraft({ ...editDraft, type: 'income' })}
+                              className={cn("flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors", editDraft.type === 'income' ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600")}
+                            >
+                              Ingreso
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={editDraft.amount}
+                              onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
+                              placeholder="Monto"
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none focus:border-blue-500"
+                            />
+                            <select
+                              value={editDraft.category}
+                              onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })}
+                              className="w-full px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none focus:border-blue-500"
+                            >
+                              {CATEGORIES.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <input
+                            type="text"
+                            maxLength={60}
+                            value={editDraft.description}
+                            onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
+                            placeholder="Descripción"
+                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none focus:border-blue-500"
+                          />
+                          <input
+                            type="date"
+                            value={editDraft.date}
+                            onChange={(e) => setEditDraft({ ...editDraft, date: e.target.value })}
+                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none focus:border-blue-500"
+                          />
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const parsedAmount = Number(editDraft.amount);
+                                if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+                                const updatedTx = {
+                                  ...msg.transaction,
+                                  type: editDraft.type,
+                                  amount: parsedAmount,
+                                  category: editDraft.category,
+                                  description: editDraft.description.trim() || msg.transaction.description,
+                                  timestamp: editDraft.date ? new Date(`${editDraft.date}T12:00:00`).toISOString() : msg.transaction.timestamp,
+                                };
+                                setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, transaction: updatedTx } : m)));
+                                setEditingMsgId(null);
+                                setEditDraft(null);
+                                confirmTransaction(msg.id, updatedTx);
+                              }}
+                              className="flex-1 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors"
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingMsgId(null);
+                                setEditDraft(null);
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={async () => {
+                              if (msg.transaction.isGoal) {
+                                const now = new Date();
+                                await addGoal({
+                                  name: msg.transaction.name,
+                                  targetAmount: msg.transaction.targetAmount,
+                                  month: now.getMonth() + 1,
+                                  year: now.getFullYear(),
+                                  currentAmount: 0
+                                });
+                                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isConfirmed: true, text: m.text + " (Meta creada ✅)" } : m));
+                              } else {
+                                confirmTransaction(msg.id, msg.transaction);
+                              }
+                            }}
+                            className="px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
+                          >
+                            Confirmar
+                          </button>
+                          {!msg.transaction.isGoal && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const baseDate = msg.transaction.timestamp ? new Date(msg.transaction.timestamp) : new Date();
+                                const yyyy = baseDate.getFullYear();
+                                const mm = String(baseDate.getMonth() + 1).padStart(2, '0');
+                                const dd = String(baseDate.getDate()).padStart(2, '0');
+                                setEditingMsgId(msg.id);
+                                setEditDraft({
+                                  type: msg.transaction.type === 'income' ? 'income' : 'expense',
+                                  amount: String(msg.transaction.amount || ''),
+                                  category: msg.transaction.category || 'Otros',
+                                  description: msg.transaction.description || '',
+                                  date: `${yyyy}-${mm}-${dd}`,
+                                });
+                              }}
+                              className="px-3 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors flex items-center gap-1"
+                            >
+                              <Pencil className="w-3 h-3" /> Editar
+                            </button>
+                          )}
+                          <button onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))} className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors">Ignorar</button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

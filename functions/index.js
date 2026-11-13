@@ -182,11 +182,22 @@ exports.groqProxy = functions.runWith({ secrets: [groqApiKey] }).https.onRequest
   }
 });
 
+async function commitUpdatesInBatches(items) {
+  const BATCH_LIMIT = 450;
+  for (let i = 0; i < items.length; i += BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const { ref, data } of items.slice(i, i + BATCH_LIMIT)) {
+      batch.update(ref, data);
+    }
+    await batch.commit();
+  }
+}
+
 // ==================== TAREAS DIARIAS ====================
 exports.dailySubscriptionTasks = functions.pubsub
   .schedule('0 0 * * *')
   .timeZone('America/Bogota')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('[DailyTasks] Verificando suscripciones y períodos de prueba expirados...');
 
     const now = new Date();
@@ -198,14 +209,11 @@ exports.dailySubscriptionTasks = functions.pubsub
       .where('proExpiresAt', '<=', nowIso)
       .get();
 
-    let updatedCount = 0;
-    for (const doc of usersSnapshot.docs) {
-      await doc.ref.update({
-        isActive: false,
-        isPro: false
-      });
-      updatedCount++;
-    }
+    const expiredSubUpdates = usersSnapshot.docs.map((doc) => ({
+      ref: doc.ref,
+      data: { isActive: false, isPro: false },
+    }));
+    await commitUpdatesInBatches(expiredSubUpdates);
 
     // 2. Períodos de prueba (30 días) vencidos
     const trialsSnapshot = await db.collection('users')
@@ -213,14 +221,44 @@ exports.dailySubscriptionTasks = functions.pubsub
       .where('trialEndDate', '<=', nowIso)
       .get();
 
-    let expiredTrialsCount = 0;
-    for (const doc of trialsSnapshot.docs) {
-      await doc.ref.update({
-        isTrialActive: false
-      });
-      expiredTrialsCount++;
+    const expiredTrialUpdates = trialsSnapshot.docs.map((doc) => ({
+      ref: doc.ref,
+      data: { isTrialActive: false },
+    }));
+    await commitUpdatesInBatches(expiredTrialUpdates);
+
+    console.log(`[DailyTasks] ✅ ${expiredSubUpdates.length} suscripciones y ${expiredTrialUpdates.length} trials expirados desactivados`);
+    return null;
+  });
+
+// ==================== RESETEO MENSUAL DE CUOTAS ====================
+exports.monthlyQuotaReset = functions.pubsub
+  .schedule('5 0 1 * *')
+  .timeZone('America/Bogota')
+  .onRun(async () => {
+    console.log('[MonthlyReset] Reiniciando contadores mensuales de texto y voz...');
+    const nowIso = new Date().toISOString();
+
+    const [textSnap, voiceSnap] = await Promise.all([
+      db.collection('users').where('monthlyRecordCount', '>', 0).get(),
+      db.collection('users').where('monthlyVoiceCount', '>', 0).get(),
+    ]);
+
+    const refsById = new Map();
+    for (const doc of [...textSnap.docs, ...voiceSnap.docs]) {
+      refsById.set(doc.id, doc.ref);
     }
 
-    console.log(`[DailyTasks] ✅ ${updatedCount} suscripciones y ${expiredTrialsCount} trials expirados desactivados`);
+    const resetUpdates = Array.from(refsById.values()).map((ref) => ({
+      ref,
+      data: {
+        monthlyRecordCount: 0,
+        monthlyVoiceCount: 0,
+        lastResetDate: nowIso,
+      },
+    }));
+    await commitUpdatesInBatches(resetUpdates);
+
+    console.log(`[MonthlyReset] ✅ Contadores reiniciados para ${resetUpdates.length} usuarios`);
     return null;
   });

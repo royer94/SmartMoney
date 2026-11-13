@@ -1,5 +1,6 @@
 import { CATEGORIES, CURRENCIES, DEFAULT_CURRENCY } from "../types";
 import { auth } from "./firebase";
+import { formatCurrency } from "./utils";
 
 const GROQ_PROXY_URL = "https://us-central1-gen-lang-client-0987361888.cloudfunctions.net/groqProxy";
 
@@ -131,13 +132,8 @@ export const getFinancialInsights = async (
   try {
     console.log('[getFinancialInsights] Análisis enfocado en excesos (solo > límite)');
 
-    // 1. Moneda y formateo
-    let currencySymbol = '$';
-    try {
-      const currency = getCurrentCurrency();
-      currencySymbol = currency.symbol || '$';
-    } catch (e) {}
-    const fmt = (amount: number) => `${currencySymbol}${amount.toLocaleString('es-CO')}`;
+    // 1. Formateo consistente con la moneda del usuario
+    const fmt = (amount: number) => formatCurrency(amount);
 
     // 2. Filtrar activas (no eliminadas) y del mes actual
     const active = transactions.filter(t => !t.deleted);
