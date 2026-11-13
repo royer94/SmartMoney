@@ -2,7 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { Target, TrendingUp, Info, Calculator, Heart, User, Zap, Flame, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { formatCurrency, cn } from '../lib/utils';
-import { UserProfile } from '../types';
+import { DEFAULT_CURRENCY, UserProfile } from '../types';
+
+function getSliderConfig(currencyCode: string) {
+  if (currencyCode === 'COP' || currencyCode === 'CLP' || currencyCode === 'PYG') {
+    return {
+      savingsMax: 1000000000,
+      savingsStep: 5000000,
+      goalMax: 20000000,
+      goalStep: 100000,
+      expenseMin: 500000,
+      expenseMax: 50000000,
+      expenseStep: 500000,
+    };
+  }
+  if (currencyCode === 'MXN' || currencyCode === 'ARS' || currencyCode === 'UYU' || currencyCode === 'CRC') {
+    return {
+      savingsMax: 10000000,
+      savingsStep: 50000,
+      goalMax: 500000,
+      goalStep: 5000,
+      expenseMin: 5000,
+      expenseMax: 500000,
+      expenseStep: 5000,
+    };
+  }
+  return {
+    savingsMax: 1000000,
+    savingsStep: 5000,
+    goalMax: 20000,
+    goalStep: 100,
+    expenseMin: 300,
+    expenseMax: 25000,
+    expenseStep: 100,
+  };
+}
 
 export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUpgrade }: { 
   user: UserProfile, 
@@ -49,8 +83,8 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const [currentAge, setCurrentAge] = useState(() => {
     const saved = localStorage.getItem(`fs_current_age_${user.uid}`);
     if (saved) return Number(saved);
-    if (user.birthdate) {
-      const birth = new Date(user.birthdate + 'T00:00:00');
+    if (user.birthdate || user.birthDate) {
+      const birth = new Date((user.birthdate || user.birthDate) + 'T00:00:00');
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       const m = today.getMonth() - birth.getMonth();
@@ -87,15 +121,19 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
 
   // Sincronizar edad si cambia birthdate
   useEffect(() => {
-    if (user.birthdate) {
-      const birth = new Date(user.birthdate + 'T00:00:00');
+    const rawBirth = user.birthdate || user.birthDate;
+    if (rawBirth && !localStorage.getItem(`fs_current_age_${user.uid}`)) {
+      const birth = new Date(rawBirth + 'T00:00:00');
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       const m = today.getMonth() - birth.getMonth();
       if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-      if (age !== currentAge) setCurrentAge(age);
+      if (!Number.isNaN(age) && age >= 13 && age <= 100) setCurrentAge(age);
     }
-  }, [user.birthdate, currentAge]);
+  }, [user.birthdate, user.birthDate, user.uid]);
+
+  const currencyCode = user.currency || localStorage.getItem('currency') || DEFAULT_CURRENCY;
+  const sliderCfg = getSliderConfig(currencyCode);
 
   // --- CÁLCULOS (lógica exacta con raíz doceava) ---
   const nominalReturn = returnRate / 100;
@@ -129,8 +167,9 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   const retirementAge = (isImpossible || isUnreachable) ? Infinity : currentAge + yearsToGoal;
 
   // Progreso del ahorro
-  const savingsProgress = Math.min(100, Math.max(0, (actualMonthlySavings / monthlySavingsGoal) * 100));
-  const isMeetingGoal = actualMonthlySavings >= monthlySavingsGoal;
+  const savingsProgress = monthlySavingsGoal > 0 ? Math.min(100, Math.max(0, (actualMonthlySavings / monthlySavingsGoal) * 100)) : 0;
+  const isMeetingGoal = monthlySavingsGoal > 0 && actualMonthlySavings >= monthlySavingsGoal;
+
   const diff = actualMonthlySavings - monthlySavingsGoal;
 
   // Textos dinámicos
@@ -138,7 +177,11 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
   let displayYearsMessage = '';
   let statusMessage = '';
 
-  if (isImpossible) {
+  if (monthlyExpenses <= 0) {
+    displayAge = '--';
+    displayYearsMessage = 'Define tu gasto mensual';
+    statusMessage = 'Ingresa tu gasto de vida deseado para calcular tu meta de libertad.';
+  } else if (isImpossible) {
     displayAge = '∞';
     displayYearsMessage = 'Inalcanzable';
     statusMessage = 'No ahorras y la rentabilidad real es nula o negativa. Aumenta tu ahorro mensual.';
@@ -270,14 +313,15 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     />
                   </div>
                   <input
-                    type="range" min="0" max="1000000000" step="5000000"
-                    value={currentSavings} onChange={(e) => setCurrentSavings(Number(e.target.value))}
+                    type="range" min="0" max={sliderCfg.savingsMax} step={sliderCfg.savingsStep}
+                    value={Math.min(currentSavings, sliderCfg.savingsMax)} onChange={(e) => setCurrentSavings(Math.max(0, Number(e.target.value) || 0))}
+
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <div className="flex justify-between items-center text-[10px] text-slate-400">
                     <span>Balance App (Neto): {formatLocal(balance)}</span>
                     <button
-                      onClick={() => setCurrentSavings(balance)}
+                      onClick={() => setCurrentSavings(Math.max(0, Math.round(balance)))}
                       className="text-emerald-600 font-bold hover:underline"
                     >
                       Usar Balance Neto
@@ -300,8 +344,9 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     />
                   </div>
                   <input
-                    type="range" min="0" max="20000000" step="100000"
-                    value={monthlySavingsGoal} onChange={(e) => setMonthlySavingsGoal(Number(e.target.value))}
+                    type="range" min="0" max={sliderCfg.goalMax} step={sliderCfg.goalStep}
+                    value={Math.min(monthlySavingsGoal, sliderCfg.goalMax)} onChange={(e) => setMonthlySavingsGoal(Math.max(0, Number(e.target.value) || 0))}
+
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <p className="text-[10px] text-slate-400">Define cuánto planeas ahorrar mensualmente.</p>
@@ -322,8 +367,9 @@ export function FreedomSimulator({ user, balance, actualMonthlySavings = 0, onUp
                     />
                   </div>
                   <input
-                    type="range" min="1000000" max="50000000" step="500000"
-                    value={monthlyExpenses} onChange={(e) => setMonthlyExpenses(Number(e.target.value))}
+                    type="range" min={sliderCfg.expenseMin} max={sliderCfg.expenseMax} step={sliderCfg.expenseStep}
+                    value={Math.min(Math.max(monthlyExpenses, sliderCfg.expenseMin), sliderCfg.expenseMax)} onChange={(e) => setMonthlyExpenses(Math.max(0, Number(e.target.value) || 0))}
+
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <p className="text-[10px] text-slate-400">¿Con cuánto dinero mensual quieres vivir en tu libertad?</p>
