@@ -274,6 +274,7 @@ const hasKeyword = (normalizedText: string, keyword: string): boolean => {
   const normKw = normalizeForNlp(keyword);
   if (!normKw) return false;
   const escaped = normKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`, 'i').test(normalizedText);
 };
 
 const isSupermercadoText = (text: string): boolean => {
