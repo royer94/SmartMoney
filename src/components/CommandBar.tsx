@@ -83,30 +83,44 @@ const palabrasANumero = (text: string): number | null => {
     'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
     'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
     'dieciseis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
-    'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+    'veinte': 20, 'veintiun': 21, 'veintiuno': 21, 'veintiuna': 21,
+    'veintidos': 22, 'veintitres': 23, 'veinticuatro': 24, 'veinticinco': 25,
+    'veintiseis': 26, 'veintisiete': 27, 'veintiocho': 28, 'veintinueve': 29,
+    'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
     'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
-    'cien': 100, 'cientos': 100, 'quinientos': 500, 'quinientas': 500,
-    'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
-    'mil': 1000, 'millón': 1000000, 'millones': 1000000
+    'cien': 100, 'ciento': 100, 'cientos': 100,
+    'doscientos': 200, 'doscientas': 200, 'trescientos': 300, 'trescientas': 300,
+    'cuatrocientos': 400, 'cuatrocientas': 400, 'quinientos': 500, 'quinientas': 500,
+    'seiscientos': 600, 'seiscientas': 600, 'setecientos': 700, 'setecientas': 700,
+    'ochocientos': 800, 'ochocientas': 800, 'novecientos': 900, 'novecientas': 900,
+    'mil': 1000, 'millon': 1000000, 'millones': 1000000
   };
   let total = 0;
   let current = 0;
+  let started = false;
   for (let i = 0; i < palabras.length; i++) {
     const w = palabras[i];
     if (numeros[w] !== undefined) {
-      if (w === 'mil' || w === 'millón' || w === 'millones') {
+      // Evitar confundir el artículo "un/una" con el número 1 (ej. "de un envío") salvo ante multiplicadores
+      if ((w === 'un' || w === 'una') && !started) {
+        const nextWord = palabras[i + 1];
+        if (nextWord !== 'mil' && nextWord !== 'millon' && nextWord !== 'millones') {
+          continue;
+        }
+      }
+      started = true;
+      if (w === 'mil' || w === 'millon' || w === 'millones') {
         total += (current || 1) * numeros[w];
         current = 0;
       } else {
         current += numeros[w];
       }
-    } else if (w === 'y' && i + 1 < palabras.length && numeros[palabras[i + 1]] && current >= 30) {
+    } else if (started && w === 'y' && i + 1 < palabras.length && numeros[palabras[i + 1]] && current >= 30) {
       const next = numeros[palabras[i + 1]];
       if (next && next < 10) current += next;
       i++;
-    } else if (current > 0 && (w === 'mil' || w === 'millones')) {
-      total += current * numeros[w];
-      current = 0;
+    } else if (started) {
+      break;
     }
   }
   total += current;
@@ -255,11 +269,17 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ]
 };
 
+const hasKeyword = (normalizedText: string, keyword: string): boolean => {
+  const normKw = normalizeForNlp(keyword);
+  if (!normKw) return false;
+  const escaped = normKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 const isSupermercadoText = (text: string): boolean => {
   if (!text) return false;
   const normalized = normalizeForNlp(text);
   const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
-  return supermercadoKeywords.some(keyword => normalized.includes(keyword));
+  return supermercadoKeywords.some(keyword => hasKeyword(normalized, keyword));
 };
 
 const parseLocalTransaction = (text: string) => {
@@ -281,7 +301,7 @@ const parseLocalTransaction = (text: string) => {
   }
   
   const supermercadoKeywords = CATEGORY_KEYWORDS['Supermercado'];
-  const isSupermercado = supermercadoKeywords.some(keyword => normalized.includes(keyword));
+  const isSupermercado = supermercadoKeywords.some(keyword => hasKeyword(normalized, keyword));
   
   let category = 'Otros';
   let maxMatches = 0;
@@ -293,7 +313,7 @@ const parseLocalTransaction = (text: string) => {
       if (cat === 'Supermercado') continue;
       let matches = 0;
       for (const keyword of keywords) {
-        if (normalized.includes(keyword)) matches++;
+        if (hasKeyword(normalized, keyword)) matches++;
       }
       if (matches > maxMatches) {
         maxMatches = matches;
